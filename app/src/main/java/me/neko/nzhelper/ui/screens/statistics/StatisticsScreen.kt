@@ -25,13 +25,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -53,8 +49,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
 import java.time.LocalDateTime
@@ -62,7 +56,7 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatisticsScreen(navController: NavController) {
+fun StatisticsScreen() {
     val context = LocalContext.current
     val sessions = remember { mutableStateListOf<Session>() }
     LaunchedEffect(Unit) {
@@ -124,11 +118,6 @@ fun StatisticsScreen(navController: NavController) {
         topBar = {
             TopAppBar(
                 title = { Text("统计") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                    }
-                },
                 scrollBehavior = scrollBehavior
             )
         },
@@ -187,13 +176,13 @@ fun StatisticsScreen(navController: NavController) {
                     )
                 }
 
-                // 【优化后】最近30天时长图（分钟）
+                // 最近30天时长图（分钟）
                 item {
                     Column {
                         Text(
-                            "最近 30 天总时长（分钟）",
+                            "最近 30 天",
                             style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(bottom = 12.dp)
+                            modifier = Modifier.padding(bottom = 24.dp)
                         )
                         BarChart(
                             data = dailyStats.map { it.first to (it.second.totalDuration / 60f) }
@@ -342,7 +331,7 @@ fun BarChart(
     modifier: Modifier = Modifier,
     chartHeight: Dp = 240.dp,
     minBarWidth: Dp = 16.dp,
-    maxBarWidth: Dp = 80.dp,
+    maxBarWidth: Dp = 54.dp,
     spacing: Dp = 16.dp
 ) {
     if (data.isEmpty()) {
@@ -372,6 +361,7 @@ fun BarChart(
         )
 
         // ================= Chart =================
+        @Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
         BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
@@ -498,5 +488,5 @@ private fun BarItem(
 @Preview(showBackground = true)
 @Composable
 fun StatisticsScreenPreview() {
-    StatisticsScreen(navController = rememberNavController())
+    StatisticsScreen()
 }
