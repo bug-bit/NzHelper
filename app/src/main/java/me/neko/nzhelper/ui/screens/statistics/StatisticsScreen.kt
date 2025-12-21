@@ -46,11 +46,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
+import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -96,20 +98,72 @@ fun StatisticsScreen() {
         }
     }
 
-    val dailyStats by remember {
+    val weekDailyStats by remember {
         derivedStateOf {
             if (sessions.isEmpty()) emptyList()
-            else sessions
-                .groupBy { it.timestamp.toLocalDate() }
-                .entries
-                .sortedBy { it.key }
-                .takeLast(30)
-                .map { entry ->
-                    entry.key.format(DateTimeFormatter.ofPattern("MM-dd")) to DailyStat(
-                        count = entry.value.size,
-                        totalDuration = entry.value.sumOf { it.duration }
-                    )
+            else {
+                val now = LocalDateTime.now()
+                // 计算本周一的日期
+                val monday = now.minusDays(now.dayOfWeek.value.toLong() - 1)
+                    .withHour(0).withMinute(0).withSecond(0).withNano(0)
+                    .toLocalDate()
+
+                // 生成本周7天的日期列表（周一到周日）
+                val weekDays = (0..6).map { monday.plusDays(it.toLong()) }
+
+                // 按日期分组统计
+                val statsMap = sessions
+                    .filter { it.timestamp.toLocalDate() >= monday }
+                    .groupBy { it.timestamp.toLocalDate() }
+                    .mapValues { entry ->
+                        DailyStat(
+                            count = entry.value.size,
+                            totalDuration = entry.value.sumOf { it.duration }
+                        )
+                    }
+
+                // 按周一到周日顺序构建完整7天数据（缺失天补0）
+                weekDays.map { date ->
+                    val dayOfWeekName = when (date.dayOfWeek) {
+                        DayOfWeek.MONDAY -> "一"
+                        DayOfWeek.TUESDAY -> "二"
+                        DayOfWeek.WEDNESDAY -> "三"
+                        DayOfWeek.THURSDAY -> "四"
+                        DayOfWeek.FRIDAY -> "五"
+                        DayOfWeek.SATURDAY -> "六"
+                        DayOfWeek.SUNDAY -> "日"
+                        else -> ""
+                    }
+                    val stat = statsMap[date] ?: DailyStat(count = 0, totalDuration = 0)
+                    dayOfWeekName to (stat.totalDuration / 60f)  // 直接转为分钟
                 }
+            }
+        }
+    }
+
+    val monthDailyStats by remember {
+        derivedStateOf {
+            if (sessions.isEmpty()) emptyList()
+            else {
+                val now = LocalDateTime.now()
+                val firstDayOfMonth = now.withDayOfMonth(1).toLocalDate()
+
+                sessions
+                    .filter {
+                        val date = it.timestamp.toLocalDate()
+                        date >= firstDayOfMonth
+                    }
+                    .groupBy { it.timestamp.toLocalDate() }
+                    .mapValues { entry ->
+                        entry.value.sumOf { it.duration } / 60f
+                    }
+                    .filter { it.value > 0f }  // 过滤掉空白日期
+                    .entries
+                    .sortedBy { it.key }
+                    .map { entry ->
+                        entry.key.format(DateTimeFormatter.ofPattern("dd")) to entry.value
+                    }
+            }
         }
     }
 
@@ -123,70 +177,175 @@ fun StatisticsScreen() {
         },
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
     ) { innerPadding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
             if (sessions.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("暂无数据", style = MaterialTheme.typography.titleMedium)
-                    }
+                // 空状态 整个屏幕居中显示提示
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "(。・ω・。)",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "暂无统计数据哦！",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
                 }
             } else {
-                // 本周 + 本月
-                item {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        PeriodStatCard(
-                            title = "本周时长",
-                            stats = weekStats,
-                            modifier = Modifier.weight(1f)
-                        )
-                        PeriodStatCard(
-                            title = "本月时长",
-                            stats = monthStats,
-                            modifier = Modifier.weight(1f)
+                // 有数据时正常使用 LazyColumn
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // 总体统计卡片
+                    item {
+                        TotalStatCard(
+                            totalCount = totalStats.first,
+                            totalSeconds = totalStats.second,
+                            avgMinutes = totalStats.third,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                }
 
-                // 总体统计卡片
-                item {
-                    TotalStatCard(
-                        totalCount = totalStats.first,
-                        totalSeconds = totalStats.second,
-                        avgMinutes = totalStats.third,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                // 今年时长
-                item {
-                    PeriodStatCard(
-                        title = "今年时长",
-                        stats = yearStats,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                // 最近30天时长图（分钟）
-                item {
-                    Column {
-                        Text(
-                            "最近 30 天",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(bottom = 24.dp)
+                    // 今年时长
+                    item {
+                        PeriodStatCard(
+                            title = "今年时长",
+                            stats = yearStats,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        BarChart(
-                            data = dailyStats.map { it.first to (it.second.totalDuration / 60f) }
-                        )
+                    }
+
+                    item {
+                        Column {
+                            Text(
+                                "本周",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(bottom = 24.dp)
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 24.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        formatDuration(weekStats.first),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        "本周总时长",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (weekStats.first > 0) {
+                                        Text(
+                                            "%.1f 分钟".format(weekStats.second),
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            "平均每次",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        Text(
+                                            "0 分钟",
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            "平均每次",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                            BarChart(
+                                data = weekDailyStats
+                            )
+                        }
+                    }
+
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "本月",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 24.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        formatDuration(monthStats.first),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        "本月总时长",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (monthStats.first > 0) {
+                                        Text(
+                                            "%.1f 分钟".format(monthStats.second),
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            "平均每次",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        Text(
+                                            "0 分钟",
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            "平均每次",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                            BarChart(
+                                data = monthDailyStats
+                            )
+                        }
                     }
                 }
             }
