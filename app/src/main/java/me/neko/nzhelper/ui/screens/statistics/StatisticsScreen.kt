@@ -1,8 +1,9 @@
 package me.neko.nzhelper.ui.screens.statistics
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,11 +14,17 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Card
@@ -39,15 +46,12 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -192,8 +196,7 @@ fun StatisticsScreen(navController: NavController) {
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
                         BarChart(
-                            data = dailyStats.map { it.first to (it.second.totalDuration / 60f) },
-                            yAxisLabel = "分钟"
+                            data = dailyStats.map { it.first to (it.second.totalDuration / 60f) }
                         )
                     }
                 }
@@ -334,12 +337,19 @@ private data class DailyStat(
 
 // 纯 Compose 实现的简单条形图
 @Composable
-private fun BarChart(
-    data: List<Pair<String, Float>>, // Pair<日期 "MM-dd", 值（分钟）>
-    yAxisLabel: String
+fun BarChart(
+    data: List<Pair<String, Float>>,
+    modifier: Modifier = Modifier,
+    chartHeight: Dp = 240.dp,
+    minBarWidth: Dp = 16.dp,
+    maxBarWidth: Dp = 80.dp,
+    spacing: Dp = 16.dp
 ) {
     if (data.isEmpty()) {
-        Box(modifier = Modifier.height(300.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = modifier.height(300.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Text("无数据", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
@@ -349,167 +359,139 @@ private fun BarChart(
     val barColor = MaterialTheme.colorScheme.primary
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(300.dp)
-            .padding(bottom = 40.dp) // 底部留空间给 X 轴日期标签
+            .height(chartHeight + 60.dp) // 给 X 轴留空间
     ) {
-        // 左侧：Y 轴标签（顶部） + 刻度数值
-        Column(
+        // ================= Y Axis =================
+        YAxis(
+            maxValue = maxValue,
             modifier = Modifier
-                .width(32.dp)
+                .wrapContentWidth()
                 .fillMaxHeight()
-        ) {
-            // Y 轴标签放在顶部（水平显示）
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "↑",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = yAxisLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        )
 
-            // 刻度数值（从上到下：0 → max） → 视觉上底部为0，顶部为max
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End
-            ) {
-                val tickCount = 5
-                // 反转顺序：i=0 时为最大值 → 改为从最大到0 反向循环
-                repeat(tickCount + 1) { reverseI ->
-                    val i = tickCount - reverseI  // 让 i 从 tickCount 到 0
-                    val ratio = i / tickCount.toFloat()
-                    val value = ratio * maxValue
-
-                    Text(
-                        text = if (value % 1 == 0f) value.toInt().toString() else "%.0f".format(
-                            value
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                }
-            }
-        }
-
-        // 右侧：图表 Canvas
-        Canvas(
+        // ================= Chart =================
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(start = 8.dp, end = 16.dp, top = 32.dp)
         ) {
-            val canvasWidth = size.width
-            val canvasHeight = size.height
+            val totalSpacing = spacing * (data.size - 1)
+            val availableWidth = maxWidth - totalSpacing
+            val idealBarWidth = availableWidth / data.size
+            val barWidth = idealBarWidth.coerceIn(minBarWidth, maxBarWidth)
 
-            val chartHeight = canvasHeight
-            val chartWidth = canvasWidth
-
-            val dataCount = data.size.coerceAtLeast(1)
-
-            // 新增：定义柱子宽度的最小和最大值（dp 转 px）
-            val minBarWidthPx = 32.dp.toPx()   // 最小宽度：避免数据多时柱子太窄
-            val maxBarWidthPx = 80.dp.toPx()   // 最大宽度：避免数据少时柱子太宽
-
-            // 计算理想宽度（原有逻辑）
-            val idealBarWidth = chartWidth / dataCount * 0.7f
-            val idealSpacing = chartWidth / dataCount * 0.3f
-
-            // 限制柱子宽度在 min ~ max 之间
-            val actualBarWidth = idealBarWidth.coerceIn(minBarWidthPx, maxBarWidthPx)
-
-            // 根据实际柱子宽度重新计算间距（保证总宽度不超过 chartWidth）
-            val totalBarsWidth = actualBarWidth * dataCount
-            val remainingSpace = chartWidth - totalBarsWidth
-            val spacing =
-                if (dataCount == 1) 0f else remainingSpace / (dataCount - 1).coerceAtLeast(1)
-
-            // 计算第一个柱子的起始 left（整体居中）
-            val totalContentWidth = totalBarsWidth + spacing * (dataCount - 1)
-            val startOffset = (chartWidth - totalContentWidth) / 2
-
-            // 绘制网格线（保持不变）
-            val tickCount = 5
-            repeat(tickCount + 1) { i ->
-                val y = chartHeight * (1 - i / tickCount.toFloat())
-                drawLine(
-                    color = Color.Gray.copy(alpha = 0.2f),
-                    start = Offset(0f, y),
-                    end = Offset(chartWidth, y),
-                    strokeWidth = 1.dp.toPx()
-                )
-            }
-
-            // 绘制柱子和标签
-            data.forEachIndexed { index, (dateLabel, value) ->
-                val left = startOffset + index * (actualBarWidth + spacing)
-
-                val barHeight = (value / maxValue) * chartHeight
-                val top = chartHeight - barHeight.coerceAtLeast(8.dp.toPx())
-
-                // 柱子（圆角）
-                drawRoundRect(
-                    color = barColor,
-                    topLeft = Offset(left, top),
-                    size = Size(actualBarWidth, barHeight),
-                    cornerRadius = CornerRadius(8.dp.toPx())
-                )
-
-                // 柱子上方数值
-                val valueText =
-                    if (value % 1 == 0f) value.toInt().toString() else "%.1f".format(value)
-                drawContext.canvas.nativeCanvas.apply {
-                    val paint = android.graphics.Paint().apply {
-                        color = Color.Black.copy(alpha = 0.87f).toArgb()
-                        textSize = 36f
-                        textAlign = android.graphics.Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    // 如果柱子太矮，数值显示在柱子内中间
-                    val textY = if (barHeight < 48.dp.toPx()) {
-                        top + barHeight / 2 + 12f
-                    } else {
-                        top - 8.dp.toPx()
-                    }
-                    drawText(
-                        valueText,
-                        left + actualBarWidth / 2,
-                        textY,
-                        paint
-                    )
-                }
-
-                // 底部日期标签
-                drawContext.canvas.nativeCanvas.apply {
-                    val paint = android.graphics.Paint().apply {
-                        color = Color.Black.copy(alpha = 0.6f).toArgb()
-                        textSize = 32f
-                        textAlign = android.graphics.Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    drawText(
-                        dateLabel,
-                        left + actualBarWidth / 2,
-                        chartHeight + 32.dp.toPx(),
-                        paint
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(spacing)
+            ) {
+                items(data) { (date, value) ->
+                    BarItem(
+                        value = value,
+                        maxValue = maxValue,
+                        date = date,
+                        barWidth = barWidth,
+                        chartHeight = chartHeight,
+                        color = barColor
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun YAxis(
+    maxValue: Float,
+    modifier: Modifier = Modifier,
+    tickCount: Int = 5
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.End
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            for (i in tickCount downTo 0) {
+                val value = maxValue * i / tickCount
+                Text(
+                    text = "${value.toInt()} 分钟",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BarItem(
+    value: Float,
+    maxValue: Float,
+    date: String,
+    barWidth: Dp,
+    chartHeight: Dp,
+    color: Color
+) {
+    val ratio = value / maxValue
+    val barHeight = chartHeight * ratio
+
+    Column(
+        modifier = Modifier.width(barWidth),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+
+        // ======= 图表区域 =======
+        Box(
+            modifier = Modifier
+                .height(chartHeight)
+                .fillMaxWidth()
+        ) {
+
+            // 柱子（贴底）
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .height(barHeight)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(color)
+            )
+
+            // 数值
+            val showInside = barHeight < 48.dp
+
+            Text(
+                text = value.toInt().toString(),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (showInside) Color.White else Color.Black,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .offset(
+                        y = if (showInside)
+                            -barHeight / 2
+                        else
+                            -barHeight - 8.dp
+                    )
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // 日期（X 轴）
+        Text(
+            text = date,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
