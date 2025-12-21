@@ -1,7 +1,8 @@
-package me.neko.nzhelper.ui.util
+package me.neko.nzhelper.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Addchart
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -17,6 +18,12 @@ sealed class BottomNavItem(
         icon = Icons.Default.Home
     )
 
+    object Statistics : BottomNavItem(
+        route = "statistics",
+        title = "统计",
+        icon = Icons.Default.Addchart
+    )
+
     object History : BottomNavItem(
         route = "history",
         title = "历史",
@@ -30,6 +37,6 @@ sealed class BottomNavItem(
     )
 
     companion object {
-        val items = listOf(Home, History, Settings)
+        val items = listOf(Home, Statistics, History, Settings)
     }
 }

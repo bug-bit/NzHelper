@@ -34,7 +34,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import me.neko.nzhelper.BuildConfig
-import me.neko.nzhelper.ui.util.BottomNavItem
+import me.neko.nzhelper.ui.BottomNavItem
+import me.neko.nzhelper.ui.screens.statistics.StatisticsScreen
 import me.neko.nzhelper.ui.util.UpdateChecker
 
 @Composable
@@ -136,6 +137,7 @@ fun MainScreen() {
             composable(BottomNavItem.Home.route) { HomeScreen() }
             composable(BottomNavItem.History.route) { HistoryScreen() }
             composable(BottomNavItem.Settings.route) { SettingsScreen(navController) }
+            composable(BottomNavItem.Statistics.route) { StatisticsScreen(navController) }
             composable("about") { AboutScreen(navController) }
             composable("open_source") { OpenSourceScreen(navController) }
         }
