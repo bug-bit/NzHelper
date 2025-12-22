@@ -429,13 +429,24 @@ fun HistoryScreen() {
                         }
                     }
                     // 保存并重置
-                    scope.launch { SessionRepository.saveSessions(context, sessions) }
-                    remarkInput = ""; locationInput = ""; watchedMovie = false
-                    climax = false; rating = 3f; mood = "平静"; props = "手"
-                    showDetailsDialog = false; isEditing = false; editSession = null
+                    scope.launch {
+                        SessionRepository.saveSessions(context, sessions)
+                    }
+                    remarkInput = ""
+                    locationInput = ""
+                    watchedMovie = false
+                    climax = false
+                    rating = 3f
+                    mood = "平静"
+                    props = "手"
+                    showDetailsDialog = false
+                    isEditing = false
+                    editSession = null
                 },
                 onDismiss = {
-                    showDetailsDialog = false; isEditing = false; editSession = null
+                    showDetailsDialog = false
+                    isEditing = false
+                    editSession = null
                 }
             )
         }
