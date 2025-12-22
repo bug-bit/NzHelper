@@ -66,12 +66,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
+import me.neko.nzhelper.ui.details.DetailsDialog
 import me.neko.nzhelper.ui.service.TimerService
 import me.neko.nzhelper.ui.util.CalendarHeatMapStyled
 import me.neko.nzhelper.ui.util.buildDayStats
@@ -121,8 +123,6 @@ fun HomeScreen() {
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
 
-    var showCalendar by remember { mutableStateOf(false) }
-
     var remarkInput by remember { mutableStateOf("") }
     var locationInput by remember { mutableStateOf("") }
     var watchedMovie by remember { mutableStateOf(false) }
@@ -133,7 +133,7 @@ fun HomeScreen() {
 
     val sessions = remember { mutableStateListOf<Session>() }
 
-    // 加载历史
+    // 加载历史（仍然需要加载，用于后续保存新记录时合并）
     LaunchedEffect(Unit) {
         val loaded = SessionRepository.loadSessions(context)
         sessions.clear()
@@ -160,35 +160,20 @@ fun HomeScreen() {
                 .fillMaxSize()
                 .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentAlignment = Alignment.Center // Box 控制 LazyColumn 居中
+            contentAlignment = Alignment.Center
         ) {
-
-            // 统计展示
-            val totalCount = sessions.size
-            val averageTimeMin = if (totalCount > 0)
-                sessions.sumOf { it.duration }.toDouble() / totalCount / 60
-            else 0.0
-            val now = LocalDateTime.now()
-            val weekCount = sessions.count { it.timestamp.isAfter(now.minusWeeks(1)) }
-            val monthCount = sessions.count { it.timestamp.isAfter(now.minusMonths(1)) }
-            val yearCount = sessions.count { it.timestamp.isAfter(now.minusYears(1)) }
-
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .wrapContentHeight(), // 避免占满整个高度
+                    .wrapContentHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
+                contentPadding = PaddingValues(vertical = 32.dp, horizontal = 16.dp)
             ) {
-
                 item {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
                     ) {
                         Text(
                             text = "记录新的手艺活",
@@ -200,7 +185,8 @@ fun HomeScreen() {
                         )
                         Text(
                             text = formatTime(elapsedSeconds),
-                            style = MaterialTheme.typography.displayMedium
+                            style = MaterialTheme.typography.displayLarge,
+                            fontWeight = FontWeight.Bold
                         )
 
                         Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
@@ -211,62 +197,16 @@ fun HomeScreen() {
                             }
                             Button(onClick = {
                                 if (elapsedSeconds > 0) showConfirmDialog = true
-                                else Toast.makeText(context, "计时尚未开始", Toast.LENGTH_SHORT)
-                                    .show()
+                                else Toast.makeText(context, "计时尚未开始", Toast.LENGTH_SHORT).show()
                             }) {
                                 Text("结束")
                             }
                         }
                     }
                 }
-
-                val stats = listOf(
-                    "总次数: $totalCount 次",
-                    "平均时间: ${"%.1f".format(averageTimeMin)} 分钟",
-                    "本周次数: $weekCount 次",
-                    "本月次数: $monthCount 次",
-                    "今年次数: $yearCount 次"
-                )
-                items(stats) { info ->
-                    OutlinedCard(
-                        onClick = {
-                            showCalendar = true
-                        },
-                        modifier = Modifier.fillMaxWidth(0.8f),
-                        border = CardDefaults.outlinedCardBorder()
-                    ) {
-                        Text(
-                            text = info,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
             }
 
-            // 日历热力图
-            if (showCalendar) {
-                val dayStats = remember { buildDayStats(sessions) }
-                AlertDialog(
-                    onDismissRequest = { showCalendar = false },
-                    title = { Text(text = "发射日历") },
-                    text = {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                        ) {
-                            CalendarHeatMapStyled(dayStats)
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { showCalendar = false }) {
-                            Text("关闭")
-                        }
-                    }
-                )
-            }
-
-            // 结束对话框
+            // 结束确认对话框
             if (showConfirmDialog) {
                 AlertDialog(
                     onDismissRequest = { showConfirmDialog = false },
@@ -276,7 +216,7 @@ fun HomeScreen() {
                         TextButton(onClick = {
                             showConfirmDialog = false
                             showDetailsDialog = true
-                            isRunning = false // 自动暂停计时
+                            isRunning = false // 自动暂停
                         }) { Text("燃尽了") }
                     },
                     dismissButton = {
@@ -285,7 +225,7 @@ fun HomeScreen() {
                 )
             }
 
-            // 使用 DetailsDialog
+            // 详情填写对话框
             DetailsDialog(
                 show = showDetailsDialog,
                 remark = remarkInput,
@@ -338,215 +278,6 @@ fun HomeScreen() {
             )
         }
     }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun DetailsDialog(
-    show: Boolean,
-    remark: String,
-    onRemarkChange: (String) -> Unit,
-    location: String,
-    onLocationChange: (String) -> Unit,
-    watchedMovie: Boolean,
-    onWatchedMovieChange: (Boolean) -> Unit,
-    climax: Boolean,
-    onClimaxChange: (Boolean) -> Unit,
-    props: String,
-    onPropsChange: (String) -> Unit,
-    rating: Float,
-    onRatingChange: (Float) -> Unit,
-    mood: String,
-    onMoodChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    if (!show) return
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("填写本次信息") },
-        text = {
-            val scrollState = rememberScrollState()
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(scrollState)
-            ) {
-                // 备注
-                Text("备注（可选）")
-                Spacer(Modifier.height(2.dp))
-                OutlinedTextField(
-                    value = remark,
-                    onValueChange = onRemarkChange,
-                    placeholder = { Text("有什么想说的？") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(12.dp))
-
-                // 起飞地点
-                Text("起飞地点（可选）")
-                Spacer(Modifier.height(2.dp))
-                OutlinedTextField(
-                    value = location,
-                    onValueChange = onLocationChange,
-                    placeholder = { Text("例如：卧室") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(12.dp))
-
-                // 选项：是否观看小电影 / 是否发射（高潮）
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onWatchedMovieChange(!watchedMovie) }
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Checkbox(checked = watchedMovie, onCheckedChange = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("是否观看小电影")
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onClimaxChange(!climax) }
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Checkbox(checked = climax, onCheckedChange = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("是否发射")
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                // 道具
-                Text(
-                    text = "道具：",
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-
-                val propList = listOf("手", "斐济杯", "小胶妻")
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    propList.forEach { p ->
-                        val isSelected = props == p
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
-                                )
-                                .clickable { onPropsChange(p) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = null, // 交由 Row 处理点击
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = p,
-                                color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                else
-                                    MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-
-                // 评分
-                Text("评分：${"%.1f".format(rating)}")
-                Slider(
-                    value = rating,
-                    onValueChange = onRatingChange,
-                    valueRange = 0f..5f,
-                    steps = 25,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("0")
-                    Text("5.0")
-                }
-                Spacer(Modifier.height(12.dp))
-
-                // 心情
-                Text(
-                    text = "心情：",
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-
-                val moods = listOf("平静", "愉悦", "兴奋", "疲惫", "这是最后一次！")
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    moods.forEach { m ->
-                        val isSelected = mood == m
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
-                                )
-                                .clickable { onMoodChange(m) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = null,
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = m,
-                                color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                else
-                                    MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("确认")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
 }
 
 @SuppressLint("DefaultLocale")

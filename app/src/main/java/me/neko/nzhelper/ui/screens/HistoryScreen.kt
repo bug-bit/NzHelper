@@ -59,6 +59,7 @@ import com.google.gson.JsonParser
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
+import me.neko.nzhelper.ui.details.DetailsDialog
 import java.io.OutputStreamWriter
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
