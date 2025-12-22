@@ -20,10 +20,22 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# Keep OkHttp3 classes
+# === OkHttp3 精确配置 ===
 -dontwarn okhttp3.**
--keep class okhttp3.** { *; }
--keep interface okhttp3.** { *; }
+-dontwarn okio.**
+
+# 只保留实际使用的OkHttp类
+-keep class okhttp3.OkHttpClient { *; }
+-keep class okhttp3.Request { *; }
+-keep class okhttp3.Request$Builder { *; }
+-keep class okhttp3.Response { *; }
+-keep class okhttp3.ResponseBody { *; }
+-keep class okhttp3.Call { *; }
+
+# 保留execute()方法
+-keepclassmembers class okhttp3.Call {
+    public okhttp3.Response execute();
+}
 
 # 保留所有 Moshi codegen 生成的 JsonAdapter 类
 -keep class *JsonAdapter {
