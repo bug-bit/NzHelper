@@ -19,7 +19,6 @@
 ## 说明
 > 在 GitHub 点击 ⭐ Star 以支持我在空余时间继续开发
 > 祝愿所有给本项目Star的小伙伴牛子长度翻倍！
-- 仅用于学习和测试目的，请勿用于非法、商业用途
   
 - 本项目参考了以下开源项目：
 - [DickHelper](https://github.com/zzzdajb/DickHelper)
