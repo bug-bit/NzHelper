@@ -29,7 +29,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -42,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -621,7 +621,6 @@ private fun formatDuration(totalSeconds: Int): String {
     }
 }
 
-// 总体统计卡片
 @Composable
 private fun TotalStatCard(
     totalCount: Int,
@@ -632,6 +631,11 @@ private fun TotalStatCard(
     yearCount: Int,
     modifier: Modifier = Modifier
 ) {
+
+    val statusText by remember(totalCount) {
+        mutableStateOf(buildTotalStatStatus(totalCount))
+    }
+
     ElevatedCard(
         modifier = modifier,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -639,108 +643,66 @@ private fun TotalStatCard(
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                // 总时长
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = formatDuration(totalSeconds),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "总时长",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        if (totalCount > 0) "%.1f 分钟".format(avgMinutes)
-                        else "0 分钟",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "平均每次",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 周期次数统计
             Text(
-                text = "次数统计",
+                text = "总体统计",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // 三列布局显示周、月、年次数
+            Text(
+                text = formatDuration(totalSeconds),
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            val avgText =
+                if (totalCount > 0) "%.1f 分钟".format(avgMinutes) else "0 分钟"
+
+            Text(
+                text = "平均每次 $avgText · 共 $totalCount 次",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "$weekCount 次",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "本周",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "$monthCount 次",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "本月",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "$yearCount 次",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "今年",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    "历史总次数：$totalCount 次",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                StatChip(label = "本周", value = weekCount)
+                StatChip(label = "本月", value = monthCount)
+                StatChip(label = "今年", value = yearCount)
             }
         }
+    }
+}
+
+@Composable
+private fun StatChip(
+    label: String,
+    value: Int
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Text(
+            text = "$label $value 次",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
     }
 }
 
@@ -995,6 +957,44 @@ private fun BarItem(
             text = date,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+private fun buildTotalStatStatus(totalCount: Int): String {
+    fun randomOf(vararg list: String) =
+        list.random()
+
+    return when {
+        totalCount <= 0 -> "还没有留下任何记录"
+
+        totalCount < 3 -> randomOf(
+            "已经不是没开始，是在路上了",
+            "第一次不重要，继续就好",
+            "不是手滑，是开始了"
+        )
+
+        totalCount < 10 -> randomOf(
+            "已经不是手滑，是习惯",
+            "这已经算得上稳定输出了"
+        )
+
+        totalCount < 30 -> randomOf(
+            "数据在这，不用自证",
+            "已经不是一时兴起",
+            "这事你是真的在做"
+        )
+
+        totalCount < 100 -> randomOf(
+            "这是生活的一部分了",
+            "不用提醒，你自己会来",
+            "已经很难说是“记录”了"
+        )
+
+        else -> randomOf(
+            "这不是习惯，这是你的一部分",
+            "已经不需要证明任何东西",
+            "数据只是顺手留下的痕迹"
         )
     }
 }
