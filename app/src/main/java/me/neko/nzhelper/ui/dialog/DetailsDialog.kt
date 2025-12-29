@@ -1,5 +1,6 @@
 package me.neko.nzhelper.ui.dialog
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -190,6 +192,11 @@ private fun CheckboxGroup(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.medium)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline, // 推荐使用主题色，更适应深浅模式
+                    shape = MaterialTheme.shapes.medium
+                )
                 .clickable { onWatchedMovieChange(!watchedMovie) }
                 .padding(horizontal = 8.dp, vertical = 12.dp)
         ) {
@@ -203,6 +210,11 @@ private fun CheckboxGroup(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.medium)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline,
+                    shape = MaterialTheme.shapes.medium
+                )
                 .clickable { onClimaxChange(!climax) }
                 .padding(horizontal = 8.dp, vertical = 12.dp)
         ) {
@@ -264,19 +276,24 @@ private fun RatingSection(
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.width(48.dp)
             )
+
             Slider(
                 value = rating,
-                onValueChange = onRatingChange,
+                onValueChange = { newValue ->
+                    // 四舍五入到最近的 0.5 倍数
+                    val rounded = (newValue * 2).roundToInt() / 2f
+                    onRatingChange(rounded.coerceIn(0f, 5f))
+                },
                 valueRange = 0f..5f,
-                steps = 49, // 0.1 为步长 → 50 个区间，steps=49
+                steps = 9, // 0.5 步长：从 0 到 5 共 10 个间隔，需要 steps = 9
                 modifier = Modifier.weight(1f)
             )
+
             Text(
-                text = "5.0",
+                text = "/ 5.0",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(40.dp),
-                textAlign = TextAlign.End
+                modifier = Modifier.width(48.dp)
             )
         }
     }
