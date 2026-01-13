@@ -69,8 +69,9 @@ fun DetailsDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 8.dp,
+            tonalElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .wrapContentHeight()
