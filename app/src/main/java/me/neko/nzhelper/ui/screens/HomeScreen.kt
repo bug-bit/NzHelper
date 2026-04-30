@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -71,7 +72,9 @@ import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
 import me.neko.nzhelper.ui.dialog.DetailsDialog
 import me.neko.nzhelper.ui.service.TimerService
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 
 
 @OptIn(
@@ -121,6 +124,7 @@ fun HomeScreen() {
     var isRunning by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
+    var showLastTimeDialog by remember { mutableStateOf(false) }
 
     var remarkInput by remember { mutableStateOf("") }
     var locationInput by remember { mutableStateOf("") }
@@ -193,7 +197,13 @@ fun HomeScreen() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
-                                onClick = { isRunning = !isRunning },
+                                onClick = {
+                                    if (!isRunning && sessions.lastOrNull()?.mood == "这是最后一次！") {
+                                        showLastTimeDialog = true
+                                    } else {
+                                        isRunning = !isRunning
+                                    }
+                                },
                                 modifier = Modifier
                                     .size(64.dp)
                                     .background(
@@ -297,6 +307,79 @@ fun HomeScreen() {
                         }
                     },
 
+                    dismissButton = {}
+                )
+            }
+
+            // 劝阻对话框：上次记录心情为"这是最后一次！"时，开始计时前弹出确认
+            if (showDissuadeDialog && sessions.isNotEmpty()) {
+                val lastSession = sessions.last()
+                val days = ChronoUnit.DAYS.between(
+                    lastSession.timestamp.toLocalDate(),
+                    LocalDate.now()
+                )
+                AlertDialog(
+                    onDismissRequest = { showDissuadeDialog = false },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    title = {
+                        Text(
+                            text = "真的要开始吗？",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "你上次就说是最后一次了，真的要开始吗？你已经坚持${days}天了！",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    },
+                    confirmButton = {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // 大按钮：航班取消（放弃起飞）
+                            Button(
+                                onClick = { showDissuadeDialog = false },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.secondary
+                                )
+                            ) {
+                                Text("放弃")
+                            }
+
+                            // 小按钮：航班起飞（坚持起飞）
+                            Button(
+                                onClick = {
+                                    showDissuadeDialog = false
+                                    isRunning = true
+                                },
+                                modifier = Modifier.height(44.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("继续")
+                            }
+                        }
+                    },
                     dismissButton = {}
                 )
             }
