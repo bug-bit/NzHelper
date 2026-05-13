@@ -36,13 +36,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -51,7 +50,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,50 +73,50 @@ import java.time.LocalDateTime
 
 
 @OptIn(
-    ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class,
-    ExperimentalMaterial3ExpressiveApi::class
+    ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class
 )
 @Composable
 fun HomeScreen() {
     val context = LocalContext.current
+    val appContext = remember(context) { context.applicationContext }
     val scope = rememberCoroutineScope()
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
     // 绑定 Service
-    val serviceIntent = remember { Intent(context, TimerService::class.java) }
+    val serviceIntent = remember(appContext) { Intent(appContext, TimerService::class.java) }
     var timerService by remember { mutableStateOf<TimerService?>(null) }
+    var isServiceBound by remember { mutableStateOf(false) }
     val connection = remember {
         object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
                 timerService = (binder as TimerService.LocalBinder).getService()
+                isServiceBound = true
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
                 timerService = null
+                isServiceBound = false
             }
         }
     }
 
-    // 启动并绑定服务
+    // 仅绑定服务，避免首次进入页面就自动开始计时
     LaunchedEffect(Unit) {
-        ContextCompat.startForegroundService(
-            context,
-            serviceIntent.apply { action = TimerService.ACTION_START }
-        )
-        context.bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
+        isServiceBound = appContext.bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
     }
-    DisposableEffect(Unit) {
-        onDispose { context.unbindService(connection) }
+    DisposableEffect(appContext, connection, isServiceBound) {
+        onDispose {
+            if (isServiceBound) {
+                appContext.unbindService(connection)
+                isServiceBound = false
+            }
+        }
     }
 
-    // 订阅 elapsedSec
-    val elapsedSeconds by timerService
-        ?.elapsedSec
-        ?.collectAsState(initial = 0)
-        ?: remember { mutableIntStateOf(0) }
+    val elapsedSeconds = timerService?.elapsedSec?.collectAsState(initial = 0)?.value ?: 0
+    val isRunning = timerService?.isRunning?.collectAsState(initial = false)?.value ?: false
 
-    var isRunning by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
 
@@ -132,6 +130,12 @@ fun HomeScreen() {
 
     val sessions = remember { mutableStateListOf<Session>() }
 
+    // 加载自定义选项（带默认值）
+    var customOptions by remember { mutableStateOf(me.neko.nzhelper.data.CustomOptions()) }
+    LaunchedEffect(Unit) {
+        customOptions = SessionRepository.loadCustomOptions(context)
+    }
+
     // 加载历史（仍然需要加载，用于后续保存新记录时合并）
     LaunchedEffect(Unit) {
         val loaded = SessionRepository.loadSessions(context)
@@ -139,16 +143,10 @@ fun HomeScreen() {
         sessions.addAll(loaded)
     }
 
-    // 控制 Service 启停
-    LaunchedEffect(isRunning) {
-        val action = if (isRunning) TimerService.ACTION_START else TimerService.ACTION_PAUSE
-        context.startService(serviceIntent.apply { this.action = action })
-    }
-
     Scaffold(
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(text = "牛子小助手") },
+            TopAppBar(
+                title = { Text(text = "牛牛小助手") },
                 scrollBehavior = scrollBehavior
             )
         },
@@ -175,11 +173,11 @@ fun HomeScreen() {
                         verticalArrangement = Arrangement.spacedBy(24.dp),
                     ) {
                         Text(
-                            text = "记录新的手艺活",
+                            text = "记录",
                             style = MaterialTheme.typography.headlineMedium
                         )
                         Text(
-                            text = "准备开始",
+                            text = if (isRunning) "开始啦~" else "准备开始……",
                             style = MaterialTheme.typography.headlineLarge
                         )
                         Text(
@@ -189,11 +187,23 @@ fun HomeScreen() {
                         )
 
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(48.dp), // 间距稍大，因为点击区域更大
+                            horizontalArrangement = Arrangement.spacedBy(48.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
-                                onClick = { isRunning = !isRunning },
+                                onClick = {
+                                    val action = if (isRunning) {
+                                        TimerService.ACTION_PAUSE
+                                    } else {
+                                        TimerService.ACTION_START
+                                    }
+                                    ContextCompat.startForegroundService(
+                                        appContext,
+                                        Intent(appContext, TimerService::class.java).apply {
+                                            this.action = action
+                                        }
+                                    )
+                                },
                                 modifier = Modifier
                                     .size(64.dp)
                                     .background(
@@ -252,7 +262,7 @@ fun HomeScreen() {
                     },
                     text = {
                         Text(
-                            text = "要结束对牛牛的爱抚了吗？",
+                            text = "真的要结束了吗？",
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
@@ -276,14 +286,19 @@ fun HomeScreen() {
                                     contentColor = MaterialTheme.colorScheme.secondary
                                 )
                             ) {
-                                Text("再坚持一下")
+                                Text("还不可以…")
                             }
 
                             Button(
                                 onClick = {
                                     showConfirmDialog = false
                                     showDetailsDialog = true
-                                    isRunning = false
+                                    ContextCompat.startForegroundService(
+                                        appContext,
+                                        Intent(appContext, TimerService::class.java).apply {
+                                            action = TimerService.ACTION_PAUSE
+                                        }
+                                    )
                                 },
                                 modifier = Modifier.height(44.dp),
                                 shape = RoundedCornerShape(18.dp),
@@ -292,7 +307,7 @@ fun HomeScreen() {
                                     contentColor = MaterialTheme.colorScheme.error
                                 )
                             ) {
-                                Text("燃尽了")
+                                Text("燃尽了……")
                             }
                         }
                     },
@@ -317,6 +332,8 @@ fun HomeScreen() {
                 onRatingChange = { rating = it },
                 mood = mood,
                 onMoodChange = { mood = it },
+                customMoods = customOptions.moods,
+                customProps = customOptions.props,
                 onConfirm = {
                     val now = LocalDateTime.now()
                     val session = Session(
@@ -332,11 +349,10 @@ fun HomeScreen() {
                     )
                     sessions.add(session)
                     scope.launch {
-                        SessionRepository.saveSessions(context, sessions)
+                        SessionRepository.saveSessions(context, sessions.toList())
                     }
 
                     // 重置所有输入状态
-                    isRunning = false
                     remarkInput = ""
                     locationInput = ""
                     watchedMovie = false
@@ -347,8 +363,10 @@ fun HomeScreen() {
                     showDetailsDialog = false
 
                     // 停止计时服务
-                    context.startService(
-                        serviceIntent.apply { action = TimerService.ACTION_STOP }
+                    appContext.startService(
+                        Intent(appContext, TimerService::class.java).apply {
+                            action = TimerService.ACTION_STOP
+                        }
                     )
                 },
                 onDismiss = {

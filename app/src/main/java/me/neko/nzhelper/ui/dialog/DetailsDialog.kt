@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.Button
@@ -59,6 +59,8 @@ fun DetailsDialog(
     onRatingChange: (Float) -> Unit,
     mood: String,
     onMoodChange: (String) -> Unit,
+    customMoods: List<String> = listOf("平静", "愉悦", "兴奋", "疲惫", "这是最后一次！"),
+    customProps: List<String> = listOf("手", "斐济杯", "小胶妻"),
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -111,7 +113,7 @@ fun DetailsDialog(
 
                 SelectionSection(
                     title = "道具",
-                    items = listOf("手", "斐济杯", "小胶妻"),
+                    items = customProps,
                     selected = props,
                     onSelected = onPropsChange
                 )
@@ -120,7 +122,7 @@ fun DetailsDialog(
 
                 SelectionSection(
                     title = "心情",
-                    items = listOf("平静", "愉悦", "兴奋", "疲惫", "这是最后一次！"),
+                    items = customMoods,
                     selected = mood,
                     onSelected = onMoodChange
                 )
@@ -235,9 +237,12 @@ private fun SelectionSection(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
 
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        // 使用横向滚动布局，避免多行堆叠
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items.forEach { item ->
                 FilterChip(

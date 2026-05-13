@@ -1,22 +1,20 @@
 package me.neko.nzhelper.ui.service
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Notification
 import android.app.Service
 import android.content.Intent
-import android.os.IBinder
 import android.os.Binder
-import android.os.Handler
-import android.os.Looper
-import android.app.Notification
-import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.annotation.RequiresPermission
-
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,13 +28,14 @@ class TimerService : Service() {
     private val binder = LocalBinder()
     private val _elapsedSec = MutableStateFlow(0)
     val elapsedSec: StateFlow<Int> = _elapsedSec.asStateFlow()
+    private val _isRunning = MutableStateFlow(false)
+    val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
     private var startTimeMs: Long = 0L
     private var accumulatedSec: Int = 0
 
     private val handler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
-        @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
         override fun run() {
             val nowMs = System.currentTimeMillis()
             _elapsedSec.value = accumulatedSec + ((nowMs - startTimeMs) / 1000).toInt()
@@ -51,8 +50,6 @@ class TimerService : Service() {
         fun getService(): TimerService = this@TimerService
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
-    @SuppressLint("ForegroundServiceType")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> startTimer()
@@ -63,22 +60,30 @@ class TimerService : Service() {
     }
 
     /** 启动计时并进入前台 */
-    @RequiresApi(Build.VERSION_CODES.Q)
     private fun startTimer() {
+        if (_isRunning.value) return
         if (startTimeMs == 0L) {
             startTimeMs = System.currentTimeMillis()
         }
+        _isRunning.value = true
+        handler.removeCallbacks(tickRunnable)
         handler.post(tickRunnable)
         val notif = buildNotification(_elapsedSec.value)
-        // 以 dataSync 类型运行前台服务
-        startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            @Suppress("DEPRECATION")
+            startForeground(NOTIF_ID, notif)
+        }
     }
 
     /** 暂停计时（仍可保留通知） */
     private fun pauseTimer() {
+        if (!_isRunning.value) return
         handler.removeCallbacks(tickRunnable)
         accumulatedSec = _elapsedSec.value
         startTimeMs = 0L
+        _isRunning.value = false
     }
 
     /** 停止并重置计时 */
@@ -89,6 +94,7 @@ class TimerService : Service() {
         accumulatedSec = 0
         startTimeMs = 0L
         _elapsedSec.value = 0
+        _isRunning.value = false
         // 取消前台状态并移除通知
         stopForeground(true)
         stopSelf()
@@ -105,14 +111,23 @@ class TimerService : Service() {
             .build()
     }
 
-    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     private fun updateNotification(elapsed: Int) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         val notif = buildNotification(elapsed)
         NotificationManagerCompat.from(this).notify(NOTIF_ID, notif)
     }
 
     override fun onDestroy() {
         handler.removeCallbacks(tickRunnable)
+        _isRunning.value = false
         super.onDestroy()
     }
 

@@ -50,3 +50,20 @@
 -keep class me.neko.nzhelper.ui.util.GitHubRelease {
     *;
 }
+
+# === 保留数据类 CustomOptions ===
+-keep class me.neko.nzhelper.data.CustomOptions {
+    *;
+}
+
+# 保留 Gson 使用的泛型类型信息
+-keepattributes Signature
+-keepattributes *Annotation*
+
+# 保留 Kotlin 元数据（如果使用 Kotlin 反射）
+-keep class kotlin.Metadata { *; }
+
+# 保留所有 data class 的 componentN() 方法
+-keepclassmembers class ** {
+    public *** componentN();
+}

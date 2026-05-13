@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
@@ -39,21 +40,22 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,10 +74,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.data.CustomOptions
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
 import me.neko.nzhelper.ui.dialog.CustomAppAlertDialog
-import me.neko.nzhelper.ui.dialog.DetailsDialog
+import me.neko.nzhelper.ui.dialog.ManualAddDialog
 import java.io.OutputStreamWriter
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -91,7 +94,7 @@ private fun formatTime(totalSeconds: Int): String {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen() {
     val context = LocalContext.current
@@ -101,8 +104,18 @@ fun HistoryScreen() {
     val sessionsTypeToken = object : TypeToken<List<Session>>() {}.type
 
     var editSession by remember { mutableStateOf<Session?>(null) }
-    var showDetailsDialog by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
+    
+    // 加载自定义选项（带默认值）
+    var customOptions by remember { mutableStateOf(me.neko.nzhelper.data.CustomOptions()) }
+    LaunchedEffect(Unit) {
+        customOptions = SessionRepository.loadCustomOptions(context)
+    }
+    
+    // 手动添加记录的状态
+    var showManualAddDialog by remember { mutableStateOf(false) }
+    var manualDateTime by remember { mutableStateOf(LocalDateTime.now()) }
+    var manualDurationSeconds by remember { mutableIntStateOf(0) }
 
     var remarkInput by remember { mutableStateOf("") }
     var locationInput by remember { mutableStateOf("") }
@@ -116,6 +129,68 @@ fun HistoryScreen() {
     var showClearDialog by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<Session?>(null) }
     var sessionToView by remember { mutableStateOf<Session?>(null) }
+    
+    // 自定义选项导入导出
+    val importOptionsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { importUri ->
+            scope.launch {
+                try {
+                    context.contentResolver.openInputStream(importUri)?.use { inputStream ->
+                        val jsonStr = inputStream.bufferedReader().readText()
+                        val importedOptions = NzApplication.gson.fromJson(
+                            jsonStr,
+                            object : TypeToken<CustomOptions>() {}.type
+                        ) as? CustomOptions
+                        
+                        if (importedOptions != null) {
+                            SessionRepository.saveCustomOptions(context, importedOptions)
+                            customOptions = importedOptions
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context,
+                                    "成功导入自定义选项",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        } else {
+                            Toast.makeText(context, "导入失败：文件格式不正确", Toast.LENGTH_SHORT)
+                                .show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(context, "导入失败：${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val exportOptionsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let { exportUri ->
+            scope.launch {
+                try {
+                    context.contentResolver.openOutputStream(exportUri)?.use { outputStream ->
+                        val json = NzApplication.gson.toJson(customOptions)
+                        outputStream.write(json.toByteArray())
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                context,
+                                "成功导出自定义选项",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(context, "导出失败：${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -131,16 +206,22 @@ fun HistoryScreen() {
                         val importedSessions = mutableListOf<Session>()
 
                         var success = false
+                        
+                        // 1. 首先尝试新格式（完整字段名的 JSON 对象）
                         try {
                             val newList: List<Session> =
                                 NzApplication.gson.fromJson(jsonStr, sessionsTypeToken)
-                            importedSessions.addAll(newList)
-                            success = true
-                        } catch (_: Exception) {
+                            // 过滤掉没有 timestamp 的数据
+                            importedSessions.addAll(newList.filter { it.timestamp != null })
+                            if (importedSessions.isNotEmpty()) {
+                                success = true
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                             // 新格式失败，继续尝试旧格式
                         }
 
-                        // 如果新格式失败，尝试旧数组格式
+                        // 2. 如果新格式失败，尝试旧数组格式 [[timestamp, duration, ...]]
                         if (!success) {
                             try {
                                 val root = parseString(jsonStr).asJsonArray
@@ -183,16 +264,66 @@ fun HistoryScreen() {
                                         )
                                     }
                                 }
+                                if (importedSessions.isNotEmpty()) {
+                                    success = true
+                                }
                             } catch (parseException: Exception) {
                                 parseException.printStackTrace()
+                            }
+                        }
+                        
+                        // 3. 如果还是失败，尝试解析单字母字段名的 JSON 对象格式 {"a":..., "b":...}
+                        if (!success) {
+                            try {
+                                val jsonArray = parseString(jsonStr).asJsonArray
+                                for (elem in jsonArray) {
+                                    if (elem.isJsonObject) {
+                                        val obj = elem.asJsonObject
+                                        val timeStr = obj.get("a")?.asString
+                                        if (timeStr != null) {
+                                            val timestamp = LocalDateTime.parse(
+                                                timeStr,
+                                                DateTimeFormatter.ISO_LOCAL_DATE_TIME
+                                            )
+                                            val duration = obj.get("b")?.asInt ?: 0
+                                            val remark = obj.get("c")?.asString ?: ""
+                                            val location = obj.get("d")?.asString ?: ""
+                                            val watchedMovie = obj.get("e")?.asBoolean ?: false
+                                            val climax = obj.get("f")?.asBoolean ?: false
+                                            val rating = obj.get("g")?.asFloat?.coerceIn(0f, 5f) ?: 3f
+                                            val mood = obj.get("h")?.asString ?: "平静"
+                                            val props = obj.get("i")?.asString ?: "手"
+
+                                            importedSessions.add(
+                                                Session(
+                                                    timestamp = timestamp,
+                                                    duration = duration,
+                                                    remark = remark,
+                                                    location = location,
+                                                    watchedMovie = watchedMovie,
+                                                    climax = climax,
+                                                    rating = rating,
+                                                    mood = mood,
+                                                    props = props
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                                if (importedSessions.isNotEmpty()) {
+                                    success = true
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
                             }
                         }
 
                         // 统一处理导入结果
                         if (importedSessions.isNotEmpty()) {
+                            val sortedSessions = importedSessions.sortedByDescending { it.timestamp }
                             sessions.clear()
-                            sessions.addAll(importedSessions)
-                            SessionRepository.saveSessions(context, sessions)
+                            sessions.addAll(sortedSessions)
+                            SessionRepository.saveSessions(context, sortedSessions)
 
                             withContext(Dispatchers.Main) {
                                 Toast.makeText(
@@ -231,16 +362,22 @@ fun HistoryScreen() {
         }
     }
 
-    // 加载历史记录
     LaunchedEffect(Unit) {
-        val loaded = SessionRepository.loadSessions(context)
-        sessions.clear()
-        sessions.addAll(loaded)
+        try {
+            val loaded = SessionRepository.loadSessions(context)
+            val validSessions = loaded.filter { it.timestamp != null }
+                .sortedByDescending { it.timestamp }
+            sessions.clear()
+            sessions.addAll(validSessions)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            sessions.clear()
+        }
     }
 
     Scaffold(
         topBar = {
-            LargeFlexibleTopAppBar(
+            TopAppBar(
                 title = { Text("历史记录") },
                 actions = {
                     IconButton(onClick = { showMenu = true }) {
@@ -276,6 +413,30 @@ fun HistoryScreen() {
                 scrollBehavior = scrollBehavior
             )
         },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    // 打开手动添加记录弹窗
+                    manualDateTime = LocalDateTime.now()
+                    manualDurationSeconds = 0
+                    remarkInput = ""
+                    locationInput = ""
+                    watchedMovie = false
+                    climax = false
+                    rating = 3f
+                    mood = "平静"
+                    props = "手"
+                    showManualAddDialog = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "手动添加记录"
+                )
+            }
+        },
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
     ) { innerPadding ->
         Box(
@@ -300,7 +461,11 @@ fun HistoryScreen() {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(16.dp)
                 ) {
-                    items(sessions, key = { it.timestamp }) { session ->
+                    items(
+                        items = sessions,
+                        key = { session -> session.timestamp?.toString() ?: session.hashCode() }
+                    ) { session ->
+                        
                         ElevatedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -316,7 +481,7 @@ fun HistoryScreen() {
                                 ) {
                                     Column {
                                         Text(
-                                            session.timestamp.format(
+                                            session.timestamp!!.format(
                                                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
                                             )
                                         )
@@ -352,7 +517,7 @@ fun HistoryScreen() {
                     onConfirm = {
                         sessions.remove(session)
                         scope.launch {
-                            SessionRepository.saveSessions(context, sessions)
+                            SessionRepository.saveSessions(context, sessions.toList())
                         }
                     },
                     onDismiss = { sessionToDelete = null },
@@ -373,7 +538,7 @@ fun HistoryScreen() {
                     onConfirm = {
                         sessions.clear()
                         scope.launch {
-                            SessionRepository.saveSessions(context, sessions)
+                            SessionRepository.saveSessions(context, emptyList())
                         }
                     },
                     onDismiss = { showClearDialog = false },
@@ -414,7 +579,7 @@ fun HistoryScreen() {
 
                             DetailRow(
                                 "开始时间",
-                                session.timestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                                session.timestamp?.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) ?: "未知"
                             )
                             DetailRow("持续时长", formatTime(session.duration))
                             DetailRow("地点", session.location.ifEmpty { "无" })
@@ -446,8 +611,9 @@ fun HistoryScreen() {
 
                                 Button(
                                     onClick = {
-                                        editSession = session
-                                        isEditing = true
+                                        // 使用 ManualAddDialog 进行编辑
+                                        manualDateTime = session.timestamp ?: LocalDateTime.now()
+                                        manualDurationSeconds = session.duration
                                         remarkInput = session.remark
                                         locationInput = session.location
                                         watchedMovie = session.watchedMovie
@@ -455,10 +621,14 @@ fun HistoryScreen() {
                                         rating = session.rating
                                         mood = session.mood
                                         props = session.props
-                                        showDetailsDialog = true
+                                        editSession = session
+                                        isEditing = true
+                                        showManualAddDialog = true
                                         sessionToView = null
                                     },
-                                    modifier = Modifier.height(44.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp),
                                     shape = RoundedCornerShape(18.dp)
                                 ) {
                                     Icon(Icons.Rounded.Edit, contentDescription = null)
@@ -471,9 +641,13 @@ fun HistoryScreen() {
                 }
             }
 
-            // 编辑 / 新增 复用新版 DetailsDialog
-            DetailsDialog(
-                show = showDetailsDialog,
+            // 手动添加记录弹窗
+            ManualAddDialog(
+                show = showManualAddDialog,
+                selectedDateTime = manualDateTime,
+                onSelectedDateTimeChange = { manualDateTime = it },
+                durationSeconds = manualDurationSeconds,
+                onDurationSecondsChange = { manualDurationSeconds = it },
                 remark = remarkInput,
                 onRemarkChange = { remarkInput = it },
                 location = locationInput,
@@ -488,11 +662,15 @@ fun HistoryScreen() {
                 onRatingChange = { rating = it },
                 mood = mood,
                 onMoodChange = { mood = it },
+                customMoods = customOptions.moods,
+                customProps = customOptions.props,
                 onConfirm = {
                     if (isEditing && editSession != null) {
                         val index = sessions.indexOf(editSession)
                         if (index != -1) {
-                            sessions[index] = editSession!!.copy(
+                            sessions[index] = Session(
+                                timestamp = manualDateTime,
+                                duration = manualDurationSeconds,
                                 remark = remarkInput,
                                 location = locationInput,
                                 watchedMovie = watchedMovie,
@@ -502,20 +680,40 @@ fun HistoryScreen() {
                                 props = props
                             )
                         }
+                    } else {
+                        // 新增模式：添加新记录
+                        val newSession = Session(
+                            timestamp = manualDateTime,
+                            duration = manualDurationSeconds,
+                            remark = remarkInput,
+                            location = locationInput,
+                            watchedMovie = watchedMovie,
+                            climax = climax,
+                            rating = rating,
+                            mood = mood,
+                            props = props
+                        )
+                        sessions.add(0, newSession)
                     }
+
+                    val sortedSessions = sessions.sortedByDescending { it.timestamp }
+                    sessions.clear()
+                    sessions.addAll(sortedSessions)
 
                     scope.launch {
-                        SessionRepository.saveSessions(context, sessions)
+                        SessionRepository.saveSessions(context, sortedSessions)
                     }
 
-                    // 重置状态
-                    showDetailsDialog = false
+                    showManualAddDialog = false
+                    manualDateTime = LocalDateTime.now()
+                    manualDurationSeconds = 0
                     isEditing = false
                     editSession = null
-                    // 可以不重置输入框，因为下次编辑会覆盖
                 },
                 onDismiss = {
-                    showDetailsDialog = false
+                    showManualAddDialog = false
+                    manualDateTime = LocalDateTime.now()
+                    manualDurationSeconds = 0
                     isEditing = false
                     editSession = null
                 }
