@@ -100,12 +100,8 @@ fun HomeScreen() {
         }
     }
 
-    // 启动并绑定服务
+    // 绑定服务，计时只在用户点击开始后进入前台。
     LaunchedEffect(Unit) {
-        ContextCompat.startForegroundService(
-            context,
-            serviceIntent.apply { action = TimerService.ACTION_START }
-        )
         context.bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
     }
     DisposableEffect(Unit) {
@@ -118,7 +114,10 @@ fun HomeScreen() {
         ?.collectAsState(initial = 0)
         ?: remember { mutableIntStateOf(0) }
 
-    var isRunning by remember { mutableStateOf(false) }
+    val isRunning by timerService
+        ?.isRunningState
+        ?.collectAsState(initial = false)
+        ?: remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
 
@@ -137,12 +136,6 @@ fun HomeScreen() {
         val loaded = SessionRepository.loadSessions(context)
         sessions.clear()
         sessions.addAll(loaded)
-    }
-
-    // 控制 Service 启停
-    LaunchedEffect(isRunning) {
-        val action = if (isRunning) TimerService.ACTION_START else TimerService.ACTION_PAUSE
-        context.startService(serviceIntent.apply { this.action = action })
     }
 
     Scaffold(
@@ -193,7 +186,18 @@ fun HomeScreen() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
-                                onClick = { isRunning = !isRunning },
+                                onClick = {
+                                    if (isRunning) {
+                                        context.startService(
+                                            serviceIntent.apply { action = TimerService.ACTION_PAUSE }
+                                        )
+                                    } else {
+                                        ContextCompat.startForegroundService(
+                                            context,
+                                            serviceIntent.apply { action = TimerService.ACTION_START }
+                                        )
+                                    }
+                                },
                                 modifier = Modifier
                                     .size(64.dp)
                                     .background(
@@ -283,7 +287,9 @@ fun HomeScreen() {
                                 onClick = {
                                     showConfirmDialog = false
                                     showDetailsDialog = true
-                                    isRunning = false
+                                    context.startService(
+                                        serviceIntent.apply { action = TimerService.ACTION_PAUSE }
+                                    )
                                 },
                                 modifier = Modifier.height(44.dp),
                                 shape = RoundedCornerShape(18.dp),
@@ -336,7 +342,6 @@ fun HomeScreen() {
                     }
 
                     // 重置所有输入状态
-                    isRunning = false
                     remarkInput = ""
                     locationInput = ""
                     watchedMovie = false

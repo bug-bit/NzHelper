@@ -1,27 +1,28 @@
 package me.neko.nzhelper.ui.service
 
-import android.Manifest
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.os.Binder
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.app.Notification
 import android.annotation.SuppressLint
 import android.content.pm.ServiceInfo
 import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.annotation.RequiresPermission
 
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import me.neko.nzhelper.MainActivity
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import me.neko.nzhelper.R
 import me.neko.nzhelper.ui.util.NotificationUtil
+import me.neko.nzhelper.ui.util.OplusLiveAlertUtil
 
 /**
  * 前台计时服务
@@ -30,17 +31,18 @@ class TimerService : Service() {
     private val binder = LocalBinder()
     private val _elapsedSec = MutableStateFlow(0)
     val elapsedSec: StateFlow<Int> = _elapsedSec.asStateFlow()
+    private val _isRunning = MutableStateFlow(false)
+    val isRunningState: StateFlow<Boolean> = _isRunning.asStateFlow()
 
-    private var startTimeMs: Long = 0L
+    private var startElapsedRealtimeMs: Long = 0L
     private var accumulatedSec: Int = 0
+    private var isRunning: Boolean = false
 
     private val handler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
-        @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
         override fun run() {
-            val nowMs = System.currentTimeMillis()
-            _elapsedSec.value = accumulatedSec + ((nowMs - startTimeMs) / 1000).toInt()
-            updateNotification(_elapsedSec.value)
+            if (!isRunning) return
+            publishElapsed()
             handler.postDelayed(this, 1000)
         }
     }
@@ -51,7 +53,6 @@ class TimerService : Service() {
         fun getService(): TimerService = this@TimerService
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("ForegroundServiceType")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -63,22 +64,31 @@ class TimerService : Service() {
     }
 
     /** 启动计时并进入前台 */
-    @RequiresApi(Build.VERSION_CODES.Q)
     private fun startTimer() {
-        if (startTimeMs == 0L) {
-            startTimeMs = System.currentTimeMillis()
-        }
-        handler.post(tickRunnable)
-        val notif = buildNotification(_elapsedSec.value)
+        if (isRunning) return
+        startElapsedRealtimeMs = SystemClock.elapsedRealtime()
+        isRunning = true
+        _isRunning.value = true
+        startUiTicker()
+        val notif = buildNotification()
         // 以 dataSync 类型运行前台服务
-        startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NOTIF_ID, notif)
+        }
     }
 
     /** 暂停计时（仍可保留通知） */
     private fun pauseTimer() {
+        if (!isRunning) return
+        accumulatedSec = currentElapsedSec()
         handler.removeCallbacks(tickRunnable)
-        accumulatedSec = _elapsedSec.value
-        startTimeMs = 0L
+        startElapsedRealtimeMs = 0L
+        isRunning = false
+        _isRunning.value = false
+        publishElapsed()
+        updateNotification()
     }
 
     /** 停止并重置计时 */
@@ -87,7 +97,9 @@ class TimerService : Service() {
         handler.removeCallbacks(tickRunnable)
         // 重置状态
         accumulatedSec = 0
-        startTimeMs = 0L
+        startElapsedRealtimeMs = 0L
+        isRunning = false
+        _isRunning.value = false
         _elapsedSec.value = 0
         // 取消前台状态并移除通知
         stopForeground(true)
@@ -95,20 +107,113 @@ class TimerService : Service() {
     }
 
     /** 构建通知 */
-    private fun buildNotification(elapsed: Int): Notification {
+    private fun buildNotification(): Notification {
+        val elapsed = currentElapsedSec()
         val contentText = formatTime(elapsed)
+        val stateText = if (isRunning) "计时进行中" else "计时已暂停"
+        val chronometerBase = System.currentTimeMillis() - elapsed * 1000L
+
         return NotificationCompat.Builder(this, NotificationUtil.CHANNEL_ID)
-            .setContentTitle("计时进行中")
+            .setContentTitle(stateText)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.baseline_access_alarm_24)
+            .setContentIntent(openAppIntent())
+            .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setWhen(chronometerBase)
+            .setUsesChronometer(isRunning)
+            .setChronometerCountDown(false)
+            .setShortCriticalText(contentText)
+            .setRequestPromotedOngoing(isRunning)
+            .addAction(controlAction())
+            .addAction(stopAction())
             .build()
+            .apply {
+                extras.putBoolean("android.requestPromotedOngoing", isRunning)
+                extras.putString("oplusLiveAlertAppConfig", OplusLiveAlertUtil.appConfig(this@TimerService))
+                extras.putString(
+                    "oplus.livealert.capsule",
+                    OplusLiveAlertUtil.capsuleData(chronometerBase, isRunning, contentText)
+                )
+                extras.putString(
+                    "oplus.livealert.card",
+                    OplusLiveAlertUtil.cardData(
+                        chronometerBase,
+                        isRunning,
+                        contentText,
+                        stateText
+                    )
+                )
+                extras.putString("op_fluid_serviceId", FLUID_SERVICE_ID)
+                extras.putParcelable(OplusLiveAlertUtil.ACTION_ENTER_APP, openAppIntent())
+                extras.putParcelable(OplusLiveAlertUtil.ACTION_PAUSE, servicePendingIntent(ACTION_PAUSE, 3))
+                extras.putParcelable(OplusLiveAlertUtil.ACTION_RESUME, servicePendingIntent(ACTION_START, 4))
+                extras.putParcelable(OplusLiveAlertUtil.ACTION_STOP, servicePendingIntent(ACTION_STOP, 5))
+            }
     }
 
-    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
-    private fun updateNotification(elapsed: Int) {
-        val notif = buildNotification(elapsed)
+    private fun updateNotification() {
+        val notif = buildNotification()
         NotificationManagerCompat.from(this).notify(NOTIF_ID, notif)
+    }
+
+    private fun startUiTicker() {
+        handler.removeCallbacks(tickRunnable)
+        publishElapsed()
+        handler.postDelayed(tickRunnable, 1000)
+    }
+
+    private fun publishElapsed() {
+        _elapsedSec.value = currentElapsedSec()
+    }
+
+    private fun currentElapsedSec(): Int {
+        if (!isRunning || startElapsedRealtimeMs == 0L) return accumulatedSec
+        val runningSec = ((SystemClock.elapsedRealtime() - startElapsedRealtimeMs) / 1000).toInt()
+        return accumulatedSec + runningSec
+    }
+
+    private fun openAppIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        return PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun controlAction(): NotificationCompat.Action {
+        val action = if (isRunning) ACTION_PAUSE else ACTION_START
+        val title = if (isRunning) "暂停" else "继续"
+        return NotificationCompat.Action.Builder(
+            if (isRunning) R.drawable.timer_24px else R.drawable.baseline_access_alarm_24,
+            title,
+            servicePendingIntent(action, 1)
+        ).build()
+    }
+
+    private fun stopAction(): NotificationCompat.Action =
+        NotificationCompat.Action.Builder(
+            R.drawable.timer_24px,
+            "结束",
+            servicePendingIntent(ACTION_STOP, 2)
+        ).build()
+
+    private fun servicePendingIntent(action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(this, TimerService::class.java).apply {
+            this.action = action
+        }
+        return PendingIntent.getForegroundService(
+            this,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     override fun onDestroy() {
@@ -121,6 +226,7 @@ class TimerService : Service() {
         const val ACTION_PAUSE = "me.neko.nzhelper.ACTION_PAUSE"
         const val ACTION_STOP  = "me.neko.nzhelper.ACTION_STOP"
         const val NOTIF_ID = 1001
+        const val FLUID_SERVICE_ID = "nzhelper_timer"
     }
 
     @SuppressLint("DefaultLocale")

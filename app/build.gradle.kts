@@ -9,7 +9,8 @@ fun getGitCommitCount(): Int {
         val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
             .redirectErrorStream(true)
             .start()
-        process.inputStream.bufferedReader().readText().trim().toInt()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        if (process.waitFor() == 0) output.toInt() else 1
     } catch (_: Exception) {
         1 // fallback
     }
@@ -20,7 +21,8 @@ fun getGitShortHash(): String {
         val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
             .redirectErrorStream(true)
             .start()
-        process.inputStream.bufferedReader().readText().trim()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        if (process.waitFor() == 0) output else "unknown"
     } catch (_: Exception) {
         "unknown"
     }
