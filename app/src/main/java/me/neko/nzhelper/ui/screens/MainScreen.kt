@@ -3,7 +3,9 @@ package me.neko.nzhelper.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -18,6 +20,7 @@ import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +31,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -41,6 +47,8 @@ import me.neko.nzhelper.ui.screens.about.AboutScreen
 import me.neko.nzhelper.ui.screens.about.OpenSourceScreen
 import me.neko.nzhelper.ui.screens.history.HistoryScreen
 import me.neko.nzhelper.ui.screens.home.HomeScreen
+import me.neko.nzhelper.ui.screens.lock.AppLockManager
+import me.neko.nzhelper.ui.screens.lock.LockScreen
 import me.neko.nzhelper.ui.screens.setting.SettingsScreen
 import me.neko.nzhelper.ui.screens.statistics.StatisticsScreen
 import me.neko.nzhelper.ui.util.UpdateChecker
@@ -82,16 +90,50 @@ fun BottomNavigationBar(navController: NavController) {
 fun MainScreen() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 检查通知权限
+    // ── 应用锁状态 ──
+    var isLocked by remember {
+        mutableStateOf(AppLockManager.isLockEnabled(context))
+    }
+    var wentToBackground by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    wentToBackground = true
+                    if (AppLockManager.isLockEnabled(context)) {
+                        AppLockManager.resetAuthentication()
+                    }
+                }
+
+                Lifecycle.Event.ON_RESUME -> {
+                    if (wentToBackground &&
+                        AppLockManager.isLockEnabled(context) &&
+                        !AppLockManager.isAuthenticated
+                    ) {
+                        isLocked = true
+                    }
+                    wentToBackground = false
+                }
+
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // ── 通知权限 ──
     val notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
     var showNotifyDialog by remember { mutableStateOf(!notificationsEnabled) }
 
-    // 打开应用通知设置
     fun openNotificationSettings(context: Context) {
         val intent = Intent().apply {
-            action =
-                Settings.ACTION_APP_NOTIFICATION_SETTINGS
+            action = Settings.ACTION_APP_NOTIFICATION_SETTINGS
             putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
             putExtra("app_uid", context.applicationInfo.uid)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -99,9 +141,9 @@ fun MainScreen() {
         context.startActivity(intent)
     }
 
+    // ── 更新检查 ──
     val owner = "bug-bit"
     val repo = "NzHelper"
-
     var showUpdateDialog by remember { mutableStateOf(false) }
     var latestTag by remember { mutableStateOf<String?>(null) }
 
@@ -140,23 +182,34 @@ fun MainScreen() {
         }
     }
 
-    Scaffold(
-        bottomBar = { BottomNavigationBar(navController) },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = BottomNavItem.Home.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable(BottomNavItem.Home.route) { HomeScreen() }
-            composable(BottomNavItem.History.route) { HistoryScreen() }
-            composable(BottomNavItem.Settings.route) { SettingsScreen(navController) }
-            composable(BottomNavItem.Statistics.route) { StatisticsScreen() }
-            composable("about") { AboutScreen(navController) }
-            composable("open_source") { OpenSourceScreen(navController) }
+    // ── UI ──
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            bottomBar = { BottomNavigationBar(navController) },
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = BottomNavItem.Home.route,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                composable(BottomNavItem.Home.route) { HomeScreen() }
+                composable(BottomNavItem.History.route) { HistoryScreen() }
+                composable(BottomNavItem.Settings.route) { SettingsScreen(navController) }
+                composable(BottomNavItem.Statistics.route) { StatisticsScreen() }
+                composable("about") { AboutScreen(navController) }
+                composable("open_source") { OpenSourceScreen(navController) }
+            }
         }
 
+        // 锁屏覆盖层
+        if (isLocked) {
+            LockScreen(onUnlock = { isLocked = false })
+        }
+    }
+
+    // 弹窗仅在解锁后显示
+    if (!isLocked) {
         if (showUpdateDialog && latestTag != null) {
             CustomAppAlertDialog(
                 onDismissRequest = { showUpdateDialog = false },

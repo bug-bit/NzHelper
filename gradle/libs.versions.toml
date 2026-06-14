@@ -1,5 +1,6 @@
 [versions]
-agp = "9.2.0"
+agp = "9.2.1"
+biometric = "1.4.0-alpha02"
 gson = "2.14.0"
 kotlin = "2.4.0"
 coreKtx = "1.17.0"
@@ -17,8 +18,10 @@ moshi = "1.15.2"
 moshiKotlin = "1.15.2"
 navigationCompose = "2.9.0"
 okhttp = "5.4.0"
+appcompat = "1.7.1"
 
 [libraries]
+androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 androidx-compose-material3-adaptive-navigation-suite = { module = "androidx.compose.material3:material3-adaptive-navigation-suite", version.ref = "material3AdaptiveNavigationSuite" }
 androidx-compose-material3-window-size-class1 = { module = "androidx.compose.material3:material3-window-size-class", version.ref = "material3WindowSizeClass" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
@@ -42,6 +45,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
 moshi-kotlin = { module = "com.squareup.moshi:moshi-kotlin", version.ref = "moshiKotlin" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
