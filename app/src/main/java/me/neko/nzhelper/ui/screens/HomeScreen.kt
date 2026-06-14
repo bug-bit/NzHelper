@@ -131,6 +131,8 @@ fun HomeScreen() {
 
     LaunchedEffect(Unit) {
         val loaded = SessionRepository.loadSessions(context)
+            .sortedByDescending { it.timestamp }
+        
         sessions.clear()
         sessions.addAll(loaded)
     }

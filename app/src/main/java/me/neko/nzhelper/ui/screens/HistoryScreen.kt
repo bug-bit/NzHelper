@@ -108,6 +108,8 @@ fun HistoryScreen() {
 
     var showMenu by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var sessionToDelete by remember { mutableStateOf<Session?>(null) }
 
     var selectedSession by remember { mutableStateOf<Session?>(null) }
     var isViewingDetails by remember { mutableStateOf(false) }
@@ -117,6 +119,8 @@ fun HistoryScreen() {
 
     LaunchedEffect(Unit) {
         val loaded = SessionRepository.loadSessions(context)
+            .sortedByDescending { it.timestamp }
+
         sessions.clear()
         sessions.addAll(loaded)
     }
@@ -264,13 +268,8 @@ fun HistoryScreen() {
                                             )
                                         },
                                         onDelete = {
-                                            sessions.remove(session)
-                                            scope.launch {
-                                                SessionRepository.saveSessions(
-                                                    context,
-                                                    sessions
-                                                )
-                                            }
+                                            sessionToDelete = session
+                                            showDeleteConfirmDialog = true
                                         }
                                     )
                                     if (index < sessions.size - 1) {
@@ -350,6 +349,25 @@ fun HistoryScreen() {
         },
         onDismiss = { isEditing = false; selectedSession = null }
     )
+
+    if (showDeleteConfirmDialog && sessionToDelete != null) {
+        ConfirmDialog(
+            icon = Icons.Rounded.Delete,
+            title = "删除记录",
+            message = "确定要删除这条记录吗？此操作不可撤销。",
+            confirmText = "删除",
+            onConfirm = {
+                sessions.remove(sessionToDelete)
+                scope.launch { SessionRepository.saveSessions(context, sessions) }
+                showDeleteConfirmDialog = false
+                sessionToDelete = null
+            },
+            onDismiss = {
+                showDeleteConfirmDialog = false
+                sessionToDelete = null
+            }
+        )
+    }
 }
 
 // --- 辅助组件 ---
