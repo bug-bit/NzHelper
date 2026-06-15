@@ -300,6 +300,215 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
                 ) {
+                    // 生物识别验证逻辑
+                    val requestToggleLock: (Boolean) -> Unit = { targetState ->
+                        val activity = context as? FragmentActivity
+                        if (activity == null) {
+                            Toast.makeText(context, "无法启动验证", Toast.LENGTH_SHORT).show()
+                        } else if (targetState) {
+                            when (AppLockManager.canAuthenticate(context)) {
+                                BiometricManager.BIOMETRIC_SUCCESS -> {
+                                    AppLockManager.authenticate(
+                                        activity,
+                                        onSuccess = {
+                                            AppLockManager.setLockEnabled(context, true)
+                                            lockEnabled = true
+                                        }
+                                    )
+                                }
+
+                                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                                    Toast.makeText(
+                                        context,
+                                        "未设置锁屏密码或生物识别，请先在系统设置中配置",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+
+                                else -> {
+                                    Toast.makeText(
+                                        context,
+                                        "设备不支持生物识别或锁屏验证",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        } else {
+                            AppLockManager.authenticate(
+                                activity,
+                                onSuccess = {
+                                    AppLockManager.setLockEnabled(context, false)
+                                    lockEnabled = false
+                                }
+                            )
+                        }
+                    }
+                    ListItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = LocalIndication.current
+                            ) {
+                                requestToggleLock(!lockEnabled)
+                            },
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Lock,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
+                        headlineContent = {
+                            Text(
+                                "应用锁",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                "使用生物识别或锁屏密码解锁",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = lockEnabled,
+                                onCheckedChange = requestToggleLock
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 72.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+
+                    val toggleAutoStart: (Boolean) -> Unit = { enabled ->
+                        autoStartEnabled = enabled
+                        context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
+                            .edit { putBoolean("auto_start_timer", enabled) }
+                    }
+                    ListItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = LocalIndication.current
+                            ) {
+                                toggleAutoStart(!autoStartEnabled)
+                            },
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Timer,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
+                        headlineContent = {
+                            Text(
+                                "自动计时",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                "进入首页时自动开始计时",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = autoStartEnabled,
+                                onCheckedChange = toggleAutoStart
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+                ) {
+                    ListItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showStorageDialog = true },
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Outlined.FolderOpen,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
+                        headlineContent = {
+                            Text(
+                                "数据存储位置",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                if (storageMode == StorageSettings.MODE_INTERNAL) "当前：应用内部存储"
+                                else "当前：${StorageSettings.getExternalPath(context)}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        trailingContent = {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+                ) {
                     Column {
                         // 导出数据
                         ListItem(
@@ -448,215 +657,6 @@ fun SettingsScreen(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                     }
-                }
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
-                ) {
-                    ListItem(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showStorageDialog = true },
-                        leadingContent = {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Outlined.FolderOpen,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        },
-                        headlineContent = {
-                            Text(
-                                "数据存储位置",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                if (storageMode == StorageSettings.MODE_INTERNAL) "当前：应用内部存储"
-                                else "当前：${StorageSettings.getExternalPath(context)}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        trailingContent = {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                }
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
-                ) {
-                    // 生物识别验证逻辑
-                    val requestToggleLock: (Boolean) -> Unit = { targetState ->
-                        val activity = context as? FragmentActivity
-                        if (activity == null) {
-                            Toast.makeText(context, "无法启动验证", Toast.LENGTH_SHORT).show()
-                        } else if (targetState) {
-                            when (AppLockManager.canAuthenticate(context)) {
-                                BiometricManager.BIOMETRIC_SUCCESS -> {
-                                    AppLockManager.authenticate(
-                                        activity,
-                                        onSuccess = {
-                                            AppLockManager.setLockEnabled(context, true)
-                                            lockEnabled = true
-                                        }
-                                    )
-                                }
-
-                                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                                    Toast.makeText(
-                                        context,
-                                        "未设置锁屏密码或生物识别，请先在系统设置中配置",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-
-                                else -> {
-                                    Toast.makeText(
-                                        context,
-                                        "设备不支持生物识别或锁屏验证",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            }
-                        } else {
-                            AppLockManager.authenticate(
-                                activity,
-                                onSuccess = {
-                                    AppLockManager.setLockEnabled(context, false)
-                                    lockEnabled = false
-                                }
-                            )
-                        }
-                    }
-                    ListItem(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = LocalIndication.current
-                            ) {
-                                requestToggleLock(!lockEnabled)
-                            },
-                        leadingContent = {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Lock,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        },
-                        headlineContent = {
-                            Text(
-                                "应用锁",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                "使用生物识别或锁屏密码解锁",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = lockEnabled,
-                                onCheckedChange = requestToggleLock
-                            )
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 72.dp),
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-
-                    val toggleAutoStart: (Boolean) -> Unit = { enabled ->
-                        autoStartEnabled = enabled
-                        context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
-                            .edit { putBoolean("auto_start_timer", enabled) }
-                    }
-                    ListItem(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = LocalIndication.current
-                            ) {
-                                toggleAutoStart(!autoStartEnabled)
-                            },
-                        leadingContent = {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.secondaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Timer,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        },
-                        headlineContent = {
-                            Text(
-                                "自动计时",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                "进入首页时自动开始计时",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = autoStartEnabled,
-                                onCheckedChange = toggleAutoStart
-                            )
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
                 }
             }
 
