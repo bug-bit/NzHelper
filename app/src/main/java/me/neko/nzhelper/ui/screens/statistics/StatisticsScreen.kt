@@ -1,6 +1,7 @@
 package me.neko.nzhelper.ui.screens.statistics
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,7 +26,9 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Info
@@ -38,6 +41,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,7 +52,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +67,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import me.neko.nzhelper.data.PeriodOverview
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
 import java.time.DayOfWeek
@@ -126,6 +134,8 @@ fun StatisticsScreen() {
         derivedStateOf { calculateLatestInfo(sessions) }
     }
 
+    var selectedOverview by remember { mutableStateOf<PeriodOverview?>(null) }
+
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
@@ -168,6 +178,11 @@ fun StatisticsScreen() {
                             TotalStatCard(
                                 stats = totalStats,
                                 sessions = sessions,
+                                onPeriodClick = { type, label ->
+                                    selectedOverview = calculatePeriodOverview(
+                                        sessions, currentTime, type, label
+                                    )
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -200,6 +215,13 @@ fun StatisticsScreen() {
                 }
             }
         }
+    }
+
+    selectedOverview?.let { overview ->
+        PeriodOverviewDialog(
+            overview = overview,
+            onDismiss = { selectedOverview = null }
+        )
     }
 }
 
@@ -387,6 +409,66 @@ private fun getRandomComment(days: Int): String {
     }
 }
 
+private fun calculatePeriodOverview(
+    sessions: List<Session>,
+    now: LocalDateTime,
+    type: PeriodType,
+    label: String
+): PeriodOverview {
+    val filtered = sessions.filter { isWithinPeriod(it.timestamp, now, type) }
+
+    if (filtered.isEmpty()) {
+        return PeriodOverview(
+            periodLabel = label, count = 0, totalDurationSeconds = 0,
+            longestDurationSeconds = 0, longestSessionDisplayDate = "",
+            longestSessionEndTime = "", mostUsedProps = "", mostUsedPropsCount = 0,
+            mostCommonMood = "", mostCommonMoodCount = 0,
+            mostCommonLocation = "", mostCommonLocationCount = 0,
+            avgRating = 0f, movieCount = 0, climaxCount = 0
+        )
+    }
+
+    val totalDuration = filtered.sumOf { it.duration }
+    val longest = filtered.maxByOrNull { it.duration }!!
+    val endDateTime = longest.timestamp.plusSeconds(longest.duration.toLong())
+
+    val mostUsedProps = filtered.groupingBy { it.props }.eachCount()
+        .maxByOrNull { it.value }
+
+    val mostCommonMood = filtered.groupingBy { it.mood }.eachCount()
+        .maxByOrNull { it.value }
+
+    val mostCommonLocation = filtered
+        .mapNotNull { it.location.takeIf { it.isNotEmpty() } }
+        .groupingBy { it }
+        .eachCount()
+        .maxByOrNull { it.value }
+
+    val avgRating = filtered.map { it.rating }.average().toFloat()
+
+    return PeriodOverview(
+        periodLabel = label,
+        count = filtered.size,
+        totalDurationSeconds = totalDuration,
+        longestDurationSeconds = longest.duration,
+        longestSessionDisplayDate = longest.timestamp.format(
+            DateTimeFormatter.ofPattern("M月d日", Locale.CHINA)
+        ),
+        longestSessionEndTime = endDateTime.format(
+            DateTimeFormatter.ofPattern("HH:mm", Locale.CHINA)
+        ),
+        mostUsedProps = mostUsedProps?.key ?: "",
+        mostUsedPropsCount = mostUsedProps?.value ?: 0,
+        mostCommonMood = mostCommonMood?.key ?: "",
+        mostCommonMoodCount = mostCommonMood?.value ?: 0,
+        mostCommonLocation = mostCommonLocation?.key ?: "未记录",
+        mostCommonLocationCount = mostCommonLocation?.value ?: 0,
+        avgRating = avgRating,
+        movieCount = filtered.count { it.watchedMovie },
+        climaxCount = filtered.count { it.climax }
+    )
+}
+
 // --- UI 组件 ---
 @Composable
 private fun PeriodSection(
@@ -472,6 +554,7 @@ private fun EmptyStateView() {
 private fun TotalStatCard(
     stats: TotalStats,
     sessions: List<Session>,
+    onPeriodClick: (PeriodType, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val statusText = buildTotalStatStatus(sessions)
@@ -519,7 +602,7 @@ private fun TotalStatCard(
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
-                
+
                 val avgText =
                     if (stats.totalCount > 0) "%.1f 分钟".format(stats.avgMinutes) else "0 分钟"
                 Text(
@@ -562,17 +645,20 @@ private fun TotalStatCard(
                 PeriodStatCard(
                     label = "本周",
                     count = stats.weekCount,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    onClick = { onPeriodClick(PeriodType.WEEK, "本周") }
                 )
                 PeriodStatCard(
                     label = "本月",
                     count = stats.monthCount,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    onClick = { onPeriodClick(PeriodType.MONTH, "本月") }
                 )
                 PeriodStatCard(
                     label = "今年",
                     count = stats.yearCount,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    onClick = { onPeriodClick(PeriodType.YEAR, "今年") }
                 )
             }
         }
@@ -583,12 +669,14 @@ private fun TotalStatCard(
 private fun PeriodStatCard(
     label: String,
     count: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.secondaryContainer)
+            .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -713,6 +801,196 @@ private fun LatestSessionCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PeriodOverviewDialog(
+    overview: PeriodOverview,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLowest
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Text(
+                    text = "${overview.periodLabel}总览",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "共 ${overview.count} 次 · 总时长 ${formatDuration(overview.totalDurationSeconds)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (overview.count > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                                alpha = 0.12f
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Schedule,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "最长记录",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                            alpha = 0.7f
+                                        ),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "${overview.longestSessionDisplayDate} · ${
+                                            formatDuration(
+                                                overview.longestDurationSeconds
+                                            )
+                                        }",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "${overview.longestSessionEndTime} 结束",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                            alpha = 0.65f
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(
+                                alpha = 0.3f
+                            )
+                        )
+
+                        OverviewDetailRow(
+                            label = "道具",
+                            value = "${overview.mostUsedProps} (${overview.mostUsedPropsCount}次)"
+                        )
+                        OverviewDetailRow(
+                            label = "心情",
+                            value = "${overview.mostCommonMood} (${overview.mostCommonMoodCount}次)"
+                        )
+                        OverviewDetailRow(
+                            label = "地点",
+                            value = if (overview.mostCommonLocation == "未记录") "未记录"
+                            else "${overview.mostCommonLocation} (${overview.mostCommonLocationCount}次)"
+                        )
+                        OverviewDetailRow(
+                            label = "平均评分",
+                            value = "%.1f / 5.0".format(overview.avgRating)
+                        )
+                        OverviewDetailRow(
+                            label = "小电影",
+                            value = "${overview.movieCount} / ${overview.count} 次"
+                        )
+                        OverviewDetailRow(
+                            label = "高潮",
+                            value = "${overview.climaxCount} / ${overview.count} 次",
+                            showDivider = false
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "暂无记录",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("关闭")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewDetailRow(
+    label: String,
+    value: String,
+    showDivider: Boolean = true
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        if (showDivider) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         }
     }
 }
