@@ -46,7 +46,12 @@
     <init>(...);
     *;
 }
-# 保留 data class（可选，通常反射也需要）
+
 -keep class me.neko.nzhelper.ui.util.GitHubRelease {
     *;
+}
+
+# 保留所有 @SerializedName 注解的字段
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
 }

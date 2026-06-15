@@ -39,7 +39,7 @@ class NzApplication : Application() {
             )
             .registerTypeAdapter(
                 LocalDateTime::class.java,
-                JsonDeserializer<LocalDateTime> { json, _, _ ->
+                JsonDeserializer { json, _, _ ->
                     LocalDateTime.parse(
                         json.asJsonPrimitive.asString,
                         DateTimeFormatter.ISO_LOCAL_DATE_TIME
