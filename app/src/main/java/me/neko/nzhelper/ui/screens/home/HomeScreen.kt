@@ -111,10 +111,15 @@ fun HomeScreen() {
 
     // 启动并绑定服务
     LaunchedEffect(Unit) {
-        ContextCompat.startForegroundService(
-            context,
-            serviceIntent.apply { action = TimerService.ACTION_START }
-        )
+        val autoStart = context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
+            .getBoolean("auto_start_timer", false)
+
+        if (autoStart) {
+            ContextCompat.startForegroundService(
+                context,
+                serviceIntent.apply { action = TimerService.ACTION_START }
+            )
+        }
         context.bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
     }
     DisposableEffect(Unit) {
@@ -173,9 +178,16 @@ fun HomeScreen() {
                         elapsedSeconds = elapsedSeconds,
                         isRunning = isServiceRunning,
                         onToggleRun = {
-                            val action =
-                                if (isServiceRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_START
-                            context.startService(serviceIntent.apply { this.action = action })
+                            if (isServiceRunning) {
+                                context.startService(serviceIntent.apply {
+                                    action = TimerService.ACTION_PAUSE
+                                })
+                            } else {
+                                ContextCompat.startForegroundService(
+                                    context,
+                                    serviceIntent.apply { action = TimerService.ACTION_START }
+                                )
+                            }
                         },
                         onStop = {
                             if (elapsedSeconds > 0) showConfirmDialog = true
