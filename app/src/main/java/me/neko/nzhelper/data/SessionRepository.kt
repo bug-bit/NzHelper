@@ -27,12 +27,103 @@ object SessionRepository {
             emptyList()
         } else {
             try {
+                val root = JsonParser.parseString(json)
+                if (root.isJsonArray && root.asJsonArray.size() > 0) {
+                    val firstElem = root.asJsonArray[0]
+                    if (firstElem.isJsonObject) {
+                        val obj = firstElem.asJsonObject
+                        // 只要缺少 "timestamp" 字段，就认为是被混淆或损坏的旧数据
+                        if (!obj.has("timestamp")) {
+                            val migrated = migrateObfuscatedData(root.asJsonArray)
+                            // 修复后立即回写正确格式
+                            val correctedJson = gson.toJson(migrated)
+                            prefs.edit { putString(KEY_SESSIONS, correctedJson) }
+                            return@withContext migrated
+                        }
+                    }
+                }
                 gson.fromJson(json, sessionsTypeToken) ?: emptyList()
             } catch (e: Exception) {
                 e.printStackTrace()
                 emptyList()
             }
         }
+    }
+
+    /**
+     * 将 R8 混淆后的数据映射回正确结构
+     */
+    private fun migrateObfuscatedData(array: com.google.gson.JsonArray): List<Session> {
+        val result = mutableListOf<Session>()
+        for (elem in array) {
+            if (!elem.isJsonObject) continue
+            val obj = elem.asJsonObject
+            try {
+
+                val aStr = obj.get("a")?.asString
+                if (aStr.isNullOrEmpty()) continue
+
+                val timestamp = LocalDateTime.parse(aStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+                val duration = try {
+                    obj.get("b")?.asInt ?: 0
+                } catch (_: Exception) {
+                    0
+                }
+                val remark = try {
+                    if (obj.has("c") && !obj.get("c").isJsonNull) obj.get("c").asString else ""
+                } catch (_: Exception) {
+                    ""
+                }
+                val location = try {
+                    if (obj.has("d") && !obj.get("d").isJsonNull) obj.get("d").asString else ""
+                } catch (_: Exception) {
+                    ""
+                }
+                val watchedMovie = try {
+                    obj.get("e")?.asBoolean ?: false
+                } catch (_: Exception) {
+                    false
+                }
+                val climax = try {
+                    obj.get("f")?.asBoolean ?: false
+                } catch (_: Exception) {
+                    false
+                }
+                val rating = try {
+                    (obj.get("g")?.asFloat ?: 3f).coerceIn(0f, 5f)
+                } catch (_: Exception) {
+                    3f
+                }
+                val mood = try {
+                    if (obj.has("h") && !obj.get("h").isJsonNull) obj.get("h").asString else "平静"
+                } catch (_: Exception) {
+                    "平静"
+                }
+                val props = try {
+                    if (obj.has("i") && !obj.get("i").isJsonNull) obj.get("i").asString else "手"
+                } catch (_: Exception) {
+                    "手"
+                }
+
+                result.add(
+                    Session(
+                        timestamp = timestamp,
+                        duration = duration,
+                        remark = remark,
+                        location = location,
+                        watchedMovie = watchedMovie,
+                        climax = climax,
+                        rating = rating,
+                        mood = mood,
+                        props = props
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return result
     }
 
     suspend fun saveSessions(context: Context, sessions: List<Session>) =
