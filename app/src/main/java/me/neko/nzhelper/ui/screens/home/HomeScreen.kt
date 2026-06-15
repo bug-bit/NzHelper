@@ -8,6 +8,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -226,15 +227,35 @@ fun HomeScreen() {
                             ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            sessions.reversed().forEachIndexed { index, session ->
+                            val recentSessions = sessions.take(10)  // 只取最近 10 条
+                            recentSessions.reversed().forEachIndexed { index, session ->
                                 SessionItem(session = session)
-                                if (index < sessions.size - 1) {
+                                if (index < recentSessions.size - 1) {
                                     HorizontalDivider(
                                         modifier = Modifier.padding(start = 72.dp),
                                         thickness = 0.5.dp,
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                     )
                                 }
+                            }
+                        }
+                    }
+                    if (sessions.size > 10) {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { }
+                                    .padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "还有 ${sessions.size - 10} 条记录，去历史记录页面查看。",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
