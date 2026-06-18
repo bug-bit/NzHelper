@@ -1,5 +1,6 @@
 package me.neko.nzhelper.ui.screens.statistics
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -68,7 +69,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import me.neko.nzhelper.data.PeriodOverview
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
 import java.time.DayOfWeek
@@ -250,6 +250,32 @@ private data class LatestSessionInfo(
     val daysAgo: Long,
     val detailText: String,
     val isErrorState: Boolean
+)
+
+private data class PeriodOverview(
+    val periodLabel: String,
+    val count: Int,
+    val totalDurationSeconds: Int,
+    val longestDurationSeconds: Int,
+    val longestSessionDisplayDate: String,
+    val longestSessionEndTime: String,
+    val mostUsedProps: String,
+    val mostUsedPropsCount: Int,
+    val mostCommonMood: String,
+    val mostCommonMoodCount: Int,
+    val mostCommonLocation: String,
+    val mostCommonLocationCount: Int,
+    val avgRating: Float,
+    val movieCount: Int,
+    val climaxCount: Int,
+    val countComparison: String = "",
+    val durationComparison: String = "",
+    val propsComparison: String = "",
+    val moodComparison: String = "",
+    val locationComparison: String = "",
+    val avgRatingComparison: String = "",
+    val movieComparison: String = "",
+    val climaxComparison: String = ""
 )
 
 /**
@@ -438,6 +464,7 @@ private fun getRandomComment(days: Long, isError: Boolean): String {
     }
 }
 
+@SuppressLint("DefaultLocale")
 private fun calculatePeriodOverview(
     sessions: List<Session>,
     now: LocalDateTime,
@@ -446,6 +473,12 @@ private fun calculatePeriodOverview(
 ): PeriodOverview {
     val filtered = sessions.filter { isWithinPeriod(it.timestamp, now, type) }
 
+    val prevLabel = when (type) {
+        PeriodType.WEEK -> "上周"
+        PeriodType.MONTH -> "上月"
+        PeriodType.YEAR -> "去年"
+    }
+
     if (filtered.isEmpty()) {
         return PeriodOverview(
             periodLabel = label, count = 0, totalDurationSeconds = 0,
@@ -453,27 +486,147 @@ private fun calculatePeriodOverview(
             longestSessionEndTime = "", mostUsedProps = "", mostUsedPropsCount = 0,
             mostCommonMood = "", mostCommonMoodCount = 0,
             mostCommonLocation = "", mostCommonLocationCount = 0,
-            avgRating = 0f, movieCount = 0, climaxCount = 0
+            avgRating = 0f, movieCount = 0, climaxCount = 0,
+            countComparison = "", durationComparison = "",
+            propsComparison = "", moodComparison = "", locationComparison = "",
+            avgRatingComparison = "", movieComparison = "", climaxComparison = ""
         )
     }
 
+    // 获取上一周期时间范围
+    val startCurrent = when (type) {
+        PeriodType.WEEK -> now.minusDays(now.dayOfWeek.value.toLong() - 1).toLocalDate()
+            .atStartOfDay()
+
+        PeriodType.MONTH -> now.withDayOfMonth(1).toLocalDate().atStartOfDay()
+        PeriodType.YEAR -> now.withDayOfYear(1).toLocalDate().atStartOfDay()
+    }
+    val startPrev = when (type) {
+        PeriodType.WEEK -> startCurrent.minusWeeks(1)
+        PeriodType.MONTH -> startCurrent.minusMonths(1)
+        PeriodType.YEAR -> startCurrent.minusYears(1)
+    }
+    val prevSessions = sessions.filter { it.timestamp in startPrev..<startCurrent }
+    val prevCount = prevSessions.size
+
+    // 次数对比
+    val countComparison = if (prevCount == 0) {
+        "${prevLabel}无记录"
+    } else {
+        val diff = filtered.size - prevCount
+        when {
+            diff > 0 -> "较${prevLabel}多${diff}次"
+            diff < 0 -> "较${prevLabel}少${-diff}次"
+            else -> "与${prevLabel}相同"
+        }
+    }
+
+    // 总时长对比
     val totalDuration = filtered.sumOf { it.duration }
+    val prevTotalDuration = prevSessions.sumOf { it.duration }
+    val durationComparison = if (prevCount == 0) {
+        "${prevLabel}无记录"
+    } else {
+        val diff = totalDuration - prevTotalDuration
+        when {
+            diff > 0 -> "较${prevLabel}多${formatDuration(diff)}"
+            diff < 0 -> "较${prevLabel}少${formatDuration(-diff)}"
+            else -> "与${prevLabel}相同"
+        }
+    }
+
     val longest = filtered.maxByOrNull { it.duration }!!
     val endDateTime = longest.timestamp.plusSeconds(longest.duration.toLong())
 
-    val mostUsedProps = filtered.groupingBy { it.props }.eachCount()
-        .maxByOrNull { it.value }
+    val mostUsedProps = filtered.groupingBy { it.props }.eachCount().maxByOrNull { it.value }
+    val prevMostUsedProps =
+        prevSessions.groupingBy { it.props }.eachCount().maxByOrNull { it.value }
 
-    val mostCommonMood = filtered.groupingBy { it.mood }.eachCount()
-        .maxByOrNull { it.value }
+    val propsComparison = if (prevMostUsedProps == null) {
+        "${prevLabel}无记录"
+    } else {
+        val prevPropsName = prevMostUsedProps.key.ifEmpty { "无" }
+        if (prevMostUsedProps.key == mostUsedProps?.key) {
+            "${prevLabel}也为：$prevPropsName (${prevMostUsedProps.value}次)"
+        } else {
+            "${prevLabel}为：$prevPropsName (${prevMostUsedProps.value}次)"
+        }
+    }
+
+    val mostCommonMood = filtered.groupingBy { it.mood }.eachCount().maxByOrNull { it.value }
+    val prevMostCommonMood =
+        prevSessions.groupingBy { it.mood }.eachCount().maxByOrNull { it.value }
+
+    val moodComparison = if (prevMostCommonMood == null) {
+        "${prevLabel}无记录"
+    } else {
+        val prevMoodName = prevMostCommonMood.key.ifEmpty { "无" }
+        if (prevMostCommonMood.key == mostCommonMood?.key) {
+            "${prevLabel}也为：$prevMoodName (${prevMostCommonMood.value}次)"
+        } else {
+            "${prevLabel}为：$prevMoodName (${prevMostCommonMood.value}次)"
+        }
+    }
 
     val mostCommonLocation = filtered
         .mapNotNull { it.location.takeIf { it.isNotEmpty() } }
         .groupingBy { it }
         .eachCount()
         .maxByOrNull { it.value }
+    val prevMostCommonLocation = prevSessions
+        .mapNotNull { it.location.takeIf { it.isNotEmpty() } }
+        .groupingBy { it }
+        .eachCount()
+        .maxByOrNull { it.value }
+
+    val locationComparison = if (prevMostCommonLocation == null) {
+        "${prevLabel}无记录"
+    } else {
+        if (prevMostCommonLocation.key == mostCommonLocation?.key) {
+            "${prevLabel}也为：${prevMostCommonLocation.key} (${prevMostCommonLocation.value}次)"
+        } else {
+            "${prevLabel}为：${prevMostCommonLocation.key} (${prevMostCommonLocation.value}次)"
+        }
+    }
 
     val avgRating = filtered.map { it.rating }.average().toFloat()
+    val avgRatingComparison = if (prevCount == 0) {
+        "${prevLabel}无记录"
+    } else {
+        val prevAvgRating = prevSessions.map { it.rating }.average().toFloat()
+        val diff = avgRating - prevAvgRating
+        when {
+            diff > 0.05f -> "较${prevLabel}高 ${String.format("%.1f", diff)}"
+            diff < -0.05f -> "较${prevLabel}低 ${String.format("%.1f", -diff)}"
+            else -> "与${prevLabel}持平"
+        }
+    }
+
+    val movieCount = filtered.count { it.watchedMovie }
+    val movieComparison = if (prevCount == 0) {
+        "${prevLabel}无记录"
+    } else {
+        val prevMovieCount = prevSessions.count { it.watchedMovie }
+        val diff = movieCount - prevMovieCount
+        when {
+            diff > 0 -> "较${prevLabel}多 ${diff}次"
+            diff < 0 -> "较${prevLabel}少 ${-diff}次"
+            else -> "与${prevLabel}相同"
+        }
+    }
+
+    val climaxCount = filtered.count { it.climax }
+    val climaxComparison = if (prevCount == 0) {
+        "${prevLabel}无记录"
+    } else {
+        val prevClimaxCount = prevSessions.count { it.climax }
+        val diff = climaxCount - prevClimaxCount
+        when {
+            diff > 0 -> "较${prevLabel}多 ${diff}次"
+            diff < 0 -> "较${prevLabel}少 ${-diff}次"
+            else -> "与${prevLabel}相同"
+        }
+    }
 
     return PeriodOverview(
         periodLabel = label,
@@ -493,8 +646,16 @@ private fun calculatePeriodOverview(
         mostCommonLocation = mostCommonLocation?.key ?: "未记录",
         mostCommonLocationCount = mostCommonLocation?.value ?: 0,
         avgRating = avgRating,
-        movieCount = filtered.count { it.watchedMovie },
-        climaxCount = filtered.count { it.climax }
+        movieCount = movieCount,
+        climaxCount = climaxCount,
+        countComparison = countComparison,
+        durationComparison = durationComparison,
+        propsComparison = propsComparison,
+        moodComparison = moodComparison,
+        locationComparison = locationComparison,
+        avgRatingComparison = avgRatingComparison,
+        movieComparison = movieComparison,
+        climaxComparison = climaxComparison
     )
 }
 
@@ -863,11 +1024,30 @@ private fun PeriodOverviewDialog(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = "共 ${overview.count} 次 · 总时长 ${formatDuration(overview.totalDurationSeconds)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // 总览与周期对比
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "共 ${overview.count} 次 · 总时长 ${formatDuration(overview.totalDurationSeconds)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (overview.count > 0 && overview.countComparison.isNotEmpty()) {
+                            Text(
+                                text = "次数：${overview.countComparison}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        if (overview.count > 0 && overview.durationComparison.isNotEmpty()) {
+                            Text(
+                                text = "总时长：${overview.durationComparison}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
 
                     if (overview.count > 0) {
                         Surface(
@@ -937,29 +1117,35 @@ private fun PeriodOverviewDialog(
                         )
 
                         OverviewDetailRow(
-                            label = "道具",
-                            value = "${overview.mostUsedProps} (${overview.mostUsedPropsCount}次)"
+                            label = "最多次数的道具",
+                            value = "${overview.mostUsedProps.ifEmpty { "无" }} (${overview.mostUsedPropsCount}次)",
+                            comparison = overview.propsComparison
                         )
                         OverviewDetailRow(
-                            label = "心情",
-                            value = "${overview.mostCommonMood} (${overview.mostCommonMoodCount}次)"
+                            label = "最多次数的心情",
+                            value = "${overview.mostCommonMood.ifEmpty { "无" }} (${overview.mostCommonMoodCount}次)",
+                            comparison = overview.moodComparison
                         )
                         OverviewDetailRow(
-                            label = "地点",
+                            label = "最多次数的地点",
                             value = if (overview.mostCommonLocation == "未记录") "未记录"
-                            else "${overview.mostCommonLocation} (${overview.mostCommonLocationCount}次)"
+                            else "${overview.mostCommonLocation} (${overview.mostCommonLocationCount}次)",
+                            comparison = overview.locationComparison
                         )
                         OverviewDetailRow(
                             label = "平均评分",
-                            value = "%.1f / 5.0".format(overview.avgRating)
+                            value = "%.1f / 5.0".format(overview.avgRating),
+                            comparison = overview.avgRatingComparison
                         )
                         OverviewDetailRow(
                             label = "小电影",
-                            value = "${overview.movieCount} / ${overview.count} 次"
+                            value = "${overview.movieCount} / ${overview.count} 次",
+                            comparison = overview.movieComparison
                         )
                         OverviewDetailRow(
                             label = "高潮",
                             value = "${overview.climaxCount} / ${overview.count} 次",
+                            comparison = overview.climaxComparison,
                             showDivider = false
                         )
                     } else {
@@ -996,6 +1182,7 @@ private fun PeriodOverviewDialog(
 private fun OverviewDetailRow(
     label: String,
     value: String,
+    comparison: String = "",
     showDivider: Boolean = true
 ) {
     Column {
@@ -1011,12 +1198,21 @@ private fun OverviewDetailRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Medium
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
+                if (comparison.isNotEmpty()) {
+                    Text(
+                        text = comparison,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
         }
         if (showDivider) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -1200,7 +1396,7 @@ private fun buildTotalStatStatus(sessions: List<Session>): String {
 
     val firstDate = sessions.first().timestamp.toLocalDate()
     val lastDate = sessions.last().timestamp.toLocalDate()
- 
+
     val daysSpan = java.time.temporal.ChronoUnit.DAYS.between(firstDate, lastDate).coerceAtLeast(1)
 
     val frequency = sessions.size.toDouble() / daysSpan
