@@ -31,8 +31,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.AutoDelete
 import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Info
@@ -41,6 +43,8 @@ import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Upload
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,6 +64,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,6 +114,9 @@ fun SettingsScreen(
     var showClearDialog by remember { mutableStateOf(false) }
     var showStorageDialog by remember { mutableStateOf(false) }
 
+    var recycleBinCount by remember { mutableIntStateOf(0) }
+    var autoCleanEnabled by remember { mutableStateOf(RecycleBinSettings.isAutoCleanEnabled(context)) }
+
     var lockEnabled by remember { mutableStateOf(AppLockManager.isLockEnabled(context)) }
 
     var autoStartEnabled by remember {
@@ -151,6 +159,12 @@ fun SettingsScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
+                scope.launch {
+                    val loaded = SessionRepository.loadSessions(context)
+                    sessions.clear()
+                    sessions.addAll(loaded)
+                    recycleBinCount = SessionRepository.loadRecycleBin(context).size
+                }
                 pendingStorageSwitch?.let { (mode, path) ->
                     if (StorageSettings.hasExternalStoragePermission(context)) {
                         scope.launch {
@@ -160,6 +174,8 @@ fun SettingsScreen(
                                 val loaded = SessionRepository.loadSessions(context)
                                 sessions.clear()
                                 sessions.addAll(loaded)
+                                recycleBinCount =
+                                    SessionRepository.loadRecycleBin(context).size
                                 Toast.makeText(
                                     context,
                                     "存储位置已切换，记录已合并去重",
@@ -187,6 +203,7 @@ fun SettingsScreen(
         val loaded = SessionRepository.loadSessions(context)
         sessions.clear()
         sessions.addAll(loaded)
+        recycleBinCount = SessionRepository.loadRecycleBin(context).size
     }
 
     // 导入 Launcher
@@ -670,6 +687,181 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
                 ) {
                     Column {
+                        ListItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { navController.navigate("recycle_bin") },
+                            leadingContent = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.tertiaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Delete, null,
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            },
+                            headlineContent = {
+                                Text(
+                                    "回收站",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    if (recycleBinCount > 0) "共 $recycleBinCount 条记录，点击管理"
+                                    else "暂无已删除的记录",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            },
+                            trailingContent = {
+                                if (recycleBinCount > 0) {
+                                    BadgedBox(
+                                        badge = {
+                                            Badge { Text("$recycleBinCount") }
+                                        }
+                                    ) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                alpha = 0.5f
+                                            ),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                } else {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 72.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+
+                        ListItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newEnabled = !autoCleanEnabled
+                                    autoCleanEnabled = newEnabled
+                                    RecycleBinSettings.setAutoCleanEnabled(context, newEnabled)
+                                },
+                            leadingContent = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.AutoDelete,
+                                        null,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            },
+                            headlineContent = {
+                                Text(
+                                    "自动清理回收站",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    if (autoCleanEnabled) "已开启，记录将在 30 天后自动永久删除"
+                                    else "已关闭，记录将一直保留在回收站中",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = autoCleanEnabled,
+                                    onCheckedChange = { enabled ->
+                                        autoCleanEnabled = enabled
+                                        RecycleBinSettings.setAutoCleanEnabled(context, enabled)
+                                    }
+                                )
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 72.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+
+                        ListItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showClearDialog = true },
+                            leadingContent = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.errorContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.DeleteSweep, null,
+                                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            },
+                            headlineContent = {
+                                Text(
+                                    "移入回收站",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    "将所有记录移入回收站，可从回收站恢复",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+                ) {
+                    Column {
                         // 导出数据
                         ListItem(
                             modifier = Modifier
@@ -766,56 +958,6 @@ fun SettingsScreen(
                             },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 72.dp),
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
-
-                        ListItem(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showClearDialog = true },
-                            leadingContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(MaterialTheme.colorScheme.errorContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.DeleteForever, null,
-                                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            },
-                            headlineContent = {
-                                Text(
-                                    "清除全部记录",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    "删除所有本地历史数据",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            trailingContent = {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
                     }
                 }
             }
@@ -871,12 +1013,15 @@ fun SettingsScreen(
     if (showClearDialog) {
         ConfirmDialog(
             icon = Icons.Default.Warning,
-            title = "清除全部记录",
-            message = "此操作不可撤销，确定要删除所有记录吗？",
-            confirmText = "全部删除",
+            title = "移入回收站",
+            message = "确定要将所有记录移入回收站吗？可从回收站恢复。",
+            confirmText = "移入回收站",
             onConfirm = {
-                sessions.clear()
-                scope.launch { SessionRepository.saveSessions(context, sessions) }
+                scope.launch {
+                    SessionRepository.moveAllToRecycleBin(context)
+                    sessions.clear()
+                    recycleBinCount = SessionRepository.loadRecycleBin(context).size
+                }
                 showClearDialog = false
             },
             onDismiss = { showClearDialog = false }
