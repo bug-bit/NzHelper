@@ -378,7 +378,8 @@ fun SettingsScreen(
                                 indication = LocalIndication.current
                             ) {
                                 requestToggleLock(!lockEnabled)
-                            },
+                            }
+                            .padding(vertical = 6.dp),
                         leadingContent = {
                             Box(
                                 modifier = Modifier
@@ -396,17 +397,18 @@ fun SettingsScreen(
                             }
                         },
                         headlineContent = {
-                            Text(
-                                "应用锁",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                "使用生物识别或锁屏密码解锁",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Column {
+                                Text(
+                                    "应用锁",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    "使用生物识别或锁屏密码解锁",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         },
                         trailingContent = {
                             Switch(
@@ -436,7 +438,8 @@ fun SettingsScreen(
                                 indication = LocalIndication.current
                             ) {
                                 toggleAutoStart(!autoStartEnabled)
-                            },
+                            }
+                            .padding(vertical = 6.dp),
                         leadingContent = {
                             Box(
                                 modifier = Modifier
@@ -454,17 +457,18 @@ fun SettingsScreen(
                             }
                         },
                         headlineContent = {
-                            Text(
-                                "自动计时",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                "进入首页时自动开始计时",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Column {
+                                Text(
+                                    "自动计时",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    "进入首页时自动开始计时",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         },
                         trailingContent = {
                             Switch(
@@ -489,7 +493,8 @@ fun SettingsScreen(
                         ListItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showLocationDialog = true },
+                                .clickable { showLocationDialog = true }
+                                .padding(vertical = 6.dp),
                             leadingContent = {
                                 Box(
                                     modifier = Modifier
@@ -506,17 +511,18 @@ fun SettingsScreen(
                                 }
                             },
                             headlineContent = {
-                                Text(
-                                    "自定义地点",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    "共 ${customLocations.size} 项，点击管理",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Column {
+                                    Text(
+                                        "自定义地点",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "共 ${customLocations.size} 项，点击管理",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             },
                             trailingContent = {
                                 Icon(
@@ -537,7 +543,8 @@ fun SettingsScreen(
                         ListItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showPropsDialog = true },
+                                .clickable { showPropsDialog = true }
+                                .padding(vertical = 6.dp),
                             leadingContent = {
                                 Box(
                                     modifier = Modifier
@@ -554,17 +561,18 @@ fun SettingsScreen(
                                 }
                             },
                             headlineContent = {
-                                Text(
-                                    "自定义道具",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    "共 ${customProps.size} 项，点击管理",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Column {
+                                    Text(
+                                        "自定义道具",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "共 ${customProps.size} 项，点击管理",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             },
                             trailingContent = {
                                 Icon(
@@ -585,7 +593,8 @@ fun SettingsScreen(
                         ListItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showMoodDialog = true },
+                                .clickable { showMoodDialog = true }
+                                .padding(vertical = 6.dp),
                             leadingContent = {
                                 Box(
                                     modifier = Modifier
@@ -602,17 +611,18 @@ fun SettingsScreen(
                                 }
                             },
                             headlineContent = {
-                                Text(
-                                    "自定义心情",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    "共 ${customMoods.size} 项，点击管理",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Column {
+                                    Text(
+                                        "自定义心情",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "共 ${customMoods.size} 项，点击管理",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             },
                             trailingContent = {
                                 Icon(
@@ -636,7 +646,8 @@ fun SettingsScreen(
                     ListItem(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { showStorageDialog = true },
+                            .clickable { showStorageDialog = true }
+                            .padding(vertical = 6.dp),
                         leadingContent = {
                             Box(
                                 modifier = Modifier
@@ -654,18 +665,19 @@ fun SettingsScreen(
                             }
                         },
                         headlineContent = {
-                            Text(
-                                "数据存储位置",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                if (storageMode == StorageSettings.MODE_INTERNAL) "当前：应用内部存储"
-                                else "当前：${StorageSettings.getExternalPath(context)}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Column {
+                                Text(
+                                    "数据存储位置",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    if (storageMode == StorageSettings.MODE_INTERNAL) "当前：应用内部存储"
+                                    else "当前：${StorageSettings.getExternalPath(context)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         },
                         trailingContent = {
                             Icon(
@@ -690,7 +702,8 @@ fun SettingsScreen(
                         ListItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { navController.navigate("recycle_bin") },
+                                .clickable { navController.navigate("recycle_bin") }
+                                .padding(vertical = 6.dp),
                             leadingContent = {
                                 Box(
                                     modifier = Modifier
@@ -707,18 +720,19 @@ fun SettingsScreen(
                                 }
                             },
                             headlineContent = {
-                                Text(
-                                    "回收站",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    if (recycleBinCount > 0) "共 $recycleBinCount 条记录，点击管理"
-                                    else "暂无已删除的记录",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Column {
+                                    Text(
+                                        "回收站",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        if (recycleBinCount > 0) "共 $recycleBinCount 条记录，点击管理"
+                                        else "暂无已删除的记录",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             },
                             trailingContent = {
                                 if (recycleBinCount > 0) {
@@ -759,7 +773,8 @@ fun SettingsScreen(
                                     val newEnabled = !autoCleanEnabled
                                     autoCleanEnabled = newEnabled
                                     RecycleBinSettings.setAutoCleanEnabled(context, newEnabled)
-                                },
+                                }
+                                .padding(vertical = 6.dp),
                             leadingContent = {
                                 Box(
                                     modifier = Modifier
@@ -777,18 +792,19 @@ fun SettingsScreen(
                                 }
                             },
                             headlineContent = {
-                                Text(
-                                    "自动清理回收站",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    if (autoCleanEnabled) "已开启，记录将在 30 天后自动永久删除"
-                                    else "已关闭，记录将一直保留在回收站中",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Column {
+                                    Text(
+                                        "自动清理回收站",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        if (autoCleanEnabled) "已开启，记录将在 30 天后自动永久删除"
+                                        else "已关闭，记录将一直保留在回收站中",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             },
                             trailingContent = {
                                 Switch(
@@ -811,7 +827,8 @@ fun SettingsScreen(
                         ListItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showClearDialog = true },
+                                .clickable { showClearDialog = true }
+                                .padding(vertical = 6.dp),
                             leadingContent = {
                                 Box(
                                     modifier = Modifier
@@ -828,19 +845,19 @@ fun SettingsScreen(
                                 }
                             },
                             headlineContent = {
-                                Text(
-                                    "移入回收站",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    "将所有记录移入回收站，可从回收站恢复",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column {
+                                    Text(
+                                        "移入回收站",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        "将所有记录移入回收站，可从回收站恢复",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             },
                             trailingContent = {
                                 Icon(
@@ -868,7 +885,8 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .clickable {
                                     exportLauncher.launch("NzHelper_Export_${System.currentTimeMillis()}.json")
-                                },
+                                }
+                                .padding(vertical = 6.dp),
                             leadingContent = {
                                 Box(
                                     modifier = Modifier
@@ -886,17 +904,18 @@ fun SettingsScreen(
                                 }
                             },
                             headlineContent = {
-                                Text(
-                                    "导出数据",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    "将记录导出为 JSON 文件",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Column {
+                                    Text(
+                                        "导出数据",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "将记录导出为 JSON 文件",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             },
                             trailingContent = {
                                 Icon(
@@ -920,7 +939,8 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .clickable {
                                     importLauncher.launch(arrayOf("application/json", "text/plain"))
-                                },
+                                }
+                                .padding(vertical = 6.dp),
                             leadingContent = {
                                 Box(
                                     modifier = Modifier
@@ -937,17 +957,18 @@ fun SettingsScreen(
                                 }
                             },
                             headlineContent = {
-                                Text(
-                                    "导入数据",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    "从 JSON 文件恢复记录",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Column {
+                                    Text(
+                                        "导入数据",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "从 JSON 文件恢复记录",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             },
                             trailingContent = {
                                 Icon(
@@ -971,7 +992,8 @@ fun SettingsScreen(
                     ListItem(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { navController.navigate("about") },
+                            .clickable { navController.navigate("about") }
+                            .padding(vertical = 6.dp),
                         leadingContent = {
                             Box(
                                 modifier = Modifier
