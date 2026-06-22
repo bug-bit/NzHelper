@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -30,6 +31,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -51,7 +54,9 @@ fun DetailsDialog(
     onDismiss: () -> Unit,
     locationList: List<String> = listOf("卧室", "沙发", "厕所"),
     propsList: List<String> = listOf("手", "飞机杯", "小胶妻"),
-    moodList: List<String> = listOf("平静", "愉悦", "兴奋", "疲惫")
+    moodList: List<String> = listOf("平静", "愉悦", "兴奋", "疲惫"),
+    showDurationField: Boolean = false,
+    title: String = "本次详情"
 ) {
     if (!show) return
 
@@ -72,11 +77,19 @@ fun DetailsDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "本次详情",
+                    text = title,
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
+
+                // 手动添加时显示时长输入
+                if (showDurationField) {
+                    DurationInputSection(
+                        formState = formState,
+                        onFormStateChange = onFormStateChange
+                    )
+                }
 
                 // 地点
                 SelectionSection(
@@ -299,6 +312,67 @@ private fun RatingSection(
             },
             valueRange = 0f..5f,
             steps = 49
+        )
+    }
+}
+
+@Composable
+private fun DurationInputSection(
+    formState: SessionFormState,
+    onFormStateChange: (SessionFormState) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "时长",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = formState.durationHour,
+                onValueChange = { newValue ->
+                    val filtered = newValue.filter { it.isDigit() }.take(2)
+                    onFormStateChange(formState.copy(durationHour = filtered))
+                },
+                label = { Text("时") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = TextStyle(textAlign = TextAlign.Center)
+            )
+            OutlinedTextField(
+                value = formState.durationMinute,
+                onValueChange = { newValue ->
+                    val filtered = newValue.filter { it.isDigit() }.take(2)
+                    onFormStateChange(formState.copy(durationMinute = filtered))
+                },
+                label = { Text("分") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = TextStyle(textAlign = TextAlign.Center)
+            )
+            OutlinedTextField(
+                value = formState.durationSecond,
+                onValueChange = { newValue ->
+                    val filtered = newValue.filter { it.isDigit() }.take(2)
+                    onFormStateChange(formState.copy(durationSecond = filtered))
+                },
+                label = { Text("秒") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = TextStyle(textAlign = TextAlign.Center)
+            )
+        }
+        Text(
+            text = "合计：${formatTime(formState.manualDurationSeconds)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.End)
         )
     }
 }

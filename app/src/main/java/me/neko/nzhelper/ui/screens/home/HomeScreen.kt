@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.PauseCircleOutline
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
@@ -139,6 +140,7 @@ fun HomeScreen() {
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+    var showManualAddDialog by remember { mutableStateOf(false) }
     var formState by remember { mutableStateOf(SessionFormState()) }
     val sessions = remember { mutableStateListOf<Session>() }
 
@@ -207,6 +209,25 @@ fun HomeScreen() {
                             }
                         }
                     )
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            formState = SessionFormState()
+                            showManualAddDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("手动添加记录")
+                    }
                 }
 
                 // 历史记录列表
@@ -316,6 +337,44 @@ fun HomeScreen() {
                 onDismiss = {
                     showDetailsDialog = false
                     context.startService(serviceIntent.apply { action = TimerService.ACTION_START })
+                },
+                locationList = CategorySettings.getLocations(context),
+                propsList = CategorySettings.getProps(context),
+                moodList = CategorySettings.getMoods(context)
+            )
+
+            DetailsDialog(
+                show = showManualAddDialog,
+                formState = formState,
+                onFormStateChange = { formState = it },
+                showDurationField = true,
+                title = "手动添加记录",
+                onConfirm = {
+                    val duration = formState.manualDurationSeconds
+                    if (duration <= 0) {
+                        Toast.makeText(context, "请输入时长", Toast.LENGTH_SHORT).show()
+                        return@DetailsDialog
+                    }
+                    val now = LocalDateTime.now()
+                    val session = Session(
+                        timestamp = now,
+                        duration = duration,
+                        remark = formState.remark,
+                        location = formState.location,
+                        watchedMovie = formState.watchedMovie,
+                        climax = formState.climax,
+                        rating = formState.rating,
+                        mood = formState.mood,
+                        props = formState.props
+                    )
+                    sessions.add(session)
+                    scope.launch { SessionRepository.saveSessions(context, sessions) }
+
+                    formState = SessionFormState()
+                    showManualAddDialog = false
+                },
+                onDismiss = {
+                    showManualAddDialog = false
                 },
                 locationList = CategorySettings.getLocations(context),
                 propsList = CategorySettings.getProps(context),
