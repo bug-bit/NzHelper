@@ -196,10 +196,12 @@ fun MainScreen() {
                     .padding(innerPadding),
                 beyondViewportPageCount = BottomNavItem.items.size - 1
             ) { page ->
+                val isCurrentPage = pagerState.currentPage == page
+
                 when (BottomNavItem.items[page].route) {
-                    BottomNavItem.Home.route -> HomeScreen()
-                    BottomNavItem.Statistics.route -> StatisticsScreen()
-                    BottomNavItem.History.route -> HistoryScreen()
+                    BottomNavItem.Home.route -> HomeScreen(isActive = isCurrentPage)
+                    BottomNavItem.Statistics.route -> StatisticsScreen(isActive = isCurrentPage)
+                    BottomNavItem.History.route -> HistoryScreen(isActive = isCurrentPage)
                     BottomNavItem.Settings.route -> SettingsScreen()
                 }
             }

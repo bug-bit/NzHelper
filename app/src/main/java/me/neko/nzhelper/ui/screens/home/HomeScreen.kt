@@ -94,7 +94,7 @@ import java.time.LocalDateTime
     ExperimentalMaterial3ExpressiveApi::class
 )
 @Composable
-fun HomeScreen() {
+fun HomeScreen(isActive: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollBehavior =
@@ -144,12 +144,13 @@ fun HomeScreen() {
     var formState by remember { mutableStateOf(SessionFormState()) }
     val sessions = remember { mutableStateListOf<Session>() }
 
-    LaunchedEffect(Unit) {
-        val loaded = SessionRepository.loadSessions(context)
-            .sortedByDescending { it.timestamp }
-
-        sessions.clear()
-        sessions.addAll(loaded)
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            val loaded = SessionRepository.loadSessions(context)
+                .sortedByDescending { it.timestamp }
+            sessions.clear()
+            sessions.addAll(loaded)
+        }
     }
 
     Scaffold(
@@ -334,7 +335,7 @@ fun HomeScreen() {
                         mood = formState.mood,
                         props = formState.props
                     )
-                    sessions.add(session)
+                    sessions.add(0, session)
                     scope.launch { SessionRepository.saveSessions(context, sessions) }
 
                     formState = SessionFormState()
@@ -380,7 +381,7 @@ fun HomeScreen() {
                         mood = formState.mood,
                         props = formState.props
                     )
-                    sessions.add(session)
+                    sessions.add(0, session)
                     scope.launch { SessionRepository.saveSessions(context, sessions) }
 
                     formState = SessionFormState()

@@ -83,14 +83,16 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun StatisticsScreen() {
+fun StatisticsScreen(isActive: Boolean = false) {
     val context = LocalContext.current
     val sessions = remember { mutableStateListOf<Session>() }
 
-    LaunchedEffect(Unit) {
-        val loaded = SessionRepository.loadSessions(context)
-        sessions.clear()
-        sessions.addAll(loaded)
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            val loaded = SessionRepository.loadSessions(context)
+            sessions.clear()
+            sessions.addAll(loaded)
+        }
     }
 
     val currentTime = LocalDateTime.now()

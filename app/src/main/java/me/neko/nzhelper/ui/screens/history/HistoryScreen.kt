@@ -78,7 +78,7 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(isActive: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -96,12 +96,13 @@ fun HistoryScreen() {
 
     var editFormState by remember { mutableStateOf(SessionFormState()) }
 
-    LaunchedEffect(Unit) {
-        val loaded = SessionRepository.loadSessions(context)
-            .sortedByDescending { it.timestamp }
-
-        sessions.clear()
-        sessions.addAll(loaded)
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            val loaded = SessionRepository.loadSessions(context)
+                .sortedByDescending { it.timestamp }
+            sessions.clear()
+            sessions.addAll(loaded)
+        }
     }
 
     Scaffold(
