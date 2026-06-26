@@ -31,7 +31,7 @@
         android:theme="@style/Theme.NzHelper"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.activity.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.NzHelper">
             <intent-filter>
@@ -40,6 +40,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.activity.AboutActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.activity.RecycleBinActivity"
+            android:exported="false" />
 
         <service
             android:name="me.neko.nzhelper.ui.service.TimerService"

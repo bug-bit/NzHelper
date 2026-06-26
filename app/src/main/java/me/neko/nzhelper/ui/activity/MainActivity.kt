@@ -1,4 +1,4 @@
-package me.neko.nzhelper
+package me.neko.nzhelper.ui.activity
 
 import android.os.Bundle
 import androidx.activity.compose.setContent

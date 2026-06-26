@@ -1,5 +1,6 @@
 package me.neko.nzhelper.ui.screens.about
 
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.foundation.Image
@@ -94,7 +95,11 @@ fun AboutScreen(
             LargeFlexibleTopAppBar(
                 title = { Text("关于") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = {
+                        if (!navController.popBackStack()) {
+                            (context as? Activity)?.finish()
+                        }
+                    }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回"

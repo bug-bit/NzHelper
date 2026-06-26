@@ -95,13 +95,13 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
+import me.neko.nzhelper.ui.activity.AboutActivity
+import me.neko.nzhelper.ui.activity.RecycleBinActivity
 import me.neko.nzhelper.ui.screens.history.ConfirmDialog
 import me.neko.nzhelper.ui.screens.lock.AppLockManager
 import java.io.OutputStreamWriter
@@ -110,7 +110,6 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsScreen(
-    navController: NavController
 ) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -470,7 +469,9 @@ fun SettingsScreen(
                         else "暂无已删除的记录",
                         iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
                         iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        onClick = { navController.navigate("recycle_bin") },
+                        onClick = {
+                            context.startActivity(Intent(context, RecycleBinActivity::class.java))
+                        },
                         badgeText = if (recycleBinCount > 0) "$recycleBinCount" else null
                     )
                     SettingsDivider()
@@ -624,7 +625,9 @@ fun SettingsScreen(
                         title = "关于",
                         iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        onClick = { navController.navigate("about") }
+                        onClick = {
+                            context.startActivity(Intent(context, AboutActivity::class.java))
+                        }
                     )
                 }
             }
@@ -847,6 +850,5 @@ private fun SettingsItem(
 @Composable
 fun SettingsScreenPreview() {
     SettingsScreen(
-        navController = rememberNavController()
     )
 }

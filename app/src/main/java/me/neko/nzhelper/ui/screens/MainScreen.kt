@@ -43,13 +43,10 @@ import androidx.navigation.compose.rememberNavController
 import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.ui.BottomNavItem
 import me.neko.nzhelper.ui.dialog.CustomAppAlertDialog
-import me.neko.nzhelper.ui.screens.about.AboutScreen
-import me.neko.nzhelper.ui.screens.about.OpenSourceScreen
 import me.neko.nzhelper.ui.screens.history.HistoryScreen
 import me.neko.nzhelper.ui.screens.home.HomeScreen
 import me.neko.nzhelper.ui.screens.lock.AppLockManager
 import me.neko.nzhelper.ui.screens.lock.LockScreen
-import me.neko.nzhelper.ui.screens.setting.RecycleBinScreen
 import me.neko.nzhelper.ui.screens.setting.SettingsScreen
 import me.neko.nzhelper.ui.screens.statistics.StatisticsScreen
 import me.neko.nzhelper.ui.util.UpdateChecker
@@ -196,11 +193,8 @@ fun MainScreen() {
             ) {
                 composable(BottomNavItem.Home.route) { HomeScreen() }
                 composable(BottomNavItem.History.route) { HistoryScreen() }
-                composable(BottomNavItem.Settings.route) { SettingsScreen(navController) }
+                composable(BottomNavItem.Settings.route) { SettingsScreen() }
                 composable(BottomNavItem.Statistics.route) { StatisticsScreen() }
-                composable("about") { AboutScreen(navController) }
-                composable("open_source") { OpenSourceScreen(navController) }
-                composable("recycle_bin") { RecycleBinScreen(navController = navController) }
             }
         }
 
