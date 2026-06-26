@@ -78,6 +78,7 @@ import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -1405,10 +1406,11 @@ private fun buildTotalStatStatus(sessions: List<Session>): String {
     if (sessions.isEmpty()) return ""
     if (sessions.size < 2) return "刚开始记录，保持适度"
 
-    val firstDate = sessions.first().timestamp.toLocalDate()
-    val lastDate = sessions.last().timestamp.toLocalDate()
+    val dates = sessions.map { it.timestamp.toLocalDate() }
+    val earliest = dates.min()
+    val latest = dates.max()
 
-    val daysSpan = java.time.temporal.ChronoUnit.DAYS.between(firstDate, lastDate).coerceAtLeast(1)
+    val daysSpan = ChronoUnit.DAYS.between(earliest, latest).coerceAtLeast(1)
 
     val frequency = sessions.size.toDouble() / daysSpan
 

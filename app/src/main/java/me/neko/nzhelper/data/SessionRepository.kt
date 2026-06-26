@@ -159,7 +159,7 @@ object SessionRepository {
         if (json.isNullOrEmpty()) {
             emptyList()
         } else {
-            parseSessionsJson(context, json)
+            parseSessionsJson(context, json).sortedByDescending { it.timestamp }
         }
     }
 
