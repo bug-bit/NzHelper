@@ -38,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -87,7 +86,6 @@ fun StorageLocationDialog(
                     Column {
                         Text(
                             "应用内部存储",
-                            fontWeight = FontWeight.Medium,
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Text(
@@ -120,7 +118,6 @@ fun StorageLocationDialog(
                     Column {
                         Text(
                             "外部存储目录",
-                            fontWeight = FontWeight.Medium,
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Text(
@@ -189,7 +186,7 @@ fun StorageLocationDialog(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                Text("确定", fontWeight = FontWeight.Bold)
+                Text("确定")
             }
         },
         dismissButton = {

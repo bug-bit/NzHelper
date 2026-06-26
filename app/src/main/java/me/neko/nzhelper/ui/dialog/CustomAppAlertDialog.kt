@@ -13,7 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -70,8 +69,7 @@ fun CustomAppAlertDialog(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = confirmText,
-                    fontWeight = FontWeight.Bold
+                    text = confirmText
                 )
             }
         },
@@ -82,8 +80,7 @@ fun CustomAppAlertDialog(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    text = dismissText,
-                    fontWeight = FontWeight.Bold
+                    text = dismissText
                 )
             }
         },

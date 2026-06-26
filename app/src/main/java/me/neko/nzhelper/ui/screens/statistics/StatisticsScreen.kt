@@ -880,7 +880,6 @@ private fun PeriodStatCard(
         Text(
             text = count.toString(),
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSecondaryContainer
         )
         Text(
@@ -1372,7 +1371,6 @@ private fun BarItem(
                 Text(
                     text = value.toInt().toString(),
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
                     color = if (showInside) Color.White else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)

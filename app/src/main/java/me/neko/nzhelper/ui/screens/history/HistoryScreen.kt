@@ -321,6 +321,7 @@ private fun SessionHistoryItem(
                 Text(
                     formatTime(session.duration),
                     style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Normal
                 )
                 if (session.remark.isNotBlank()) {
                     Spacer(Modifier.width(6.dp))
@@ -419,7 +420,7 @@ private fun SessionDetailDialog(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(16.dp)
-                    ) { Text("关闭", fontWeight = FontWeight.Bold) }
+                    ) { Text("关闭") }
 
                     Button(
                         onClick = onEditClick,
@@ -432,7 +433,7 @@ private fun SessionDetailDialog(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("编辑", fontWeight = FontWeight.Bold)
+                        Text("编辑")
                     }
                 }
             }
@@ -458,7 +459,6 @@ private fun DetailRow(label: String, value: String, showDivider: Boolean) {
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
@@ -494,7 +494,7 @@ fun ConfirmDialog(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) { Text(confirmText, fontWeight = FontWeight.Bold) }
+            ) { Text(confirmText) }
         },
         dismissButton = {
             OutlinedButton(

@@ -425,7 +425,7 @@ private fun ConfirmStopDialog(
                 onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
-            ) { Text("结束记录", fontWeight = FontWeight.Bold) }
+            ) { Text("结束记录") }
         },
         dismissButton = {
             OutlinedButton(
@@ -472,7 +472,7 @@ private fun ConfirmResetDialog(
                     containerColor = MaterialTheme.colorScheme.tertiary,
                     contentColor = MaterialTheme.colorScheme.onTertiary
                 )
-            ) { Text("确认重置", fontWeight = FontWeight.Bold) }
+            ) { Text("确认重置") }
         },
         dismissButton = {
             OutlinedButton(
@@ -563,8 +563,7 @@ private fun TimerCard(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (isRunning) "暂停" else "开始",
-                        fontWeight = FontWeight.Bold
+                        text = if (isRunning) "暂停" else "开始"
                     )
                 }
 
@@ -624,8 +623,7 @@ private fun SessionItem(session: Session) {
                     text = "${session.timestamp.monthValue}月${session.timestamp.dayOfMonth}日 ${
                         session.timestamp.hour
                     }:${String.format("%02d", session.timestamp.minute)}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.bodyLarge
                 )
                 if (session.remark.isNotEmpty()) {
                     Text(
@@ -644,7 +642,6 @@ private fun SessionItem(session: Session) {
                 text = formatTime(session.duration),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.width(8.dp))
             Icon(
