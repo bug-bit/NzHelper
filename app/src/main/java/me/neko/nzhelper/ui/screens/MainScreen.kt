@@ -37,7 +37,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.ui.BottomNavItem
@@ -78,7 +78,6 @@ fun BottomNavigationBar(
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
 
     // ── 应用锁状态 ──
     var isLocked by remember {
@@ -86,7 +85,7 @@ fun MainScreen() {
     }
     var wentToBackground by remember { mutableStateOf(false) }
 
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(Unit) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_STOP -> {
@@ -96,7 +95,7 @@ fun MainScreen() {
                     }
                 }
 
-                Lifecycle.Event.ON_RESUME -> {
+                Lifecycle.Event.ON_START -> {
                     if (wentToBackground &&
                         AppLockManager.isLockEnabled(context) &&
                         !AppLockManager.isAuthenticated
@@ -109,9 +108,12 @@ fun MainScreen() {
                 else -> {}
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
+
+        val processLifecycleOwner = ProcessLifecycleOwner.get()
+        processLifecycleOwner.lifecycle.addObserver(observer)
+
         onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+            processLifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
