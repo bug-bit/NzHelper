@@ -44,8 +44,9 @@ import me.neko.nzhelper.ui.BottomNavItem
 import me.neko.nzhelper.ui.components.CustomAppAlertDialog
 import me.neko.nzhelper.ui.screens.history.HistoryScreen
 import me.neko.nzhelper.ui.screens.home.HomeScreen
-import me.neko.nzhelper.ui.screens.lock.AppLockManager
 import me.neko.nzhelper.ui.screens.lock.LockScreen
+import me.neko.nzhelper.ui.screens.lock.util.AppLockManager
+import me.neko.nzhelper.ui.screens.lock.util.GestureLockManager
 import me.neko.nzhelper.ui.screens.setting.SettingsScreen
 import me.neko.nzhelper.ui.screens.statistics.StatisticsScreen
 import me.neko.nzhelper.ui.util.UpdateChecker
@@ -81,7 +82,9 @@ fun MainScreen() {
 
     // ── 应用锁状态 ──
     var isLocked by remember {
-        mutableStateOf(AppLockManager.isLockEnabled(context))
+        mutableStateOf(
+            AppLockManager.isLockEnabled(context) || GestureLockManager.hasGesturePassword(context)
+        )
     }
     var wentToBackground by remember { mutableStateOf(false) }
 
@@ -90,14 +93,19 @@ fun MainScreen() {
             when (event) {
                 Lifecycle.Event.ON_STOP -> {
                     wentToBackground = true
-                    if (AppLockManager.isLockEnabled(context)) {
+                    if (AppLockManager.isLockEnabled(context) || GestureLockManager.hasGesturePassword(
+                            context
+                        )
+                    ) {
                         AppLockManager.resetAuthentication()
                     }
                 }
 
                 Lifecycle.Event.ON_START -> {
                     if (wentToBackground &&
-                        AppLockManager.isLockEnabled(context) &&
+                        (AppLockManager.isLockEnabled(context) || GestureLockManager.hasGesturePassword(
+                            context
+                        )) &&
                         !AppLockManager.isAuthenticated
                     ) {
                         isLocked = true

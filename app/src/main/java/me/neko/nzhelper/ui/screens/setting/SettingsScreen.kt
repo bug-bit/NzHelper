@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Mood
@@ -75,9 +76,11 @@ import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.data.Session
 import me.neko.nzhelper.data.SessionRepository
 import me.neko.nzhelper.ui.activity.AboutActivity
+import me.neko.nzhelper.ui.activity.GestureLockSetupActivity
 import me.neko.nzhelper.ui.activity.RecycleBinActivity
 import me.neko.nzhelper.ui.components.ConfirmDialog
-import me.neko.nzhelper.ui.screens.lock.AppLockManager
+import me.neko.nzhelper.ui.screens.lock.util.AppLockManager
+import me.neko.nzhelper.ui.screens.lock.util.GestureLockManager
 import me.neko.nzhelper.ui.screens.setting.components.CategoryManageDialog
 import me.neko.nzhelper.ui.screens.setting.components.CategorySettings
 import me.neko.nzhelper.ui.screens.setting.components.RecycleBinSettings
@@ -113,6 +116,13 @@ fun SettingsScreen() {
     var autoCleanEnabled by remember { mutableStateOf(RecycleBinSettings.isAutoCleanEnabled(context)) }
 
     var lockEnabled by remember { mutableStateOf(AppLockManager.isLockEnabled(context)) }
+    var hasGesturePassword by remember {
+        mutableStateOf(
+            GestureLockManager.hasGesturePassword(
+                context
+            )
+        )
+    }
 
     var autoStartEnabled by remember {
         mutableStateOf(
@@ -159,6 +169,7 @@ fun SettingsScreen() {
                     sessions.addAll(loaded)
                     recycleBinCount = SessionRepository.loadRecycleBin(context).size
                 }
+                hasGesturePassword = GestureLockManager.hasGesturePassword(context)
                 pendingStorageSwitch?.let { (mode, path) ->
                     if (StorageSettings.hasExternalStoragePermission(context)) {
                         scope.launch {
@@ -382,6 +393,57 @@ fun SettingsScreen() {
                         }
                     )
                     SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Outlined.Gesture,
+                        title = "手势密码",
+                        subtitle = if (hasGesturePassword) "已开启，点击可设置" else "关闭，点击开启并设置",
+                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        onClick = {
+                            if (!hasGesturePassword) {
+                                context.startActivity(
+                                    Intent(
+                                        context,
+                                        GestureLockSetupActivity::class.java
+                                    )
+                                )
+                            } else {
+                                context.startActivity(
+                                    Intent(
+                                        context,
+                                        GestureLockSetupActivity::class.java
+                                    )
+                                )
+                            }
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = hasGesturePassword,
+                                onCheckedChange = { targetState ->
+                                    if (targetState) {
+                                        context.startActivity(
+                                            Intent(
+                                                context,
+                                                GestureLockSetupActivity::class.java
+                                            )
+                                        )
+                                    } else {
+                                        GestureLockManager.clearGesturePassword(context)
+                                        hasGesturePassword = false
+                                        Toast.makeText(
+                                            context,
+                                            "已关闭并清除手势密码",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+            item {
+                SettingsCard {
                     SettingsItem(
                         icon = Icons.Outlined.Timer,
                         title = "自动计时",

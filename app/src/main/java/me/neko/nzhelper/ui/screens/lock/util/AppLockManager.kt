@@ -1,4 +1,4 @@
-package me.neko.nzhelper.ui.screens.lock
+package me.neko.nzhelper.ui.screens.lock.util
 
 import android.content.Context
 import androidx.biometric.BiometricManager
@@ -82,5 +82,10 @@ object AppLockManager {
             .build()
 
         biometricPrompt.authenticate(promptInfo)
+    }
+
+    /** 暴露设置认证状态的方法，供手势解锁调用 */
+    fun setAuthenticated(authenticated: Boolean) {
+        isAuthenticated = authenticated
     }
 }

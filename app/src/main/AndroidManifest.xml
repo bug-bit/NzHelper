@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
@@ -46,6 +47,9 @@
             android:exported="false" />
         <activity
             android:name=".ui.activity.RecycleBinActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.activity.GestureLockSetupActivity"
             android:exported="false" />
 
         <service
