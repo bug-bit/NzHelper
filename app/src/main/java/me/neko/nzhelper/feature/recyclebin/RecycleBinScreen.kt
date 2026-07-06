@@ -57,7 +57,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.model.RecycleBinItem
-import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.core.datastore.RecycleBinSettings
 import java.time.format.DateTimeFormatter
@@ -81,8 +81,8 @@ fun RecycleBinScreen(
     var showDeleteItemDialog by remember { mutableStateOf<RecycleBinItem?>(null) }
 
     LaunchedEffect(Unit) {
-        SessionRepository.cleanExpiredRecycleBinItems(context)
-        val loaded = SessionRepository.loadRecycleBin(context)
+        RecycleRepository.cleanExpiredRecycleBinItems(context)
+        val loaded = RecycleRepository.loadRecycleBin(context)
         recycleBinItems.clear()
         recycleBinItems.addAll(loaded)
     }
@@ -101,7 +101,7 @@ fun RecycleBinScreen(
                     if (recycleBinItems.isNotEmpty()) {
                         TextButton(onClick = {
                             scope.launch {
-                                SessionRepository.restoreFromRecycleBin(
+                                RecycleRepository.restoreFromRecycleBin(
                                     context,
                                     recycleBinItems.toList()
                                 )
@@ -169,7 +169,7 @@ fun RecycleBinScreen(
                         autoCleanEnabled = autoCleanEnabled,
                         onRestore = {
                             scope.launch {
-                                SessionRepository.restoreFromRecycleBin(context, listOf(item))
+                                RecycleRepository.restoreFromRecycleBin(context, listOf(item))
                                 recycleBinItems.remove(item)
                                 Toast.makeText(context, "已恢复", Toast.LENGTH_SHORT).show()
                             }
@@ -187,7 +187,7 @@ fun RecycleBinScreen(
             message = "此操作不可撤销，确定要永久删除回收站中的所有记录吗？",
             confirmText = "永久删除",
             onConfirm = {
-                scope.launch { SessionRepository.clearRecycleBin(context); recycleBinItems.clear() }
+                scope.launch { RecycleRepository.clearRecycleBin(context); recycleBinItems.clear() }
                 showEmptyDialog = false
             },
             onDismiss = { showEmptyDialog = false }
@@ -201,7 +201,7 @@ fun RecycleBinScreen(
             confirmText = "永久删除",
             onConfirm = {
                 scope.launch {
-                    SessionRepository.deleteFromRecycleBin(context, listOf(item))
+                    RecycleRepository.deleteFromRecycleBin(context, listOf(item))
                     recycleBinItems.remove(item)
                     Toast.makeText(context, "已永久删除", Toast.LENGTH_SHORT).show()
                 }

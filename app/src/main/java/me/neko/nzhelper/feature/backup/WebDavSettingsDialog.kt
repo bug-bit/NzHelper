@@ -34,7 +34,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.database.BackupRepository
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.core.webdav.WebDavSettings
 
@@ -162,7 +162,7 @@ fun WebDavSettingsDialog(
                         testing = true
                         testResult = null
                         scope.launch {
-                            val r = SessionRepository.testWebDavConnection(url, username, password)
+                            val r = BackupRepository.testWebDavConnection(url, username, password)
                             testing = false
                             testResult = r
                         }

@@ -7,7 +7,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.database.RecycleRepository
 
 class RecycleBinWorker(
     context: Context,
@@ -16,7 +16,7 @@ class RecycleBinWorker(
 
     override suspend fun doWork(): Result {
         return try {
-            SessionRepository.cleanExpiredRecycleBinItems(applicationContext)
+            RecycleRepository.cleanExpiredRecycleBinItems(applicationContext)
             Result.success()
         } catch (_: Exception) {
             Result.failure()

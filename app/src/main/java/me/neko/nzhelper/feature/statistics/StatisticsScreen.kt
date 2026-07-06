@@ -35,7 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.model.Session
-import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.ui.component.chart.DonutChartCard
 import me.neko.nzhelper.feature.statistics.components.EmptyStateView
 import me.neko.nzhelper.ui.component.chart.HeatMapCard
@@ -46,11 +46,6 @@ import me.neko.nzhelper.feature.statistics.components.TotalStatCard
 import me.neko.nzhelper.ui.component.chart.TrendChartCard
 import me.neko.nzhelper.feature.statistics.model.PeriodOverview
 import me.neko.nzhelper.feature.statistics.model.PeriodType
-import me.neko.nzhelper.feature.statistics.model.TotalStats
-import me.neko.nzhelper.feature.statistics.util.calculateLatestInfo
-import me.neko.nzhelper.feature.statistics.util.calculatePeriodData
-import me.neko.nzhelper.feature.statistics.util.calculatePeriodOverview
-import me.neko.nzhelper.feature.statistics.util.isWithinPeriod
 import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -61,7 +56,7 @@ fun StatisticsScreen(isActive: Boolean = false) {
 
     LaunchedEffect(isActive) {
         if (isActive) {
-            val loaded = SessionRepository.loadSessions(context)
+            val loaded = StatisticsRepository.loadSessions(context)
             sessions.clear()
             sessions.addAll(loaded)
         }
@@ -70,45 +65,27 @@ fun StatisticsScreen(isActive: Boolean = false) {
     val currentTime = LocalDateTime.now()
 
     val weekData by remember(sessions, currentTime) {
-        derivedStateOf { calculatePeriodData(sessions, currentTime, PeriodType.WEEK) }
+        derivedStateOf {
+            StatisticsRepository.calculatePeriodData(sessions, currentTime, PeriodType.WEEK)
+        }
     }
     val monthData by remember(sessions, currentTime) {
-        derivedStateOf { calculatePeriodData(sessions, currentTime, PeriodType.MONTH) }
+        derivedStateOf {
+            StatisticsRepository.calculatePeriodData(sessions, currentTime, PeriodType.MONTH)
+        }
     }
     val yearData by remember(sessions, currentTime) {
-        derivedStateOf { calculatePeriodData(sessions, currentTime, PeriodType.YEAR) }
-    }
-
-    val totalStats by remember(sessions) {
         derivedStateOf {
-            if (sessions.isEmpty()) {
-                TotalStats(0, 0, 0f, 0, 0, 0)
-            } else {
-                val totalCount = sessions.size
-                val totalSeconds = sessions.sumOf { it.duration }
-                val avgMinutes =
-                    if (totalCount > 0) totalSeconds.toFloat() / (60 * totalCount) else 0f
-
-                TotalStats(
-                    totalCount = totalCount,
-                    totalSeconds = totalSeconds,
-                    avgMinutes = avgMinutes,
-                    weekCount = sessions.count {
-                        isWithinPeriod(it.timestamp, currentTime, PeriodType.WEEK)
-                    },
-                    monthCount = sessions.count {
-                        isWithinPeriod(it.timestamp, currentTime, PeriodType.MONTH)
-                    },
-                    yearCount = sessions.count {
-                        isWithinPeriod(it.timestamp, currentTime, PeriodType.YEAR)
-                    }
-                )
-            }
+            StatisticsRepository.calculatePeriodData(sessions, currentTime, PeriodType.YEAR)
         }
     }
 
+    val totalStats by remember(sessions, currentTime) {
+        derivedStateOf { StatisticsRepository.calculateTotalStats(sessions, currentTime) }
+    }
+
     val latestInfo by remember(sessions) {
-        derivedStateOf { calculateLatestInfo(sessions) }
+        derivedStateOf { StatisticsRepository.calculateLatestInfo(sessions) }
     }
 
     var selectedOverview by remember { mutableStateOf<PeriodOverview?>(null) }
@@ -154,7 +131,7 @@ fun StatisticsScreen(isActive: Boolean = false) {
                             stats = totalStats,
                             sessions = sessions,
                             onPeriodClick = { type, label ->
-                                selectedOverview = calculatePeriodOverview(
+                                selectedOverview = StatisticsRepository.calculatePeriodOverview(
                                     sessions, currentTime, type, label
                                 )
                             },

@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionFormState
 import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.ui.component.dialog.DetailsDialog
 import me.neko.nzhelper.feature.history.components.HistoryEmptyState
@@ -193,7 +194,7 @@ fun HistoryScreen(isActive: Boolean = false) {
                 val session = sessionToDelete!!
                 sessions.remove(session)
                 scope.launch {
-                    SessionRepository.moveSessionsToRecycleBin(context, listOf(session))
+                    RecycleRepository.moveSessionsToRecycleBin(context, listOf(session))
                     Toast.makeText(context, "已移入回收站", Toast.LENGTH_SHORT).show()
                 }
                 showDeleteConfirmDialog = false

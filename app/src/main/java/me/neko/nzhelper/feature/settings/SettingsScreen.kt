@@ -75,6 +75,8 @@ import kotlinx.coroutines.launch
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.database.RecycleRepository
+import me.neko.nzhelper.core.database.BackupRepository
 import me.neko.nzhelper.feature.about.AboutActivity
 import me.neko.nzhelper.feature.lock.GestureLockSetupActivity
 import me.neko.nzhelper.feature.recyclebin.RecycleBinActivity
@@ -140,7 +142,7 @@ fun SettingsScreen() {
         pendingStorageSwitch?.let { (mode, path) ->
             if (granted) {
                 scope.launch {
-                    val success = SessionRepository.switchStorageMode(context, mode, path)
+                    val success = BackupRepository.switchStorageMode(context, mode, path)
                     if (success) {
                         storageMode = mode
                         val loaded = SessionRepository.loadSessions(context)
@@ -167,19 +169,19 @@ fun SettingsScreen() {
                     val loaded = SessionRepository.loadSessions(context)
                     sessions.clear()
                     sessions.addAll(loaded)
-                    recycleBinCount = SessionRepository.loadRecycleBin(context).size
+                    recycleBinCount = RecycleRepository.loadRecycleBin(context).size
                 }
                 hasGesturePassword = GestureLockManager.hasGesturePassword(context)
                 pendingStorageSwitch?.let { (mode, path) ->
                     if (StorageSettings.hasExternalStoragePermission(context)) {
                         scope.launch {
-                            val success = SessionRepository.switchStorageMode(context, mode, path)
+                            val success = BackupRepository.switchStorageMode(context, mode, path)
                             if (success) {
                                 storageMode = mode
                                 val loaded = SessionRepository.loadSessions(context)
                                 sessions.clear()
                                 sessions.addAll(loaded)
-                                recycleBinCount = SessionRepository.loadRecycleBin(context).size
+                                recycleBinCount = RecycleRepository.loadRecycleBin(context).size
                                 Toast.makeText(
                                     context,
                                     "存储位置已切换，记录已合并去重",
@@ -206,7 +208,7 @@ fun SettingsScreen() {
         val loaded = SessionRepository.loadSessions(context)
         sessions.clear()
         sessions.addAll(loaded)
-        recycleBinCount = SessionRepository.loadRecycleBin(context).size
+        recycleBinCount = RecycleRepository.loadRecycleBin(context).size
     }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -274,7 +276,7 @@ fun SettingsScreen() {
             }
         } else {
             scope.launch {
-                val success = SessionRepository.switchStorageMode(context, mode, path)
+                val success = BackupRepository.switchStorageMode(context, mode, path)
                 if (success) {
                     storageMode = mode
                     val loaded = SessionRepository.loadSessions(context)
@@ -606,7 +608,7 @@ fun SettingsScreen() {
                             if (webDavConfigured && !webDavBackingUp) {
                                 webDavBackingUp = true
                                 scope.launch {
-                                    val (_, msg) = SessionRepository.backupToWebDav(context)
+                                    val (_, msg) = BackupRepository.backupToWebDav(context)
                                     webDavBackingUp = false
                                     webDavLastBackup = WebDavSettings.getLastBackupTime(context)
                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
@@ -636,14 +638,14 @@ fun SettingsScreen() {
                             if (webDavConfigured && !webDavRestoring) {
                                 webDavRestoring = true
                                 scope.launch {
-                                    val (ok, msg) = SessionRepository.restoreFromWebDav(context)
+                                    val (ok, msg) = BackupRepository.restoreFromWebDav(context)
                                     webDavRestoring = false
                                     if (ok) {
                                         val loaded = SessionRepository.loadSessions(context)
                                         sessions.clear()
                                         sessions.addAll(loaded)
                                         recycleBinCount =
-                                            SessionRepository.loadRecycleBin(context).size
+                                            RecycleRepository.loadRecycleBin(context).size
                                     }
                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                 }
@@ -688,9 +690,9 @@ fun SettingsScreen() {
             confirmText = "移入回收站",
             onConfirm = {
                 scope.launch {
-                    SessionRepository.moveAllToRecycleBin(context)
+                    RecycleRepository.moveAllToRecycleBin(context)
                     sessions.clear()
-                    recycleBinCount = SessionRepository.loadRecycleBin(context).size
+                    recycleBinCount = RecycleRepository.loadRecycleBin(context).size
                 }
                 showClearDialog = false
             },
