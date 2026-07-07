@@ -5,14 +5,20 @@ import android.content.Context
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.feature.statistics.model.ActivityTimeData
 import me.neko.nzhelper.feature.statistics.model.HeatmapData
 import me.neko.nzhelper.feature.statistics.model.HeatmapDay
 import me.neko.nzhelper.feature.statistics.model.HeatmapWeek
 import me.neko.nzhelper.feature.statistics.model.LatestSessionInfo
+import me.neko.nzhelper.feature.statistics.model.MonthlyTrendData
+import me.neko.nzhelper.feature.statistics.model.MonthlyTrendItem
 import me.neko.nzhelper.feature.statistics.model.PeriodData
 import me.neko.nzhelper.feature.statistics.model.PeriodOverview
 import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.model.TagStat
+import me.neko.nzhelper.feature.statistics.model.TagTrendData
+import me.neko.nzhelper.feature.statistics.model.TagTrendDirection
+import me.neko.nzhelper.feature.statistics.model.TagTrendItem
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -536,4 +542,175 @@ fun buildTotalStatStatus(
         recentCount in 1..moderateMax -> "最近一周 $recentCount 次，对 ${ageGroup.range} 岁来说频率适度，继续保持 👍"
         else -> "最近一周很克制，精力充沛，值得表扬 👍"
     }
+}
+
+fun calculateActivityTimeData(
+    sessions: List<Session>,
+    now: LocalDateTime
+): ActivityTimeData {
+    if (sessions.isEmpty()) {
+        return ActivityTimeData(
+            weekdayCounts = List(7) { 0 },
+            weekdayMax = 0,
+            mostActiveWeekdayIndex = -1,
+            hourCounts = List(24) { 0 },
+            hourMax = 0,
+            mostActiveHour = -1
+        )
+    }
+
+    val weekdayCounts = IntArray(7)
+    val hourCounts = IntArray(24)
+
+    for (s in sessions) {
+        val wd = s.timestamp.dayOfWeek.value - 1
+        if (wd in 0..6) weekdayCounts[wd]++
+        val h = s.timestamp.hour
+        if (h in 0..23) hourCounts[h]++
+    }
+
+    val weekdayMax = weekdayCounts.maxOrNull() ?: 0
+    val hourMax = hourCounts.maxOrNull() ?: 0
+
+    var maxWd = -1
+    var maxHr = -1
+    for (i in 0 until 7) {
+        if (weekdayCounts[i] > 0 && (maxWd == -1 || weekdayCounts[i] > weekdayCounts[maxWd])) {
+            maxWd = i
+        }
+    }
+    for (i in 0 until 24) {
+        if (hourCounts[i] > 0 && (maxHr == -1 || hourCounts[i] > hourCounts[maxHr])) {
+            maxHr = i
+        }
+    }
+
+    return ActivityTimeData(
+        weekdayCounts = weekdayCounts.toList(),
+        weekdayMax = weekdayMax,
+        mostActiveWeekdayIndex = maxWd,
+        hourCounts = hourCounts.toList(),
+        hourMax = hourMax,
+        mostActiveHour = maxHr
+    )
+}
+
+fun weekdayLabel(index: Int): String = when (index) {
+    0 -> "周一"
+    1 -> "周二"
+    2 -> "周三"
+    3 -> "周四"
+    4 -> "周五"
+    5 -> "周六"
+    6 -> "周日"
+    else -> "-"
+}
+
+fun calculateMonthlyTrendData(
+    sessions: List<Session>,
+    now: LocalDateTime
+): MonthlyTrendData {
+    val items = mutableListOf<MonthlyTrendItem>()
+    val monthCountMap = HashMap<Int, Int>()
+    for (s in sessions) {
+        val key = s.timestamp.year * 12 + (s.timestamp.monthValue - 1)
+        monthCountMap[key] = (monthCountMap[key] ?: 0) + 1
+    }
+
+    for (i in 13 downTo 0) {
+        val d = now.minusMonths(i.toLong())
+        val key = d.year * 12 + (d.monthValue - 1)
+        val count = monthCountMap[key] ?: 0
+        items += MonthlyTrendItem(
+            label = "${d.monthValue}月",
+            year = d.year,
+            month = d.monthValue,
+            count = count,
+            isCurrent = i == 0
+        )
+    }
+
+    // 预测
+    val dayOfMonth = now.dayOfMonth
+    val daysInMonth = YearMonth.of(now.year, now.monthValue).lengthOfMonth()
+    val elapsedRatio = if (daysInMonth > 0) dayOfMonth.toFloat() / daysInMonth else 0f
+    val currentActual = items.last().count
+    val last3 = items.takeIf { it.size >= 4 }
+        ?.let { it.subList(it.size - 4, it.size - 1) }
+        ?: emptyList()
+    val last3Avg = if (last3.isNotEmpty()) last3.map { it.count }.average().toFloat() else 0f
+
+    val predictedCount = if (elapsedRatio > 0f) {
+        val prorated = currentActual.toFloat() / elapsedRatio
+        (prorated * 0.6f + last3Avg * 0.4f).toInt().coerceAtLeast(currentActual)
+    } else {
+        last3Avg.toInt()
+    }
+
+    return MonthlyTrendData(
+        items = items,
+        predictedCount = predictedCount,
+        currentActual = currentActual,
+        elapsedDays = dayOfMonth,
+        totalDaysInMonth = daysInMonth,
+        last3MonthsAvg = (last3Avg * 10f).toInt() / 10f
+    )
+}
+
+fun calculateTagTrendData(
+    sessions: List<Session>,
+    context: Context,
+    now: LocalDateTime,
+    windowDays: Int = 30
+): TagTrendData {
+    if (sessions.isEmpty()) return TagTrendData(items = emptyList(), windowDays = windowDays)
+
+    val recentCutoff = now.minusDays(windowDays.toLong())
+    val previousCutoff = now.minusDays((windowDays * 2).toLong())
+
+    val recent = HashMap<String, Int>()
+    val previous = HashMap<String, Int>()
+
+    for (s in sessions) {
+        val ts = s.timestamp
+        for (id in s.tagIds) {
+            if (ts >= recentCutoff) {
+                recent[id] = (recent[id] ?: 0) + 1
+            } else if (ts >= previousCutoff) {
+                previous[id] = (previous[id] ?: 0) + 1
+            }
+        }
+    }
+
+    val allIds = (recent.keys + previous.keys)
+    val items = allIds.mapNotNull { id ->
+        val tag = TagSettings.getTag(context, id) ?: return@mapNotNull null
+        val r = recent[id] ?: 0
+        val p = previous[id] ?: 0
+        val (pct, dir) = when (p) {
+            0 if r > 0 -> 100 to TagTrendDirection.UP
+            0 if r == 0 -> 0 to TagTrendDirection.FLAT
+            else -> {
+                val v = ((r - p).toFloat() / p * 100f).toInt()
+                v to when {
+                    v > 0 -> TagTrendDirection.UP
+                    v < 0 -> TagTrendDirection.DOWN
+                    else -> TagTrendDirection.FLAT
+                }
+            }
+        }
+        TagTrendItem(
+            id = tag.id,
+            name = tag.name,
+            color = tag.color,
+            icon = tag.icon,
+            recentCount = r,
+            previousCount = p,
+            changePercent = pct,
+            trend = dir
+        )
+    }.sortedByDescending { it.recentCount }
+        .take(10)
+
+    return TagTrendData(items = items, windowDays = windowDays)
 }

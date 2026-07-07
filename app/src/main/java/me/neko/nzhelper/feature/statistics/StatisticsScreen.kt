@@ -34,20 +34,23 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.database.StatisticsRepository
-import me.neko.nzhelper.ui.component.chart.DonutChartCard
-import me.neko.nzhelper.ui.component.chart.TagBarChartCard
-import me.neko.nzhelper.ui.component.chart.TagComboCard
+import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.statistics.components.EmptyStateView
-import me.neko.nzhelper.ui.component.chart.HeatMapCard
 import me.neko.nzhelper.feature.statistics.components.LatestSessionCard
-import me.neko.nzhelper.ui.component.chart.PeriodChartCard
 import me.neko.nzhelper.feature.statistics.components.PeriodOverviewDialog
 import me.neko.nzhelper.feature.statistics.components.TotalStatCard
-import me.neko.nzhelper.ui.component.chart.TrendChartCard
 import me.neko.nzhelper.feature.statistics.model.PeriodOverview
 import me.neko.nzhelper.feature.statistics.model.PeriodType
+import me.neko.nzhelper.ui.component.chart.ActivityTimeHeatmapCard
+import me.neko.nzhelper.ui.component.chart.DonutChartCard
+import me.neko.nzhelper.ui.component.chart.HeatMapCard
+import me.neko.nzhelper.ui.component.chart.MonthlyTrendCard
+import me.neko.nzhelper.ui.component.chart.PeriodChartCard
+import me.neko.nzhelper.ui.component.chart.TagBarChartCard
+import me.neko.nzhelper.ui.component.chart.TagComboCard
+import me.neko.nzhelper.ui.component.chart.TagTrendCard
+import me.neko.nzhelper.ui.component.chart.TrendChartCard
 import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -163,6 +166,20 @@ fun StatisticsScreen(isActive: Boolean = false) {
                         )
                     }
                     item {
+                        ActivityTimeHeatmapCard(
+                            sessions = sessions,
+                            currentTime = currentTime,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    item {
+                        MonthlyTrendCard(
+                            sessions = sessions,
+                            currentTime = currentTime,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    item {
                         DonutChartCard(
                             sessions = sessions,
                             currentTime = currentTime,
@@ -178,6 +195,13 @@ fun StatisticsScreen(isActive: Boolean = false) {
                     }
                     item {
                         TagComboCard(
+                            sessions = sessions,
+                            currentTime = currentTime,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    item {
+                        TagTrendCard(
                             sessions = sessions,
                             currentTime = currentTime,
                             modifier = Modifier.fillMaxWidth()

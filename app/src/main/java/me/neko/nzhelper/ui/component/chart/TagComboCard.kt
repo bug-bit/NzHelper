@@ -146,7 +146,7 @@ fun TagComboCard(
 private fun ComboRow(tags: List<TagDef>, count: Int) {
     Surface(
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.3f),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(

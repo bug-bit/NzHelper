@@ -74,3 +74,47 @@ data class HeatmapDay(
     val totalDurationSeconds: Int,
     val isFuture: Boolean
 )
+
+data class ActivityTimeData(
+    val weekdayCounts: List<Int>,
+    val weekdayMax: Int,
+    val mostActiveWeekdayIndex: Int,
+    val hourCounts: List<Int>,
+    val hourMax: Int,
+    val mostActiveHour: Int
+)
+
+data class MonthlyTrendItem(
+    val label: String,
+    val year: Int,
+    val month: Int,
+    val count: Int,
+    val isCurrent: Boolean
+)
+
+data class MonthlyTrendData(
+    val items: List<MonthlyTrendItem>,
+    val predictedCount: Int,
+    val currentActual: Int,
+    val elapsedDays: Int,
+    val totalDaysInMonth: Int,
+    val last3MonthsAvg: Float
+)
+
+data class TagTrendItem(
+    val id: String,
+    val name: String,
+    val color: String,
+    val icon: String,
+    val recentCount: Int,
+    val previousCount: Int,
+    val changePercent: Int,
+    val trend: TagTrendDirection
+)
+
+enum class TagTrendDirection { UP, DOWN, FLAT }
+
+data class TagTrendData(
+    val items: List<TagTrendItem>,
+    val windowDays: Int = 30
+)
