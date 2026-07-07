@@ -25,17 +25,19 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Timeline
-import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -69,6 +71,7 @@ import me.neko.nzhelper.feature.home.components.ConfirmResetDialog
 import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
 import me.neko.nzhelper.feature.home.components.TimelineItem
 import me.neko.nzhelper.feature.home.components.TimerCard
+import me.neko.nzhelper.feature.home.components.SinceLastCard
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.service.TimerService
 import java.time.LocalDateTime
@@ -128,6 +131,13 @@ fun HomeScreen(isActive: Boolean = false) {
     var formState by remember { mutableStateOf(SessionFormState()) }
     val sessions = remember { mutableStateListOf<Session>() }
 
+    // 首次进入即加载；切回首页时刷新（isActive 由 pager 当前页驱动）
+    LaunchedEffect(Unit) {
+        val loaded = SessionRepository.loadSessions(context)
+            .sortedByDescending { it.timestamp }
+        sessions.clear()
+        sessions.addAll(loaded)
+    }
     LaunchedEffect(isActive) {
         if (isActive) {
             val loaded = SessionRepository.loadSessions(context)
@@ -136,6 +146,30 @@ fun HomeScreen(isActive: Boolean = false) {
             sessions.addAll(loaded)
         }
     }
+
+    // ── 距上次记录：读最近一条 Session 与当前时间比较 ──
+    // sessions 已按 timestamp 倒序，第一条即最近一次。
+    // nowTick 每分钟刷新一次，保证停留页面期间"距上次"持续准确。
+    // key 用 sessions.size + nowTick：size 变化（加载/新增/删除）或每分钟 tick 都重算。
+    var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(60_000L)
+            nowTick = System.currentTimeMillis()
+        }
+    }
+    val sinceLastText = remember(sessions.size, nowTick) {
+        val latest = sessions.firstOrNull()?.timestamp ?: return@remember "还没有记录哦"
+        val mins = java.time.Duration.between(latest, LocalDateTime.now()).toMinutes()
+        when {
+            mins < 1 -> "刚刚"
+            mins < 60 -> "${mins}分钟前"
+            mins < 1440 -> "${mins / 60}小时前"
+            mins < 10080 -> "${mins / 1440}天前"
+            else -> "${mins / 10080}周前"
+        }
+    }
+    val hasRecord = sessions.isNotEmpty()
 
     Scaffold(
         topBar = {
@@ -195,30 +229,43 @@ fun HomeScreen(isActive: Boolean = false) {
                     )
                 }
 
+                // 距上次记录
                 item {
-                    OutlinedButton(
+                    SinceLastCard(
+                        sinceLastText = sinceLastText,
+                        hasRecord = hasRecord
+                    )
+                }
+
+                // 手动添加记录
+                item {
+                    FilledTonalButton(
                         onClick = {
-                            val now = LocalDateTime.now()
+                            val nowTime = LocalDateTime.now()
                             formState = SessionFormState(
                                 categoryId = TagSettings.defaultCategory(context).id,
-                                manualYear = now.year,
-                                manualMonth = now.monthValue,
-                                manualDay = now.dayOfMonth,
-                                manualHour = now.hour,
-                                manualMinute = now.minute
+                                manualYear = nowTime.year,
+                                manualMonth = nowTime.monthValue,
+                                manualDay = nowTime.dayOfMonth,
+                                manualHour = nowTime.hour,
+                                manualMinute = nowTime.minute
                             )
                             showManualAddDialog = true
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.large
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = MaterialTheme.shapes.large,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
                     ) {
                         Icon(
-                            Icons.Rounded.Add,
+                            Icons.Outlined.AddCircle,
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("手动添加记录")
+                        Text("手动添加记录", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
                     }
                 }
 
@@ -260,14 +307,14 @@ fun HomeScreen(isActive: Boolean = false) {
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "最近 ${recentSessions.size} 次记录",
+                                            text = "共 ${sessions.size} 次记录",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
 
-                                Spacer(Modifier.height(20.dp))
+                                Spacer(Modifier.height(16.dp))
 
                                 recentSessions.forEachIndexed { index, session ->
                                     TimelineItem(
@@ -279,36 +326,7 @@ fun HomeScreen(isActive: Boolean = false) {
                         }
                     }
                 } else {
-                    item {
-                        Card(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest.copy(
-                                    alpha = 0.5f
-                                )
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "(。・ω・。)",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                                Text(
-                                    text = "暂无记录，开始第一次记录吧",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
-                    }
+                    item { EmptyStateCard() }
                 }
             }
         }
@@ -344,9 +362,9 @@ fun HomeScreen(isActive: Boolean = false) {
         formState = formState,
         onFormStateChange = { formState = it },
         onConfirm = {
-            val now = LocalDateTime.now()
+            val nowTime = LocalDateTime.now()
             val session = Session(
-                timestamp = now,
+                timestamp = nowTime,
                 duration = elapsedSeconds,
                 remark = formState.remark,
                 rating = formState.rating,
@@ -403,6 +421,50 @@ fun HomeScreen(isActive: Boolean = false) {
         },
         onDismiss = { showManualAddDialog = false }
     )
+}
+
+@Composable
+private fun EmptyStateCard() {
+    Card(
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.5f)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "(。・ω・。)",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+            }
+            Text(
+                text = "暂无记录",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+            Text(
+                text = "点击上方「开始」计时，或手动添加第一条记录",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
