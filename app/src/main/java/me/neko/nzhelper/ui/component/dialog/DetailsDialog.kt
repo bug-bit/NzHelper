@@ -3,17 +3,23 @@ package me.neko.nzhelper.ui.component.dialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -23,6 +29,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -41,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -59,10 +67,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import kotlin.math.roundToInt
 
-/**
- * 详情填写弹窗
- */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DetailsDialog(
     show: Boolean,
@@ -86,121 +91,142 @@ fun DetailsDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 6.dp,
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .verticalScroll(rememberScrollState())
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                tonalElevation = 6.dp
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-
-                // 手动添加时显示时长 / 日期时间输入
-                if (showDurationField) {
-                    DurationInputSection(
-                        formState = formState,
-                        onFormStateChange = onFormStateChange
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 12.dp, bottom = 4.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .width(36.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                    )
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp),
+                        textAlign = TextAlign.Center
                     )
 
-                    DateTimeInputSection(
-                        formState = formState,
-                        onFormStateChange = onFormStateChange
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-                }
-
-                // 分类（单选）
-                CategorySection(
-                    categories = categories,
-                    selectedId = effectiveCategoryId,
-                    onSelect = { onFormStateChange(formState.copy(categoryId = it)) }
-                )
-
-                // 标签（多选）
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text(
-                            "标签",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            "已选 ${formState.tagIds.size}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    TagPicker(
-                        groups = groupedTags,
-                        selectedIds = formState.tagIds,
-                        onToggle = { id ->
-                            val newSet = formState.tagIds.toMutableSet()
-                            if (!newSet.add(id)) newSet.remove(id)
-                            onFormStateChange(formState.copy(tagIds = newSet))
+                        if (showDurationField) {
+                            DurationInputSection(
+                                formState = formState,
+                                onFormStateChange = onFormStateChange
+                            )
+                            DateTimeInputSection(
+                                formState = formState,
+                                onFormStateChange = onFormStateChange
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
                         }
-                    )
-                }
 
-                // 评分
-                RatingSection(
-                    rating = formState.rating,
-                    onRatingChange = { onFormStateChange(formState.copy(rating = it)) }
-                )
+                        // 分类（单选）
+                        CategorySection(
+                            categories = categories,
+                            selectedId = effectiveCategoryId,
+                            onSelect = { onFormStateChange(formState.copy(categoryId = it)) }
+                        )
 
-                // 高潮
-                ClimaxSection(
-                    climax = formState.climax,
-                    onClimaxChange = { onFormStateChange(formState.copy(climax = it)) }
-                )
+                        // 标签（多选）
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "标签",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "已选 ${formState.tagIds.size}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            TagPicker(
+                                groups = groupedTags,
+                                selectedIds = formState.tagIds,
+                                onToggle = { id ->
+                                    val newSet = formState.tagIds.toMutableSet()
+                                    if (!newSet.add(id)) newSet.remove(id)
+                                    onFormStateChange(formState.copy(tagIds = newSet))
+                                }
+                            )
+                        }
 
-                // 备注
-                InputSection(title = "备注") {
-                    OutlinedTextField(
-                        value = formState.remark,
-                        onValueChange = { onFormStateChange(formState.copy(remark = it)) },
-                        placeholder = { Text("有什么想说的...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        maxLines = Int.MAX_VALUE
-                    )
-                }
+                        // 评分
+                        RatingSection(
+                            rating = formState.rating,
+                            onRatingChange = { onFormStateChange(formState.copy(rating = it)) }
+                        )
 
-                // 按钮组
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = MaterialTheme.shapes.large
-                    ) {
-                        Text("取消")
+                        // 高潮
+                        ClimaxSection(
+                            climax = formState.climax,
+                            onClimaxChange = { onFormStateChange(formState.copy(climax = it)) }
+                        )
+
+                        // 备注
+                        InputSection(title = "备注") {
+                            OutlinedTextField(
+                                value = formState.remark,
+                                onValueChange = { onFormStateChange(formState.copy(remark = it)) },
+                                placeholder = { Text("说点什么吧...") },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = Int.MAX_VALUE
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
                     }
-                    Button(
-                        onClick = onConfirm,
-                        modifier = Modifier.weight(1f),
-                        shape = MaterialTheme.shapes.large
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("保存记录")
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.large
+                        ) {
+                            Text("取消")
+                        }
+                        Button(
+                            onClick = onConfirm,
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.large
+                        ) {
+                            Text("保存记录")
+                        }
                     }
                 }
             }
