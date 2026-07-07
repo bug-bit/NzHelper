@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -21,11 +24,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.model.TotalStats
@@ -39,7 +48,14 @@ fun TotalStatCard(
     onPeriodClick: (PeriodType, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val statusText = buildTotalStatStatus(sessions)
+    val context = LocalContext.current
+    val ageGroup = remember(context) {
+        AgeGroupSettings.getAgeGroup(context)
+    }
+    val age = remember(context) {
+        AgeGroupSettings.getAge(context)
+    }
+    val statusText = buildTotalStatStatus(sessions, ageGroup, age)
 
     Card(
         modifier = modifier,
@@ -56,7 +72,7 @@ fun TotalStatCard(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(MaterialTheme.shapes.medium)
+                        .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
@@ -84,44 +100,90 @@ fun TotalStatCard(
 
             Spacer(Modifier.height(20.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = formatDuration(stats.totalSeconds),
-                    style = MaterialTheme.typography.displaySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    text = "共 ${stats.totalCount} 次",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
                 )
-                val avgText =
-                    if (stats.totalCount > 0) "%.1f 分钟".format(stats.avgMinutes) else "0 分钟"
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp)
+                        .size(3.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+                val avgText = if (stats.totalCount > 0)
+                    "平均 %.1f 分钟/次".format(stats.avgMinutes) else "暂无平均"
                 Text(
-                    text = "平均每次 $avgText · 共 ${stats.totalCount} 次",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = avgText,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
                 )
             }
 
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = formatDuration(stats.totalSeconds),
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontFeatureSettings = "tnum"
+                ),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             if (statusText.isNotEmpty()) {
+                val isWarning = statusText.contains("透支") || statusText.contains("偏多") ||
+                        statusText.contains("扛不住") || statusText.contains("辞职") ||
+                        statusText.contains("挑战") || statusText.contains("歇歇") ||
+                        statusText.contains("认真")
+                val tipContainer = if (isWarning)
+                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)
+                else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                val tipContent = if (isWarning)
+                    MaterialTheme.colorScheme.tertiary
+                else MaterialTheme.colorScheme.onTertiaryContainer
+                val tipIcon = if (isWarning) Icons.Outlined.Error
+                else Icons.Outlined.Info
+
                 Spacer(Modifier.height(16.dp))
                 Surface(
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    color = tipContainer,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(
+                            8.dp,
+                            Alignment.CenterHorizontally
+                        )
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Info,
+                            imageVector = tipIcon,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                            modifier = Modifier.size(15.dp),
+                            tint = tipContent
                         )
                         Text(
                             text = statusText,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                            color = tipContent,
+                            fontWeight = if (isWarning) FontWeight.Medium else FontWeight.Normal
                         )
                     }
                 }
@@ -136,18 +198,24 @@ fun TotalStatCard(
                 PeriodStatCard(
                     label = "本周",
                     count = stats.weekCount,
+                    accentColor = MaterialTheme.colorScheme.primaryContainer,
+                    onAccentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.weight(1f),
                     onClick = { onPeriodClick(PeriodType.WEEK, "本周") }
                 )
                 PeriodStatCard(
                     label = "本月",
                     count = stats.monthCount,
+                    accentColor = MaterialTheme.colorScheme.secondaryContainer,
+                    onAccentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.weight(1f),
                     onClick = { onPeriodClick(PeriodType.MONTH, "本月") }
                 )
                 PeriodStatCard(
                     label = "今年",
                     count = stats.yearCount,
+                    accentColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    onAccentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.weight(1f),
                     onClick = { onPeriodClick(PeriodType.YEAR, "今年") }
                 )
@@ -160,32 +228,47 @@ fun TotalStatCard(
 private fun PeriodStatCard(
     label: String,
     count: Int,
+    accentColor: Color,
+    onAccentColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
     Box(
         modifier = modifier
             .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
+            .background(accentColor)
             .clickable(onClick = onClick)
-            .padding(vertical = 14.dp),
+            .padding(vertical = 12.dp, horizontal = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
             Text(
                 text = count.toString(),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontFeatureSettings = "tnum"
+                ),
+                color = onAccentColor
             )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = onAccentColor.copy(alpha = 0.75f)
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    contentDescription = "查看",
+                    tint = onAccentColor.copy(alpha = 0.5f),
+                    modifier = Modifier.size(13.dp)
+                )
+            }
         }
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AutoDelete
+import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudUpload
@@ -114,6 +115,10 @@ fun SettingsScreen() {
     var recycleBinCount by remember { mutableIntStateOf(0) }
     var tagCount by remember { mutableIntStateOf(TagSettings.getTags(context).size) }
     var autoCleanEnabled by remember { mutableStateOf(RecycleBinSettings.isAutoCleanEnabled(context)) }
+    var age by remember {
+        mutableIntStateOf(me.neko.nzhelper.core.datastore.AgeGroupSettings.getAge(context))
+    }
+    var showAgeDialog by remember { mutableStateOf(false) }
 
     var lockEnabled by remember { mutableStateOf(AppLockManager.isLockEnabled(context)) }
     var hasGesturePassword by remember {
@@ -452,6 +457,15 @@ fun SettingsScreen() {
                             )
                         }
                     )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Outlined.Cake,
+                        title = "年龄",
+                        subtitle = "当前：$age 岁",
+                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        onClick = { showAgeDialog = true }
+                    )
                 }
             }
 
@@ -678,6 +692,18 @@ fun SettingsScreen() {
                 showClearDialog = false
             },
             onDismiss = { showClearDialog = false }
+        )
+    }
+
+    if (showAgeDialog) {
+        me.neko.nzhelper.feature.settings.components.AgeSliderDialog(
+            currentAge = age,
+            onConfirm = { selectedAge ->
+                me.neko.nzhelper.core.datastore.AgeGroupSettings.setAge(context, selectedAge)
+                age = selectedAge
+                showAgeDialog = false
+            },
+            onDismiss = { showAgeDialog = false }
         )
     }
 

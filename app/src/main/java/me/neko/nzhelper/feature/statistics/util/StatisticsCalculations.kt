@@ -2,6 +2,7 @@ package me.neko.nzhelper.feature.statistics.util
 
 import android.annotation.SuppressLint
 import android.content.Context
+import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.statistics.model.HeatmapData
@@ -231,49 +232,66 @@ private fun getRandomComment(days: Long, isError: Boolean): String {
     return if (isError) {
         when (days) {
             0L -> listOf(
-                "今日不宜贪多，请注意节制",
-                "频率过高，身体需要休息",
-                "透支精力，明天暂停吧",
-                "为了健康，请适当克制"
+                "今天已经够拼了，给牛牛放个假吧 🌱",
+                "如此勤奋，牛牛都要申请加班费了",
+                "频率超标！建议立刻放下手机出门走走",
+                "再这样下去要进化成无性繁殖了",
+                "身体是革命的本钱，别透支了兄弟",
+                "今日 KPI 已超额完成，可以下班了"
             ).random()
 
             1L -> listOf(
-                "连续高强度，身体吃不消的",
-                "昨日频率较高，今日需休养",
-                "注意节奏，不要贪多",
-                "过于频繁，容易疲劳"
+                "连续两天高强度，你是永动机吗？",
+                "昨天刚交过卷，今天又补考？",
+                "牛牛建议你加入工会维权",
+                "这个频率，建议买份意外险",
+                "身体在抗议，请及时停火"
             ).random()
 
             else -> listOf(
-                "近期频率偏高，建议克制",
-                "注意身体健康，不要过度"
+                "近期频率偏高，悠着点",
+                "连续作战容易翻车，注意休整",
+                "牛牛的耐久度不是无限的",
+                "建议适当断网，回归现实生活"
             ).random()
         }
     } else {
         when (days) {
             0L -> listOf(
-                "适度释放，身心舒畅",
-                "保持规律，劳逸结合",
-                "状态不错，继续保持",
+                "适度释放，身心舒畅～",
+                "保持节奏，劳逸结合",
+                "状态在线，继续发扬",
+                "科学释放，有益身心健康",
                 "记得多喝水，补充水分"
             ).random()
 
             1L -> listOf(
-                "昨日适度，状态不错",
+                "隔天一次，节奏拿捏得死死的",
                 "间隔合理，精力充沛",
-                "节奏很好，享受生活"
+                "昨天刚打卡，今天养精蓄锐",
+                "这个频率很科学，继续保持"
             ).random()
 
-            2L -> listOf(
-                "休息了两天，精力恢复",
-                "身体状态满分，蓄势待发",
-                "休养生息，很有活力"
+            2L, 3L -> listOf(
+                "休息了几天，蓄势待发 ⚡",
+                "身体状态回满，随时可以出发",
+                "休养生息完毕，战力恢复",
+                "养精蓄锐，状态满分"
+            ).random()
+
+            in 4L..6L -> listOf(
+                "好几天没活动了，清心寡欲 🧘",
+                "这是要修仙的节奏吗",
+                "克制力惊人，佩服佩服",
+                "精力储备充足，随时待命"
             ).random()
 
             else -> listOf(
-                "很久没活动了，身体状态极佳",
-                "保持健康的生活方式",
-                "精力充沛，充满活力"
+                "久违了！是时候重启一下了 🔋",
+                "尘封已久，建议定期维护",
+                "再不用就要生锈了",
+                "克制达人，向你学习",
+                "心如止水，境界很高"
             ).random()
         }
     }
@@ -466,22 +484,56 @@ fun formatDuration(totalSeconds: Int): String {
     }
 }
 
-fun buildTotalStatStatus(sessions: List<Session>): String {
+fun buildTotalStatStatus(
+    sessions: List<Session>,
+    ageGroup: AgeGroupSettings.AgeGroup = AgeGroupSettings.AgeGroup.AGE_26_30,
+    age: Int = 22
+): String {
     if (sessions.isEmpty()) return ""
-    if (sessions.size < 2) return "刚开始记录，保持适度"
+    if (sessions.size < 2) return "刚开始记录，继续加油～"
 
-    val dates = sessions.map { it.timestamp.toLocalDate() }
-    val earliest = dates.min()
-    val latest = dates.max()
+    if (age >= 90) {
+        val eggs = listOf(
+            "90 多岁了还这么有活力？老当益壮啊 🫡",
+            "老不死的还撸呢？注意身体！",
+            "这把年纪还有这兴致，宝刀未老！",
+            "90+ 高玩，向您的毅力致敬 👴"
+        )
+        return eggs.random()
+    }
+    if (age >= 80) {
+        val eggs = listOf(
+            "80 多岁了还这么拼，老骥伏枥啊",
+            "这年纪还坚持记录，是真硬核玩家",
+            "宝刀未老，但也请量力而行 🧓"
+        )
+        return eggs.random()
+    }
 
-    val daysSpan = ChronoUnit.DAYS.between(earliest, latest).coerceAtLeast(1)
+    val today = java.time.LocalDate.now()
+    val yesterday = today.minusDays(1)
+    val weekAgo = today.minusDays(6) // 含今天共 7 天
 
-    val frequency = sessions.size.toDouble() / daysSpan
+    // 单日次数（今天 / 昨天）
+    val todayCount = sessions.count { it.timestamp.toLocalDate() == today }
+    val yesterdayCount = sessions.count { it.timestamp.toLocalDate() == yesterday }
+    val recentCount = sessions.count { it.timestamp.toLocalDate() in weekAgo..today }
 
+    // 按年龄段的阈值判断
+    val moderateMax = ageGroup.moderateMax
+    val highMax = ageGroup.highMax
+    val dailyLimit = ageGroup.dailyLimit
+
+    val maxDayCount = maxOf(todayCount, yesterdayCount)
+    val maxDayLabel = if (todayCount >= yesterdayCount) "今天" else "昨天"
+    val overDaily = maxDayCount >= dailyLimit + 2
+    val dailyHigh = maxDayCount >= dailyLimit
     return when {
-        frequency >= 1.0 -> "平均每天一次以上，频率偏高，建议适度节制"
-        frequency >= 0.3 -> "平均两三天一次，较为频繁，注意休息"
-        frequency >= 0.14 -> "平均一周左右一次，频率适中，身心健康"
-        else -> "频率较低，精力充沛"
+        overDaily -> "$maxDayLabel $maxDayCount 次，这个年龄段的身体扛不住这么造的 🚑"
+        dailyHigh -> "$maxDayLabel $maxDayCount 次，已超 ${ageGroup.range} 岁建议上限，该歇歇了"
+        recentCount > highMax -> "最近一周 $recentCount 次，对 ${ageGroup.range} 岁来说偏多了，注意身体"
+        recentCount > moderateMax -> "最近一周 $recentCount 次，略高于 ${ageGroup.range} 岁建议频率，留意节奏"
+        recentCount in 1..moderateMax -> "最近一周 $recentCount 次，对 ${ageGroup.range} 岁来说频率适度，继续保持 👍"
+        else -> "最近一周很克制，精力充沛，值得表扬 👍"
     }
 }
