@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
@@ -41,6 +43,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.CategoryDef
 import me.neko.nzhelper.core.model.SessionFormState
@@ -64,6 +68,7 @@ import me.neko.nzhelper.ui.component.tag.TagPicker
 import me.neko.nzhelper.ui.theme.TagColors
 import me.neko.nzhelper.ui.theme.TagIcons
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import kotlin.math.roundToInt
 
@@ -137,7 +142,24 @@ fun DetailsDialog(
                             )
                             DateTimeInputSection(
                                 formState = formState,
-                                onFormStateChange = onFormStateChange
+                                onFormStateChange = { newForm ->
+                                    val ts = try {
+                                        newForm.toLocalDateTime()
+                                    } catch (_: Exception) {
+                                        onFormStateChange(newForm); return@DateTimeInputSection
+                                    }
+                                    val suggested = AutoTagRules.suggest(context, ts)
+                                    val (merged, added) = AutoTagRules.merge(
+                                        newForm.tagIds,
+                                        suggested
+                                    )
+                                    onFormStateChange(
+                                        newForm.copy(
+                                            tagIds = merged,
+                                            autoTagIds = newForm.autoTagIds + added
+                                        )
+                                    )
+                                }
                             )
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 4.dp),
@@ -165,19 +187,75 @@ fun DetailsDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.SemiBold
                                 )
-                                Text(
-                                    "已选 ${formState.tagIds.size}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        "已选 ${formState.tagIds.size}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            val ts = try {
+                                                formState.toLocalDateTime()
+                                            } catch (_: Exception) {
+                                                LocalDateTime.now()
+                                            }
+                                            val suggested = AutoTagRules.suggest(context, ts)
+                                            val (merged, added) = AutoTagRules.merge(
+                                                formState.tagIds,
+                                                suggested
+                                            )
+                                            onFormStateChange(
+                                                formState.copy(
+                                                    tagIds = merged,
+                                                    autoTagIds = formState.autoTagIds + added
+                                                )
+                                            )
+                                        },
+                                        contentPadding = PaddingValues(
+                                            horizontal = 8.dp,
+                                            vertical = 0.dp
+                                        )
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.AutoAwesome,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            "自动匹配",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
                             }
                             TagPicker(
                                 groups = groupedTags,
                                 selectedIds = formState.tagIds,
+                                autoTagIds = formState.autoTagIds,
                                 onToggle = { id ->
                                     val newSet = formState.tagIds.toMutableSet()
-                                    if (!newSet.add(id)) newSet.remove(id)
-                                    onFormStateChange(formState.copy(tagIds = newSet))
+                                    val newAuto = formState.autoTagIds.toMutableSet()
+                                    val wasSelected = id in formState.tagIds
+                                    if (wasSelected) {
+                                        newSet.remove(id)
+                                        newAuto.remove(id)
+                                    } else {
+                                        newSet.add(id)
+                                        newAuto.remove(id)
+                                    }
+                                    onFormStateChange(
+                                        formState.copy(
+                                            tagIds = newSet,
+                                            autoTagIds = newAuto
+                                        )
+                                    )
                                 }
                             )
                         }

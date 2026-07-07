@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,18 +64,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
+import me.neko.nzhelper.core.auto.AutoTagRules
+import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionFormState
-import me.neko.nzhelper.core.database.SessionRepository
-import me.neko.nzhelper.ui.component.dialog.DetailsDialog
+import me.neko.nzhelper.core.service.TimerService
 import me.neko.nzhelper.feature.home.components.ConfirmResetDialog
 import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
+import me.neko.nzhelper.feature.home.components.SinceLastCard
 import me.neko.nzhelper.feature.home.components.TimelineItem
 import me.neko.nzhelper.feature.home.components.TimerCard
-import me.neko.nzhelper.feature.home.components.SinceLastCard
-import me.neko.nzhelper.core.datastore.TagSettings
-import me.neko.nzhelper.core.service.TimerService
+import me.neko.nzhelper.ui.component.dialog.DetailsDialog
 import java.time.LocalDateTime
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class,
@@ -131,7 +134,6 @@ fun HomeScreen(isActive: Boolean = false) {
     var formState by remember { mutableStateOf(SessionFormState()) }
     val sessions = remember { mutableStateListOf<Session>() }
 
-    // 首次进入即加载；切回首页时刷新（isActive 由 pager 当前页驱动）
     LaunchedEffect(Unit) {
         val loaded = SessionRepository.loadSessions(context)
             .sortedByDescending { it.timestamp }
@@ -147,14 +149,10 @@ fun HomeScreen(isActive: Boolean = false) {
         }
     }
 
-    // ── 距上次记录：读最近一条 Session 与当前时间比较 ──
-    // sessions 已按 timestamp 倒序，第一条即最近一次。
-    // nowTick 每分钟刷新一次，保证停留页面期间"距上次"持续准确。
-    // key 用 sessions.size + nowTick：size 变化（加载/新增/删除）或每分钟 tick 都重算。
-    var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
+    var nowTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(60_000L)
+            kotlinx.coroutines.delay(60_000L.milliseconds)
             nowTick = System.currentTimeMillis()
         }
     }
@@ -242,8 +240,11 @@ fun HomeScreen(isActive: Boolean = false) {
                     FilledTonalButton(
                         onClick = {
                             val nowTime = LocalDateTime.now()
+                            val suggested = AutoTagRules.suggest(context, nowTime)
                             formState = SessionFormState(
                                 categoryId = TagSettings.defaultCategory(context).id,
+                                tagIds = suggested,
+                                autoTagIds = suggested,
                                 manualYear = nowTime.year,
                                 manualMonth = nowTime.monthValue,
                                 manualDay = nowTime.dayOfMonth,
@@ -252,7 +253,9 @@ fun HomeScreen(isActive: Boolean = false) {
                             )
                             showManualAddDialog = true
                         },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
                         shape = MaterialTheme.shapes.large,
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -265,7 +268,11 @@ fun HomeScreen(isActive: Boolean = false) {
                             modifier = Modifier.size(22.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("手动添加记录", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                        Text(
+                            "手动添加记录",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
 
@@ -337,6 +344,12 @@ fun HomeScreen(isActive: Boolean = false) {
             onDismiss = { showConfirmDialog = false },
             onConfirm = {
                 showConfirmDialog = false
+                val nowTime = LocalDateTime.now()
+                val suggested = AutoTagRules.suggest(context, nowTime)
+                formState = formState.copy(
+                    tagIds = suggested,
+                    autoTagIds = suggested
+                )
                 showDetailsDialog = true
                 context.startService(serviceIntent.apply {
                     action = TimerService.ACTION_PAUSE
@@ -363,6 +376,11 @@ fun HomeScreen(isActive: Boolean = false) {
         onFormStateChange = { formState = it },
         onConfirm = {
             val nowTime = LocalDateTime.now()
+            val finalTags = run {
+                val suggested = AutoTagRules.suggest(context, nowTime)
+                val (merged, added) = AutoTagRules.merge(formState.tagIds, suggested)
+                merged to (formState.autoTagIds + added)
+            }
             val session = Session(
                 timestamp = nowTime,
                 duration = elapsedSeconds,
@@ -370,7 +388,7 @@ fun HomeScreen(isActive: Boolean = false) {
                 rating = formState.rating,
                 climax = formState.climax,
                 categoryId = formState.categoryId.ifBlank { TagSettings.defaultCategory(context).id },
-                tagIds = formState.tagIds.toList()
+                tagIds = finalTags.first.toList()
             )
             sessions.add(0, session)
             scope.launch { SessionRepository.saveSessions(context, sessions) }

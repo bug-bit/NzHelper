@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoDelete
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Cloud
@@ -72,6 +73,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.database.BackupRepository
 import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.database.SessionRepository
@@ -134,6 +136,14 @@ fun SettingsScreen() {
             context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
                 .getBoolean("auto_start_timer", false)
         )
+    }
+
+    var autoTagEnabled by remember {
+        mutableStateOf(AutoTagRules.isEnabled(context))
+    }
+    val toggleAutoTag: (Boolean) -> Unit = { enabled ->
+        autoTagEnabled = enabled
+        AutoTagRules.setEnabled(context, enabled)
     }
 
     var storageMode by remember { mutableStateOf(StorageSettings.getMode(context)) }
@@ -444,6 +454,15 @@ fun SettingsScreen() {
             item {
                 SettingsCard {
                     SettingsItem(
+                        icon = Icons.Outlined.Cake,
+                        title = "年龄",
+                        subtitle = "当前：$age 岁",
+                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        onClick = { showAgeDialog = true }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
                         icon = Icons.Outlined.Timer,
                         title = "自动计时",
                         subtitle = "进入首页时自动开始计时",
@@ -459,12 +478,18 @@ fun SettingsScreen() {
                     )
                     SettingsDivider()
                     SettingsItem(
-                        icon = Icons.Outlined.Cake,
-                        title = "年龄",
-                        subtitle = "当前：$age 岁",
-                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        onClick = { showAgeDialog = true }
+                        icon = Icons.Outlined.AutoAwesome,
+                        title = "自动标签",
+                        subtitle = "按时间/星期自动打标签",
+                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        onClick = { toggleAutoTag(!autoTagEnabled) },
+                        trailingContent = {
+                            Switch(
+                                checked = autoTagEnabled,
+                                onCheckedChange = toggleAutoTag
+                            )
+                        }
                     )
                 }
             }

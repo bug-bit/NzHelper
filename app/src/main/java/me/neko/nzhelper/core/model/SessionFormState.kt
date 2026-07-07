@@ -6,6 +6,7 @@ data class SessionFormState(
     val remark: String = "",
     val categoryId: String = Session.DEFAULT_CATEGORY_ID,
     val tagIds: Set<String> = emptySet(),
+    val autoTagIds: Set<String> = emptySet(),
     val climax: Boolean = false,
     val rating: Float = 3f,
     val durationHour: String = "",

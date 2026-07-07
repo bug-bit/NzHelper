@@ -10,14 +10,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import me.neko.nzhelper.core.model.TagDef
 import me.neko.nzhelper.core.model.TagGroupDef
 import me.neko.nzhelper.ui.theme.TagColors
@@ -35,10 +39,6 @@ import me.neko.nzhelper.ui.theme.TagIcons
  *
  * 按分组渲染：每个分组一个标题（图标 + 名称 + 分组色条），其下是该分组的标签 FlowRow，
  * 支持跨分组多选。选中态使用标签自身颜色高亮。
- *
- * @param groups 分组与其下标签
- * @param selectedIds 当前选中的标签 id 集合
- * @param onToggle 点击标签时回调，传入标签 id
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -46,7 +46,8 @@ fun TagPicker(
     groups: List<Pair<TagGroupDef, List<TagDef>>>,
     selectedIds: Set<String>,
     onToggle: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    autoTagIds: Set<String> = emptySet()
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         groups.forEach { (group, tags) ->
@@ -59,11 +60,22 @@ fun TagPicker(
             ) {
                 tags.forEach { tag ->
                     val selected = tag.id in selectedIds
+                    val isAuto = tag.id in autoTagIds
                     val groupColor = TagColors.contentColor(group.color)
                     FilterChip(
                         selected = selected,
                         onClick = { onToggle(tag.id) },
-                        label = { Text(tag.name) },
+                        label = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(tag.name)
+                                if (isAuto && selected) {
+                                    AutoBadge()
+                                }
+                            }
+                        },
                         leadingIcon = {
                             if (selected) {
                                 Icon(
@@ -88,6 +100,34 @@ fun TagPicker(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AutoBadge() {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.AutoAwesome,
+                contentDescription = "自动标签",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(9.dp)
+            )
+            Text(
+                text = "自动",
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
