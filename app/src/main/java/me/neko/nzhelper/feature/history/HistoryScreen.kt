@@ -25,6 +25,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,16 +38,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import me.neko.nzhelper.core.database.RecycleRepository
+import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionFormState
-import me.neko.nzhelper.core.database.SessionRepository
-import me.neko.nzhelper.core.database.RecycleRepository
-import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
-import me.neko.nzhelper.ui.component.dialog.DetailsDialog
+import me.neko.nzhelper.core.util.SessionSearch
 import me.neko.nzhelper.feature.history.components.HistoryEmptyState
+import me.neko.nzhelper.feature.history.components.HistoryQuickFilter
+import me.neko.nzhelper.feature.history.components.HistorySearchBar
+import me.neko.nzhelper.feature.history.components.HistorySearchEmptyState
 import me.neko.nzhelper.feature.history.components.SessionDetailDialog
 import me.neko.nzhelper.feature.history.components.SessionHistoryItem
-import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
+import me.neko.nzhelper.ui.component.dialog.DetailsDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -58,6 +63,9 @@ fun HistoryScreen(isActive: Boolean = false) {
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
     val sessions = remember { mutableStateListOf<Session>() }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var activeFilter by remember { mutableStateOf(HistoryQuickFilter.ALL) }
 
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<Session?>(null) }
@@ -74,6 +82,17 @@ fun HistoryScreen(isActive: Boolean = false) {
                 .sortedByDescending { it.timestamp }
             sessions.clear()
             sessions.addAll(loaded)
+        }
+    }
+
+    val filteredSessions by remember(sessions, searchQuery, activeFilter) {
+        derivedStateOf {
+            val byText = SessionSearch.filter(context, sessions, searchQuery)
+            when (activeFilter) {
+                HistoryQuickFilter.ALL -> byText
+                HistoryQuickFilter.CLIMAX -> byText.filter { it.climax }
+                HistoryQuickFilter.NO_CLIMAX -> byText.filter { !it.climax }
+            }
         }
     }
 
@@ -105,29 +124,52 @@ fun HistoryScreen(isActive: Boolean = false) {
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(sessions) { session ->
-                        SessionHistoryItem(
-                            session = session,
-                            onClick = {
-                                selectedSession = session
-                                isViewingDetails = true
-                            },
-                            onEdit = {
-                                selectedSession = session
-                                isEditing = true
-                                editFormState = SessionFormState(
-                                    remark = session.remark,
-                                    categoryId = session.categoryId,
-                                    tagIds = session.tagIds.toSet(),
-                                    climax = session.climax,
-                                    rating = session.rating
-                                )
-                            },
-                            onDelete = {
-                                sessionToDelete = session
-                                showDeleteConfirmDialog = true
-                            }
+                    item {
+                        HistorySearchBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            activeFilter = activeFilter,
+                            onFilterChange = { activeFilter = it },
+                            resultCount = filteredSessions.size,
+                            totalCount = sessions.size
                         )
+                    }
+
+                    if (filteredSessions.isEmpty()) {
+                        item {
+                            HistorySearchEmptyState(
+                                query = searchQuery,
+                                onClearSearch = {
+                                    searchQuery = ""
+                                    activeFilter = HistoryQuickFilter.ALL
+                                }
+                            )
+                        }
+                    } else {
+                        items(filteredSessions) { session ->
+                            SessionHistoryItem(
+                                session = session,
+                                onClick = {
+                                    selectedSession = session
+                                    isViewingDetails = true
+                                },
+                                onEdit = {
+                                    selectedSession = session
+                                    isEditing = true
+                                    editFormState = SessionFormState(
+                                        remark = session.remark,
+                                        categoryId = session.categoryId,
+                                        tagIds = session.tagIds.toSet(),
+                                        climax = session.climax,
+                                        rating = session.rating
+                                    )
+                                },
+                                onDelete = {
+                                    sessionToDelete = session
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -164,7 +206,11 @@ fun HistoryScreen(isActive: Boolean = false) {
                     remark = editFormState.remark,
                     climax = editFormState.climax,
                     rating = editFormState.rating,
-                    categoryId = editFormState.categoryId.ifBlank { TagSettings.defaultCategory(context).id },
+                    categoryId = editFormState.categoryId.ifBlank {
+                        TagSettings.defaultCategory(
+                            context
+                        ).id
+                    },
                     tagIds = editFormState.tagIds.toList()
                 )
                 sessions[index] = updated
