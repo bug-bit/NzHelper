@@ -118,3 +118,16 @@ data class TagTrendData(
     val items: List<TagTrendItem>,
     val windowDays: Int = 30
 )
+
+data class PeriodDashboard(
+    val type: PeriodType,
+    val label: String,
+    val count: Int,
+    val prevCount: Int,
+    val countChangePercent: Int,
+    val avgDurationSeconds: Int,
+    val totalDurationSeconds: Int,
+    val climaxRate: Int,
+    val climaxCount: Int,
+    val streakDays: Int
+)

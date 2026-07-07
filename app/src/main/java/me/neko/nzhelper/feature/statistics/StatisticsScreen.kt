@@ -38,6 +38,7 @@ import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.statistics.components.EmptyStateView
 import me.neko.nzhelper.feature.statistics.components.LatestSessionCard
+import me.neko.nzhelper.feature.statistics.components.PeriodDashboardCard
 import me.neko.nzhelper.feature.statistics.components.PeriodOverviewDialog
 import me.neko.nzhelper.feature.statistics.components.TotalStatCard
 import me.neko.nzhelper.feature.statistics.model.PeriodOverview
@@ -135,6 +136,13 @@ fun StatisticsScreen(isActive: Boolean = false) {
                         TotalStatCard(
                             stats = totalStats,
                             sessions = sessions,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    item {
+                        PeriodDashboardCard(
+                            sessions = sessions,
+                            currentTime = currentTime,
                             onPeriodClick = { type, label ->
                                 selectedOverview = StatisticsRepository.calculatePeriodOverview(
                                     sessions, context, currentTime, type, label

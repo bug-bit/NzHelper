@@ -12,6 +12,7 @@ import me.neko.nzhelper.feature.statistics.model.HeatmapWeek
 import me.neko.nzhelper.feature.statistics.model.LatestSessionInfo
 import me.neko.nzhelper.feature.statistics.model.MonthlyTrendData
 import me.neko.nzhelper.feature.statistics.model.MonthlyTrendItem
+import me.neko.nzhelper.feature.statistics.model.PeriodDashboard
 import me.neko.nzhelper.feature.statistics.model.PeriodData
 import me.neko.nzhelper.feature.statistics.model.PeriodOverview
 import me.neko.nzhelper.feature.statistics.model.PeriodType
@@ -20,6 +21,7 @@ import me.neko.nzhelper.feature.statistics.model.TagTrendData
 import me.neko.nzhelper.feature.statistics.model.TagTrendDirection
 import me.neko.nzhelper.feature.statistics.model.TagTrendItem
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -516,7 +518,7 @@ fun buildTotalStatStatus(
         return eggs.random()
     }
 
-    val today = java.time.LocalDate.now()
+    val today = LocalDate.now()
     val yesterday = today.minusDays(1)
     val weekAgo = today.minusDays(6) // 含今天共 7 天
 
@@ -713,4 +715,73 @@ fun calculateTagTrendData(
         .take(10)
 
     return TagTrendData(items = items, windowDays = windowDays)
+}
+
+fun calculatePeriodDashboard(
+    sessions: List<Session>,
+    now: LocalDateTime,
+    type: PeriodType
+): PeriodDashboard {
+    val label = when (type) {
+        PeriodType.WEEK -> "本周"
+        PeriodType.MONTH -> "本月"
+        PeriodType.YEAR -> "今年"
+    }
+
+    val current = sessions.filter { isWithinPeriod(it.timestamp, now, type) }
+
+    val startCurrent = when (type) {
+        PeriodType.WEEK -> now.minusDays(now.dayOfWeek.value.toLong() - 1).toLocalDate()
+            .atStartOfDay()
+
+        PeriodType.MONTH -> now.withDayOfMonth(1).toLocalDate().atStartOfDay()
+        PeriodType.YEAR -> now.withDayOfYear(1).toLocalDate().atStartOfDay()
+    }
+    val startPrev = when (type) {
+        PeriodType.WEEK -> startCurrent.minusWeeks(1)
+        PeriodType.MONTH -> startCurrent.minusMonths(1)
+        PeriodType.YEAR -> startCurrent.minusYears(1)
+    }
+    val prev = sessions.filter { it.timestamp in startPrev..<startCurrent }
+
+    val count = current.size
+    val prevCount = prev.size
+    val changePercent = when (prevCount) {
+        0 if count > 0 -> 100
+        0 -> 0
+        else -> ((count - prevCount).toFloat() / prevCount * 100f).toInt()
+    }
+
+    val totalDuration = current.sumOf { it.duration }
+    val avgDuration = if (count > 0) totalDuration / count else 0
+    val climaxCount = current.count { it.climax }
+    val climaxRate = if (count > 0) (climaxCount * 100 / count) else 0
+    val streak = calculateStreakDays(sessions, now.toLocalDate())
+
+    return PeriodDashboard(
+        type = type,
+        label = label,
+        count = count,
+        prevCount = prevCount,
+        countChangePercent = changePercent,
+        avgDurationSeconds = avgDuration,
+        totalDurationSeconds = totalDuration,
+        climaxRate = climaxRate,
+        climaxCount = climaxCount,
+        streakDays = streak
+    )
+}
+
+fun calculateStreakDays(sessions: List<Session>, today: LocalDate): Int {
+    if (sessions.isEmpty()) return 0
+    val activeDays = sessions.map { it.timestamp.toLocalDate() }.toSet()
+    val mostRecent = activeDays.maxOrNull() ?: return 0
+    if (mostRecent.isBefore(today.minusDays(1))) return 0
+    var streak = 0
+    var cursor = mostRecent
+    while (cursor in activeDays) {
+        streak++
+        cursor = cursor.minusDays(1)
+    }
+    return streak
 }

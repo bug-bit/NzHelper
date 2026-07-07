@@ -1,7 +1,6 @@
 package me.neko.nzhelper.feature.statistics.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.Info
@@ -28,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,7 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.model.Session
-import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.model.TotalStats
 import me.neko.nzhelper.feature.statistics.util.buildTotalStatStatus
 import me.neko.nzhelper.feature.statistics.util.formatDuration
@@ -45,7 +41,6 @@ import me.neko.nzhelper.feature.statistics.util.formatDuration
 fun TotalStatCard(
     stats: TotalStats,
     sessions: List<Session>,
-    onPeriodClick: (PeriodType, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -187,87 +182,6 @@ fun TotalStatCard(
                         )
                     }
                 }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                PeriodStatCard(
-                    label = "本周",
-                    count = stats.weekCount,
-                    accentColor = MaterialTheme.colorScheme.primaryContainer,
-                    onAccentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onPeriodClick(PeriodType.WEEK, "本周") }
-                )
-                PeriodStatCard(
-                    label = "本月",
-                    count = stats.monthCount,
-                    accentColor = MaterialTheme.colorScheme.secondaryContainer,
-                    onAccentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onPeriodClick(PeriodType.MONTH, "本月") }
-                )
-                PeriodStatCard(
-                    label = "今年",
-                    count = stats.yearCount,
-                    accentColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    onAccentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onPeriodClick(PeriodType.YEAR, "今年") }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PeriodStatCard(
-    label: String,
-    count: Int,
-    accentColor: Color,
-    onAccentColor: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit = {}
-) {
-    Box(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.large)
-            .background(accentColor)
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(1.dp)
-        ) {
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontFeatureSettings = "tnum"
-                ),
-                color = onAccentColor
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = onAccentColor.copy(alpha = 0.75f)
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    contentDescription = "查看",
-                    tint = onAccentColor.copy(alpha = 0.5f),
-                    modifier = Modifier.size(13.dp)
-                )
             }
         }
     }

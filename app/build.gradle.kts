@@ -27,7 +27,7 @@ fun getGitShortHash(): String {
 
 val commitCount = getGitCommitCount()
 val gitHash = getGitShortHash()
-val versionNameStr = "1.0.3-alpha.r$commitCount.$gitHash"
+val versionNameStr = "1.0.4-alpha.r$commitCount.$gitHash"
 
 android {
     namespace = "me.neko.nzhelper"
