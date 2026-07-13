@@ -125,9 +125,13 @@ object TagSettings {
         getTags(context).firstOrNull { it.name == name }
 
     /** 默认分类（第一条 / cat_self）。 */
-    fun defaultCategory(context: Context): CategoryDef =
-        getCategories(context).firstOrNull { it.id == DEFAULT_CATEGORY_ID }
-            ?: getCategories(context).first()
+    fun defaultCategory(context: Context): CategoryDef {
+        ensureDefaults(context)
+        val list = getCategories(context)
+        return list.firstOrNull { it.id == DEFAULT_CATEGORY_ID }
+            ?: list.firstOrNull()
+            ?: DEFAULT_CATEGORIES.first()
+    }
 
     fun addCategory(
         context: Context,

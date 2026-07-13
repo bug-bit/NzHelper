@@ -7,6 +7,7 @@ import com.google.gson.JsonDeserializer
 import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSerializer
 import me.neko.nzhelper.core.crash.CrashHandler
+import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.notification.NotificationUtil
 import me.neko.nzhelper.core.worker.RecycleBinWorker
 import java.time.LocalDateTime
@@ -49,5 +50,7 @@ class NzApplication : Application() {
                 }
             )
             .create()
+
+        TagSettings.ensureDefaults(this)
     }
 }
