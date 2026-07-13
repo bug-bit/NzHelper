@@ -12,7 +12,7 @@
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3ddc84?logo=android)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?logo=jetpackcompose)
 
-一个科学管理手艺活的记录工具 —— 记录每一次与五指姑娘的约会
+一个科学管理手艺活的记录工具 —— 简单、高效、易用
 
 </div>
 
