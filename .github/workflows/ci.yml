@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# 同一分支的并发运行取消旧任务，节省额度
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -33,24 +32,21 @@ jobs:
           java-version: '21'
 
       - name: Setup Gradle
-        # 官方 action：自动处理依赖缓存、构建缓存、daemon 配置
         uses: gradle/actions/setup-gradle@v4
         with:
-          # PR 只读缓存，主干分支可写入缓存供后续 PR 复用
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master' }}
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
       - name: Run Lint (Debug)
-        # lintDebug 比 lint 全量快；--stacktrace 便于排查
         run: ./gradlew lintDebug --stacktrace
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload Lint reports
-        if: always() # 即便前面失败也上传，方便定位
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lint-reports

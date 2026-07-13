@@ -43,7 +43,6 @@ jobs:
             exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-          # 校验解码后文件非空，避免生成空 keystore 导致构建崩溃
           if [ ! -s "$RUNNER_TEMP/release.keystore" ]; then
             echo "::error::keystore 解码后为空，请检查 KEYSTORE_BASE64 内容。"
             exit 1
