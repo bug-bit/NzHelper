@@ -71,7 +71,7 @@ fun TimerCard(
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val onPrimary = MaterialTheme.colorScheme.onPrimary
-    val surface = MaterialTheme.colorScheme.surfaceContainerLowest
+    val surface = MaterialTheme.colorScheme.surfaceBright
     val onSurface = MaterialTheme.colorScheme.onSurface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val tertiary = MaterialTheme.colorScheme.tertiary

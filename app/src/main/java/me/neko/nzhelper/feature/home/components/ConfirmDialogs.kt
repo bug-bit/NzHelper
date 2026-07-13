@@ -22,7 +22,7 @@ fun ConfirmStopDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(
                 Icons.Outlined.PauseCircleOutline,
@@ -62,7 +62,7 @@ fun ConfirmResetDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(
                 Icons.Outlined.Replay,

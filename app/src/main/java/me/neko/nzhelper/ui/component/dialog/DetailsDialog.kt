@@ -105,7 +105,7 @@ fun DetailsDialog(
                     .fillMaxWidth()
                     .navigationBarsPadding(),
                 shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 tonalElevation = 6.dp
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {

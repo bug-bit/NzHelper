@@ -61,7 +61,7 @@ fun PeriodOverviewDialog(
         Surface(
             modifier = Modifier.heightIn(max = screenHeight * 0.92f),
             shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 6.dp
         ) {
             Column(

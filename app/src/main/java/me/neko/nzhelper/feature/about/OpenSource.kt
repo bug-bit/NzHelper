@@ -60,6 +60,7 @@ fun OpenSourceScreen(
     val context = LocalContext.current
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text("开放源代码") },
@@ -73,8 +74,8 @@ fun OpenSourceScreen(
                 },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             )
         },
@@ -92,7 +93,7 @@ fun OpenSourceScreen(
             item {
                 Card(
                     shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceBright)
                 ) {
                     Column {
                         licenseList.forEachIndexed { index, item ->

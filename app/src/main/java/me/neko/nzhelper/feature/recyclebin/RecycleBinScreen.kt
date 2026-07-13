@@ -88,6 +88,7 @@ fun RecycleBinScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text("回收站") },
@@ -121,8 +122,8 @@ fun RecycleBinScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             )
         },
@@ -271,7 +272,7 @@ private fun RecycleBinSessionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceBright)
     ) {
         Row(
             modifier = Modifier

@@ -53,6 +53,7 @@ class CrashHandler private constructor(
         pw.write(buildHeader(displayTime))
         pw.write("\n===== Thread =====\n")
         pw.write("name=${thread.name}\n")
+        @Suppress("DEPRECATION")
         pw.write("id=${thread.id}\n")
         pw.write("priority=${thread.priority}\n")
         pw.write("state=${thread.state}\n")

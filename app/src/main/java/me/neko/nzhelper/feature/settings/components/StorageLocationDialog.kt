@@ -53,7 +53,7 @@ fun StorageLocationDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(
                 imageVector = Icons.Outlined.FolderOpen,

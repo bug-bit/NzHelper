@@ -72,7 +72,7 @@ fun MonthlyTrendCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+            containerColor = MaterialTheme.colorScheme.surfaceBright
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {

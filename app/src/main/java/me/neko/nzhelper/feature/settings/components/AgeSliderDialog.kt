@@ -38,7 +38,7 @@ fun AgeSliderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(
                 Icons.Outlined.Person,

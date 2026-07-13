@@ -25,7 +25,7 @@ fun ConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text(title) },
         text = { Text(message) },

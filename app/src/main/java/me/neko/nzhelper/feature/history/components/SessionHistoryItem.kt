@@ -56,7 +56,7 @@ fun SessionHistoryItem(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+            containerColor = MaterialTheme.colorScheme.surfaceBright
         ),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {

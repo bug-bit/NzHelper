@@ -170,13 +170,14 @@ fun HomeScreen(isActive: Boolean = false) {
     val hasRecord = sessions.isNotEmpty()
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text(text = "牛子小助手") },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             )
         },
@@ -281,7 +282,7 @@ fun HomeScreen(isActive: Boolean = false) {
                         Card(
                             shape = MaterialTheme.shapes.extraLarge,
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+                                containerColor = MaterialTheme.colorScheme.surfaceBright
                             ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -446,7 +447,7 @@ private fun EmptyStateCard() {
     Card(
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.5f)
         ),
         modifier = Modifier.fillMaxWidth()
     ) {

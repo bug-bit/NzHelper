@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import me.neko.nzhelper.ui.theme.LocalDarkMode
 import me.neko.nzhelper.ui.theme.TagColors
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -27,6 +28,7 @@ fun ColorPickerRow(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkMode.current
     FlowRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
@@ -35,6 +37,7 @@ fun ColorPickerRow(
         TagColors.names.forEach { name ->
             val color = TagColors.colorFor(name)
             val isSelected = name == selected
+            val contrastColor = if (isDark) Color.Black else Color.White
             Box(
                 modifier = Modifier
                     .size(28.dp)
@@ -42,7 +45,11 @@ fun ColorPickerRow(
                     .background(color)
                     .then(
                         if (isSelected) {
-                            Modifier.border(width = 2.dp, color = Color.White, shape = CircleShape)
+                            Modifier.border(
+                                width = 2.dp,
+                                color = contrastColor,
+                                shape = CircleShape
+                            )
                         } else {
                             Modifier
                         }
@@ -54,7 +61,7 @@ fun ColorPickerRow(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = contrastColor,
                         modifier = Modifier.size(16.dp)
                     )
                 }

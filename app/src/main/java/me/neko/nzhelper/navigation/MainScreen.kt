@@ -56,7 +56,7 @@ fun BottomNavigationBar(
     onPageSelected: (Int) -> Unit
 ) {
     ShortNavigationBar(
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
     ) {
         BottomNavItem.items.forEachIndexed { index, item ->
             ShortNavigationBarItem(
@@ -186,6 +186,7 @@ fun MainScreen() {
     // ── UI ──
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
             bottomBar = {
                 BottomNavigationBar(
                     pagerState = pagerState,

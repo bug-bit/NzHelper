@@ -61,7 +61,7 @@ fun SettingsCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceBright),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(content = content)

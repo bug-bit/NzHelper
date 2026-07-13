@@ -30,7 +30,7 @@ fun CustomAppAlertDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(
                 imageVector = iconVector,

@@ -34,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,8 +44,6 @@ import me.neko.nzhelper.feature.statistics.model.TagTrendItem
 import me.neko.nzhelper.feature.statistics.util.calculateTagTrendData
 import me.neko.nzhelper.ui.theme.TagColors
 import java.time.LocalDateTime
-
-private val DownColor = Color(0xFFE11D48)
 
 @Composable
 fun TagTrendCard(
@@ -74,7 +71,7 @@ fun TagTrendCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+            containerColor = MaterialTheme.colorScheme.surfaceBright
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -150,7 +147,7 @@ private fun TagTrendRow(
     progress: Float
 ) {
     val tagColor = TagColors.colorFor(item.color)
-    val downColor = DownColor
+    val downColor = MaterialTheme.colorScheme.error
     val flatColor = MaterialTheme.colorScheme.outline
     val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant

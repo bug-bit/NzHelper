@@ -2,36 +2,47 @@ package me.neko.nzhelper.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 
+private data class TagColorPair(val light: Color, val dark: Color)
+
+private val palette = mapOf(
+    "rose" to TagColorPair(Color(0xFFBA1A1A), Color(0xFFFFB4AB)),
+    "emerald" to TagColorPair(Color(0xFF006D39), Color(0xFF7CDAA0)),
+    "amber" to TagColorPair(Color(0xFF8C5300), Color(0xFFF7C154)),
+    "violet" to TagColorPair(Color(0xFF6750A4), Color(0xFFCFBCFF)),
+    "teal" to TagColorPair(Color(0xFF006874), Color(0xFF4FD8E8)),
+    "orange" to TagColorPair(Color(0xFF944A00), Color(0xFFFFB777)),
+    "pink" to TagColorPair(Color(0xFFB94073), Color(0xFFFFAFC8)),
+    "sky" to TagColorPair(Color(0xFF00639B), Color(0xFF9ACDFF)),
+    "slate" to TagColorPair(Color(0xFF575D7E), Color(0xFFC0C5E5))
+)
+
+val names: List<String> = palette.keys.toList()
+
+@Composable
+@ReadOnlyComposable
+private fun resolve(name: String): Color {
+    val pair = palette[name.lowercase()]
+    return if (LocalDarkMode.current) pair?.dark ?: MaterialTheme.colorScheme.primary
+    else pair?.light ?: MaterialTheme.colorScheme.primary
+}
+
 object TagColors {
 
-    private val palette = mapOf(
-        "rose" to Color(0xFFE11D48),
-        "emerald" to Color(0xFF059669),
-        "amber" to Color(0xFFD97706),
-        "violet" to Color(0xFF7C3AED),
-        "teal" to Color(0xFF0D9488),
-        "orange" to Color(0xFFEA580C),
-        "pink" to Color(0xFFDB2777),
-        "slate" to Color(0xFF475569)
-    )
-
-    val names: List<String> = palette.keys.toList()
+    val names: List<String> get() = me.neko.nzhelper.ui.theme.names
 
     @Composable
     fun colorFor(name: String): Color {
-        val fallback = MaterialTheme.colorScheme.primary
-        val c = palette[name.lowercase()]
-        return remember(name) { c ?: fallback }
+        val resolved = resolve(name)
+        return remember(name, resolved) { resolved }
     }
 
-    /** chip 容器色：原色低透明度叠加，浅/深色模式都可用。 */
     @Composable
     fun containerColor(name: String): Color = colorFor(name).copy(alpha = 0.16f)
 
-    /** chip 文字 / 图标色：原色（保证可读）。 */
     @Composable
     fun contentColor(name: String): Color = colorFor(name)
 }

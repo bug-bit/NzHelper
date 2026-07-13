@@ -44,7 +44,7 @@ android {
 
     defaultConfig {
         applicationId = "me.neko.nzhelper"
-        minSdk = 26
+        minSdk = 27
         targetSdk = 37
 
         versionCode = commitCount
@@ -96,7 +96,6 @@ android {
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
-            @Suppress("UnstableApiUsage")
             output.outputFileName.set("NzHelper_v${versionNameStr}_${variant.name}.apk")
         }
     }
