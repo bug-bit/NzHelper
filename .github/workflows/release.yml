@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Decode signing keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 secret 未配置，release APK 将使用 debug 签名（仅测试用）。"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          # 校验解码后文件非空，避免生成空 keystore 导致构建崩溃
+          if [ ! -s "$RUNNER_TEMP/release.keystore" ]; then
+            echo "::error::keystore 解码后为空，请检查 KEYSTORE_BASE64 内容。"
+            exit 1
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build Release APK
+        env:
+          NZH_KEYSTORE_FILE: ${{ steps.keystore.outputs.enabled == 'true' && format('{0}/release.keystore', runner.temp) || '' }}
+          NZH_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          NZH_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          NZH_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Upload Release APK (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: NzHelper-release
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
+          draft: false
+
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            > 该 APK 由 CI 自动构建。
+
+            ---
+            ### 更新内容
+
+            以下由 GitHub 根据 commit 自动生成：

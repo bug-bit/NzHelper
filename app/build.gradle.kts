@@ -29,6 +29,15 @@ val commitCount = getGitCommitCount()
 val gitHash = getGitShortHash()
 val versionNameStr = "1.0.4-alpha.r$commitCount.$gitHash"
 
+val releaseKeystoreFile: String? = providers.environmentVariable("NZH_KEYSTORE_FILE").orNull
+val releaseKeystorePassword: String? = providers.environmentVariable("NZH_KEYSTORE_PASSWORD").orNull
+val releaseKeyAlias: String? = providers.environmentVariable("NZH_KEY_ALIAS").orNull
+val releaseKeyPassword: String? = providers.environmentVariable("NZH_KEY_PASSWORD").orNull
+val hasReleaseSigning = releaseKeystoreFile != null &&
+        releaseKeystorePassword != null &&
+        releaseKeyAlias != null &&
+        releaseKeyPassword != null
+
 android {
     namespace = "me.neko.nzhelper"
     compileSdk = 37
@@ -44,6 +53,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystoreFile!!)
+                storePassword = releaseKeystorePassword!!
+                keyAlias = releaseKeyAlias!!
+                keyPassword = releaseKeyPassword!!
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -52,6 +75,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig =
+                if (hasReleaseSigning) signingConfigs.getByName("release")
+                else signingConfigs.getByName("debug")
         }
     }
 
