@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoDelete
+import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudDownload
@@ -74,6 +75,7 @@ import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.auto.AutoTagRules
+import me.neko.nzhelper.core.crash.CrashLogManager
 import me.neko.nzhelper.core.database.BackupRepository
 import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.database.SessionRepository
@@ -84,6 +86,7 @@ import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.webdav.WebDavSettings
 import me.neko.nzhelper.feature.about.AboutActivity
 import me.neko.nzhelper.feature.backup.WebDavSettingsDialog
+import me.neko.nzhelper.feature.crash.CrashLogActivity
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.lock.GestureLockSetupActivity
@@ -115,6 +118,8 @@ fun SettingsScreen() {
     var showStorageDialog by remember { mutableStateOf(false) }
 
     var recycleBinCount by remember { mutableIntStateOf(0) }
+    var crashLogCount by remember { mutableIntStateOf(CrashLogManager.listCrashLogs(context).size) }
+    var unreadCrashCount by remember { mutableIntStateOf(CrashLogManager.unreadCount(context)) }
     var tagCount by remember { mutableIntStateOf(TagSettings.getTags(context).size) }
     var autoCleanEnabled by remember { mutableStateOf(RecycleBinSettings.isAutoCleanEnabled(context)) }
     var age by remember {
@@ -184,6 +189,8 @@ fun SettingsScreen() {
                     sessions.addAll(loaded)
                     recycleBinCount = RecycleRepository.loadRecycleBin(context).size
                     tagCount = TagSettings.getTags(context).size
+                    crashLogCount = CrashLogManager.listCrashLogs(context).size
+                    unreadCrashCount = CrashLogManager.unreadCount(context)
                 }
                 hasGesturePassword = GestureLockManager.hasGesturePassword(context)
                 pendingStorageSwitch?.let { (mode, path) ->
@@ -223,6 +230,8 @@ fun SettingsScreen() {
         sessions.clear()
         sessions.addAll(loaded)
         recycleBinCount = RecycleRepository.loadRecycleBin(context).size
+        crashLogCount = CrashLogManager.listCrashLogs(context).size
+        unreadCrashCount = CrashLogManager.unreadCount(context)
     }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -682,6 +691,26 @@ fun SettingsScreen() {
                                 TrailingArrowIcon()
                             }
                         }
+                    )
+                }
+            }
+
+            item {
+                SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Outlined.BugReport,
+                        title = "崩溃日志",
+                        subtitle = when {
+                            crashLogCount == 0 -> "暂无崩溃记录"
+                            unreadCrashCount > 0 -> "共 $crashLogCount 条，$unreadCrashCount 条未读"
+                            else -> "共 $crashLogCount 条记录"
+                        },
+                        iconContainerColor = MaterialTheme.colorScheme.errorContainer,
+                        iconContentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        onClick = {
+                            context.startActivity(Intent(context, CrashLogActivity::class.java))
+                        },
+                        badgeText = if (unreadCrashCount > 0) "$unreadCrashCount" else null
                     )
                 }
             }

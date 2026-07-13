@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 暴露崩溃日志目录，供分享时通过 FileProvider 生成 content:// URI -->
+    <files-path
+        name="crash_logs"
+        path="crash_logs/" />
+</paths>
