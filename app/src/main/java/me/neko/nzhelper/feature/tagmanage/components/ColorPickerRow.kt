@@ -1,8 +1,9 @@
-package me.neko.nzhelper.feature.settings.components
+package me.neko.nzhelper.feature.tagmanage.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -31,8 +32,8 @@ fun ColorPickerRow(
     val isDark = LocalDarkMode.current
     FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         TagColors.names.forEach { name ->
             val color = TagColors.colorFor(name)

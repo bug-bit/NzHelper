@@ -52,7 +52,7 @@
             android:name=".feature.lock.GestureLockSetupActivity"
             android:exported="false" />
         <activity
-            android:name=".feature.settings.TagManageActivity"
+            android:name=".feature.tagmanage.TagManageActivity"
             android:exported="false" />
 
         <activity

@@ -1,7 +1,10 @@
-package me.neko.nzhelper.feature.settings
+package me.neko.nzhelper.feature.tagmanage
 
+import android.annotation.SuppressLint
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -25,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Edit
@@ -50,27 +55,38 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.CategoryDef
 import me.neko.nzhelper.core.model.TagDef
 import me.neko.nzhelper.core.model.TagGroupDef
-import me.neko.nzhelper.feature.settings.components.ColorPickerRow
-import me.neko.nzhelper.feature.settings.components.IconPickerRow
+import me.neko.nzhelper.feature.tagmanage.components.ColorPickerRow
+import me.neko.nzhelper.feature.tagmanage.components.IconPickerRow
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.ui.theme.TagColors
 import me.neko.nzhelper.ui.theme.TagIcons
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -179,7 +195,11 @@ fun TagManageScreen(onBack: () -> Unit) {
                             tags = tags,
                             onAdd = { addingGroup = true },
                             onEdit = { editingGroup = it },
-                            onDelete = { pendingDeleteGroupId = it.id }
+                            onDelete = { pendingDeleteGroupId = it.id },
+                            onReorder = { newGroups -> groups = newGroups },
+                            onCommit = {
+                                TagSettings.reorderGroups(context, groups.map { it.id })
+                            }
                         )
 
                         2 -> TagTabContent(
@@ -190,6 +210,15 @@ fun TagManageScreen(onBack: () -> Unit) {
                             onDelete = { tag ->
                                 TagSettings.deleteTag(context, tag.id)
                                 refresh()
+                            },
+                            onReorderTags = { groupId, reordered ->
+                                tags = tags.filterNot { it.groupId == groupId } + reordered
+                            },
+                            onCommitTags = { groupId ->
+                                TagSettings.reorderTags(
+                                    context,
+                                    tags.filter { it.groupId == groupId }.map { it.id }
+                                )
                             }
                         )
                     }
@@ -327,20 +356,29 @@ private fun GroupTabContent(
     tags: List<TagDef>,
     onAdd: () -> Unit,
     onEdit: (TagGroupDef) -> Unit,
-    onDelete: (TagGroupDef) -> Unit
+    onDelete: (TagGroupDef) -> Unit,
+    onReorder: (List<TagGroupDef>) -> Unit,
+    onCommit: () -> Unit
 ) {
     TabHeader(title = "分组", count = groups.size, addLabel = "新增分组", onAdd = onAdd)
     if (groups.isEmpty()) {
         EmptyHint("暂无分组，点击右上角新增")
+        return
     }
-    groups.forEach { g ->
+    ReorderableColumn(
+        items = groups,
+        keyOf = { it.id },
+        onReorder = onReorder,
+        onCommit = onCommit
+    ) { item, dragHandle, _ ->
         TaxonomyRow(
-            name = g.name,
-            color = g.color,
-            icon = g.icon,
-            trailingText = "${tags.count { it.groupId == g.id }} 个标签",
-            onEdit = { onEdit(g) },
-            onDelete = { onDelete(g) }
+            name = item.name,
+            color = item.color,
+            icon = item.icon,
+            trailingText = "${tags.count { it.groupId == item.id }} 个标签",
+            dragHandle = dragHandle,
+            onEdit = { onEdit(item) },
+            onDelete = { onDelete(item) }
         )
     }
 }
@@ -351,7 +389,9 @@ private fun TagTabContent(
     tags: List<TagDef>,
     onAdd: () -> Unit,
     onEdit: (TagDef) -> Unit,
-    onDelete: (TagDef) -> Unit
+    onDelete: (TagDef) -> Unit,
+    onReorderTags: (groupId: String, reordered: List<TagDef>) -> Unit,
+    onCommitTags: (groupId: String) -> Unit
 ) {
     TabHeader(title = "标签", count = tags.size, addLabel = "新增标签", onAdd = onAdd)
     if (tags.isEmpty()) {
@@ -388,13 +428,19 @@ private fun TagTabContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        groupTags.forEach { tag ->
+        ReorderableColumn(
+            items = groupTags,
+            keyOf = { it.id },
+            onReorder = { reordered -> onReorderTags(g.id, reordered) },
+            onCommit = { onCommitTags(g.id) }
+        ) { item, dragHandle, _ ->
             TaxonomyRow(
-                name = tag.name,
-                color = tag.color,
-                icon = tag.icon,
-                onEdit = { onEdit(tag) },
-                onDelete = { onDelete(tag) }
+                name = item.name,
+                color = item.color,
+                icon = item.icon,
+                dragHandle = dragHandle,
+                onEdit = { onEdit(item) },
+                onDelete = { onDelete(item) }
             )
         }
     }
@@ -441,6 +487,7 @@ private fun TaxonomyRow(
     icon: String,
     trailingText: String? = null,
     canDelete: Boolean = true,
+    @SuppressLint("ModifierParameter") dragHandle: Modifier? = null,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -453,6 +500,21 @@ private fun TaxonomyRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        if (dragHandle != null) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .then(dragHandle),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.DragHandle,
+                    contentDescription = "拖动排序",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
         Box(
             modifier = Modifier
                 .size(26.dp)
@@ -690,6 +752,101 @@ private fun TagEditorDialog(
                             else -> onConfirm(trimmed, color, icon, groupId)
                         }
                     }) { Text("保存") }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun <T> ReorderableColumn(
+    items: List<T>,
+    keyOf: (T) -> String,
+    onReorder: (List<T>) -> Unit,
+    onCommit: () -> Unit,
+    modifier: Modifier = Modifier,
+    gap: Dp = 10.dp,
+    itemContent: @Composable (item: T, dragHandle: Modifier, isDragging: Boolean) -> Unit
+) {
+    val gapPx = with(LocalDensity.current) { gap.toPx() }
+    val latestItems = rememberUpdatedState(items)
+    val latestOnReorder = rememberUpdatedState(onReorder)
+    val latestOnCommit = rememberUpdatedState(onCommit)
+    val itemHeights = remember { hashMapOf<String, Int>() }
+    var draggingKey by remember { mutableStateOf<String?>(null) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(gap)
+    ) {
+        items.forEach { item ->
+            val itemKey = keyOf(item)
+            val isDragging = draggingKey == itemKey
+            val dragHandle = Modifier.pointerInput(itemKey) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        draggingKey = itemKey
+                        dragOffset = 0f
+                    },
+                    onDragEnd = {
+                        latestOnCommit.value()
+                        draggingKey = null
+                        dragOffset = 0f
+                    },
+                    onDragCancel = {
+                        draggingKey = null
+                        dragOffset = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        dragOffset += dragAmount.y
+                        val cur = latestItems.value
+                        val curIndex = cur.indexOfFirst { keyOf(it) == itemKey }
+                        if (curIndex < 0) return@detectDragGesturesAfterLongPress
+                        val dH = (itemHeights[itemKey] ?: 0).toFloat()
+                        if (dH <= 0f) return@detectDragGesturesAfterLongPress
+                        var newIndex = curIndex
+                        while (newIndex < cur.lastIndex) {
+                            val nH = (itemHeights[keyOf(cur[newIndex + 1])] ?: 0).toFloat()
+                            if (nH <= 0f) break
+                            if (dragOffset > (dH + nH) / 2f + gapPx) {
+                                newIndex++
+                                dragOffset -= (nH + gapPx)
+                            } else break
+                        }
+                        while (newIndex > 0) {
+                            val pH = (itemHeights[keyOf(cur[newIndex - 1])] ?: 0).toFloat()
+                            if (pH <= 0f) break
+                            if (dragOffset < -((dH + pH) / 2f + gapPx)) {
+                                newIndex--
+                                dragOffset += (pH + gapPx)
+                            } else break
+                        }
+                        if (newIndex != curIndex) {
+                            val mutable = cur.toMutableList()
+                            val moved = mutable.removeAt(curIndex)
+                            mutable.add(newIndex, moved)
+                            latestOnReorder.value(mutable)
+                        }
+                    }
+                )
+            }
+            key(itemKey) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { itemHeights[itemKey] = it.size.height }
+                        .then(
+                            if (isDragging) Modifier
+                                .offset { IntOffset(0, dragOffset.roundToInt()) }
+                                .zIndex(1f)
+                                .shadow(12.dp, MaterialTheme.shapes.medium)
+                            else Modifier
+                        )
+                ) {
+                    itemContent(item, dragHandle, isDragging)
                 }
             }
         }

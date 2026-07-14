@@ -92,6 +92,7 @@ import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.lock.GestureLockSetupActivity
 import me.neko.nzhelper.feature.recyclebin.RecycleBinActivity
 import me.neko.nzhelper.feature.settings.components.StorageLocationDialog
+import me.neko.nzhelper.feature.tagmanage.TagManageActivity
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsDivider

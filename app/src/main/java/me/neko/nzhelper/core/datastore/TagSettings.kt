@@ -210,6 +210,14 @@ object TagSettings {
         return true
     }
 
+    fun reorderGroups(context: Context, orderedIds: List<String>) {
+        val orderMap = orderedIds.withIndex().associate { it.value to it.index }
+        val list = getGroups(context).map {
+            if (it.id in orderMap) it.copy(sortOrder = orderMap.getValue(it.id)) else it
+        }
+        writeList(context, KEY_GROUPS, list)
+    }
+
     fun addTag(
         context: Context,
         name: String,
@@ -249,6 +257,14 @@ object TagSettings {
 
     fun deleteTag(context: Context, id: String) {
         writeList(context, KEY_TAGS, getTags(context).filterNot { it.id == id })
+    }
+
+    fun reorderTags(context: Context, orderedIds: List<String>) {
+        val orderMap = orderedIds.withIndex().associate { it.value to it.index }
+        val list = getTags(context).map {
+            if (it.id in orderMap) it.copy(sortOrder = orderMap.getValue(it.id)) else it
+        }
+        writeList(context, KEY_TAGS, list)
     }
 
     /**

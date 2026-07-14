@@ -1,4 +1,4 @@
-package me.neko.nzhelper.feature.settings.components
+package me.neko.nzhelper.feature.tagmanage.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

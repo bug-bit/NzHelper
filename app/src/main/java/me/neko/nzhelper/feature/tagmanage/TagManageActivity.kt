@@ -1,4 +1,4 @@
-package me.neko.nzhelper.feature.settings
+package me.neko.nzhelper.feature.tagmanage
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
