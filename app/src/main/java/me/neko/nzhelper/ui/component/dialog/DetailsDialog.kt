@@ -369,7 +369,7 @@ private fun ClimaxSection(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.3f)
         )
     ) {
         Row(

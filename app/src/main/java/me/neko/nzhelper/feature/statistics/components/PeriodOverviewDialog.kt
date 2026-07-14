@@ -229,7 +229,7 @@ private fun LongestRecordCard(overview: PeriodOverview) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f)
+        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.3f)
     ) {
         Row(
             modifier = Modifier
@@ -281,7 +281,7 @@ private fun TopTagsCard(overview: PeriodOverview) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f)
+        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.3f)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -346,7 +346,7 @@ private fun MetricsCard(overview: PeriodOverview) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f)
+        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.3f)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

@@ -128,7 +128,8 @@ fun TagManageScreen(onBack: () -> Unit) {
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
             PrimaryTabRow(
-                selectedTabIndex = pagerState.currentPage
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
             ) {
                 listOf("分类", "分组", "标签").forEachIndexed { i, title ->
                     Tab(

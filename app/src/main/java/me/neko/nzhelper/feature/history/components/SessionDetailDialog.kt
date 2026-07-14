@@ -79,7 +79,7 @@ fun SessionDetailDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.large)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.3f))
                         .padding(vertical = 8.dp)
                 ) {
                     DetailRow(
@@ -97,7 +97,7 @@ fun SessionDetailDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(MaterialTheme.shapes.large)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.3f))
                             .padding(16.dp)
                     ) {
                         Text(
@@ -127,7 +127,7 @@ fun SessionDetailDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(MaterialTheme.shapes.large)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.3f))
                             .padding(16.dp)
                     ) {
                         Text(
