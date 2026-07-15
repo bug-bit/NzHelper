@@ -283,6 +283,9 @@ private fun DonutChart(
         )
     }
 
+    val baseGapAngle = 2f
+    val hasMultipleSlices = data.size > 1
+
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val diameter = minOf(size.width, size.height)
@@ -297,21 +300,34 @@ private fun DonutChart(
                 style = Stroke(width = strokePx)
             )
 
-            var startAngle = -90f
-            data.forEachIndexed { index, (_, count) ->
-                val sweep = (count.toFloat() / total) * 360f * animatedProgress.value
-                if (sweep > 0.5f) {
-                    drawArc(
-                        color = resolvedColors[index],
-                        startAngle = startAngle,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        style = Stroke(width = strokePx, cap = StrokeCap.Round),
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2, radius * 2)
-                    )
+            val progress = animatedProgress.value
+            val gapAngle = if (hasMultipleSlices) baseGapAngle * progress else 0f
+
+            if (!hasMultipleSlices && data.isNotEmpty()) {
+                drawCircle(
+                    color = resolvedColors[0],
+                    radius = radius,
+                    center = center,
+                    style = Stroke(width = strokePx)
+                )
+            } else {
+                var startAngle = -90f
+                data.forEachIndexed { index, (_, count) ->
+                    val naturalSweep = (count.toFloat() / total) * 360f * progress
+                    val sweep = (naturalSweep - gapAngle).coerceAtLeast(0f)
+                    if (sweep > 0.5f) {
+                        drawArc(
+                            color = resolvedColors[index],
+                            startAngle = startAngle + gapAngle / 2f,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            style = Stroke(width = strokePx, cap = StrokeCap.Butt),
+                            topLeft = Offset(center.x - radius, center.y - radius),
+                            size = Size(radius * 2, radius * 2)
+                        )
+                    }
+                    startAngle += naturalSweep
                 }
-                startAngle += sweep
             }
         }
 

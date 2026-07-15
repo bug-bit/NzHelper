@@ -60,6 +60,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import me.neko.nzhelper.R
 import me.neko.nzhelper.ui.component.setting.SettingsCard
+import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.TrailingArrowIcon
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -171,6 +172,21 @@ fun AboutScreen(
 
             item {
                 SettingsCard {
+                    SettingsItem(
+                        painter = painterResource(id = R.drawable.ic_telegram),
+                        title = "Telegram CI 构建频道",
+                        subtitle = "获取最新测试版",
+                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        onClick = {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                "https://t.me/NzzHelper".toUri()
+                            )
+                            context.startActivity(intent)
+                        }
+                    )
+                    SettingsDivider()
                     SettingsItem(
                         painter = painterResource(id = R.drawable.ic_telegram),
                         title = "Telegram 群组",
