@@ -2,12 +2,21 @@ package me.neko.nzhelper.feature.tagmanage
 
 import android.annotation.SuppressLint
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -30,20 +39,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
@@ -66,6 +74,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -84,6 +94,7 @@ import me.neko.nzhelper.core.model.TagGroupDef
 import me.neko.nzhelper.feature.tagmanage.components.ColorPickerRow
 import me.neko.nzhelper.feature.tagmanage.components.IconPickerRow
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
+import me.neko.nzhelper.ui.component.tag.TagChip
 import me.neko.nzhelper.ui.theme.TagColors
 import me.neko.nzhelper.ui.theme.TagIcons
 import kotlin.math.roundToInt
@@ -102,7 +113,6 @@ fun TagManageScreen(onBack: () -> Unit) {
     var groups by remember { mutableStateOf(TagSettings.getGroups(context)) }
     var tags by remember { mutableStateOf(TagSettings.getTags(context)) }
 
-    // 编辑器状态
     var editingCategory by remember { mutableStateOf<CategoryDef?>(null) }
     var addingCategory by remember { mutableStateOf(false) }
     var editingGroup by remember { mutableStateOf<TagGroupDef?>(null) }
@@ -133,6 +143,21 @@ fun TagManageScreen(onBack: () -> Unit) {
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    when (pagerState.currentPage) {
+                        0 -> addingCategory = true
+                        1 -> addingGroup = true
+                        2 -> addingTag = true
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "新增")
+            }
         },
         contentWindowInsets = WindowInsets.safeDrawing
             .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
@@ -168,13 +193,12 @@ fun TagManageScreen(onBack: () -> Unit) {
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     when (page) {
                         0 -> CategoryTabContent(
                             categories = categories,
-                            onAdd = { addingCategory = true },
                             onEdit = { editingCategory = it },
                             onDelete = { cat ->
                                 if (categories.size > 1) {
@@ -193,7 +217,6 @@ fun TagManageScreen(onBack: () -> Unit) {
                         1 -> GroupTabContent(
                             groups = groups,
                             tags = tags,
-                            onAdd = { addingGroup = true },
                             onEdit = { editingGroup = it },
                             onDelete = { pendingDeleteGroupId = it.id },
                             onReorder = { newGroups -> groups = newGroups },
@@ -205,7 +228,6 @@ fun TagManageScreen(onBack: () -> Unit) {
                         2 -> TagTabContent(
                             groups = groups,
                             tags = tags,
-                            onAdd = { addingTag = true },
                             onEdit = { editingTag = it },
                             onDelete = { tag ->
                                 TagSettings.deleteTag(context, tag.id)
@@ -330,13 +352,13 @@ fun TagManageScreen(onBack: () -> Unit) {
 @Composable
 private fun CategoryTabContent(
     categories: List<CategoryDef>,
-    onAdd: () -> Unit,
     onEdit: (CategoryDef) -> Unit,
     onDelete: (CategoryDef) -> Unit
 ) {
-    TabHeader(title = "分类", count = categories.size, addLabel = "新增分类", onAdd = onAdd)
+    TabHeader(title = "分类", count = categories.size)
     if (categories.isEmpty()) {
-        EmptyHint("暂无分类，点击右上角新增")
+        EmptyState(icon = Icons.Outlined.Sell, text = "暂无分类，点击右下角新增")
+        return
     }
     categories.forEach { cat ->
         TaxonomyRow(
@@ -354,15 +376,14 @@ private fun CategoryTabContent(
 private fun GroupTabContent(
     groups: List<TagGroupDef>,
     tags: List<TagDef>,
-    onAdd: () -> Unit,
     onEdit: (TagGroupDef) -> Unit,
     onDelete: (TagGroupDef) -> Unit,
     onReorder: (List<TagGroupDef>) -> Unit,
     onCommit: () -> Unit
 ) {
-    TabHeader(title = "分组", count = groups.size, addLabel = "新增分组", onAdd = onAdd)
+    TabHeader(title = "分组", count = groups.size)
     if (groups.isEmpty()) {
-        EmptyHint("暂无分组，点击右上角新增")
+        EmptyState(icon = Icons.Outlined.Sell, text = "暂无分组，点击右下角新增")
         return
     }
     ReorderableColumn(
@@ -387,97 +408,234 @@ private fun GroupTabContent(
 private fun TagTabContent(
     groups: List<TagGroupDef>,
     tags: List<TagDef>,
-    onAdd: () -> Unit,
     onEdit: (TagDef) -> Unit,
     onDelete: (TagDef) -> Unit,
     onReorderTags: (groupId: String, reordered: List<TagDef>) -> Unit,
     onCommitTags: (groupId: String) -> Unit
 ) {
-    TabHeader(title = "标签", count = tags.size, addLabel = "新增标签", onAdd = onAdd)
+    TabHeader(title = "标签", count = tags.size)
+
+    var query by remember { mutableStateOf("") }
+    var collapsedGroups by remember { mutableStateOf(emptySet<String>()) }
+
+    SearchField(query = query, onQueryChange = { query = it })
+
     if (tags.isEmpty()) {
-        EmptyHint("暂无标签，点击右上角新增")
+        EmptyState(icon = Icons.Outlined.Sell, text = "暂无标签，点击右下角新增")
         return
     }
-    groups.forEach { g ->
-        val groupTags = tags.filter { it.groupId == g.id }
-        if (groupTags.isEmpty()) return@forEach
+
+    if (query.isNotBlank()) {
+        val filtered = tags.filter { it.name.contains(query, ignoreCase = true) }
+        if (filtered.isEmpty()) {
+            EmptyState(icon = Icons.Outlined.SearchOff, text = "未找到匹配的标签")
+        } else {
+            filtered.forEach { tag ->
+                val group = groups.firstOrNull { it.id == tag.groupId }
+                TaxonomyRow(
+                    name = tag.name,
+                    color = tag.color,
+                    icon = tag.icon,
+                    trailingText = group?.name,
+                    onEdit = { onEdit(tag) },
+                    onDelete = { onDelete(tag) }
+                )
+            }
+        }
+    } else {
+        groups.forEach { g ->
+            val groupTags = tags.filter { it.groupId == g.id }
+            if (groupTags.isEmpty()) return@forEach
+            CollapsibleGroupSection(
+                group = g,
+                count = groupTags.size,
+                expanded = g.id !in collapsedGroups,
+                onToggle = {
+                    collapsedGroups = if (g.id in collapsedGroups) {
+                        collapsedGroups - g.id
+                    } else {
+                        collapsedGroups + g.id
+                    }
+                }
+            ) {
+                ReorderableColumn(
+                    items = groupTags,
+                    keyOf = { it.id },
+                    onReorder = { reordered -> onReorderTags(g.id, reordered) },
+                    onCommit = { onCommitTags(g.id) }
+                ) { item, dragHandle, _ ->
+                    TaxonomyRow(
+                        name = item.name,
+                        color = item.color,
+                        icon = item.icon,
+                        dragHandle = dragHandle,
+                        onEdit = { onEdit(item) },
+                        onDelete = { onDelete(item) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabHeader(title: String, count: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium
+        )
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyState(icon: ImageVector, text: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(40.dp)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text("搜索标签") },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "清除",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        },
+        singleLine = true,
+        shape = MaterialTheme.shapes.large
+    )
+}
+
+@Composable
+private fun CollapsibleGroupSection(
+    group: TagGroupDef,
+    count: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 0f else -90f,
+        label = "arrowRotation"
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 6.dp, start = 4.dp),
+                .clip(MaterialTheme.shapes.medium)
+                .background(TagColors.containerColor(group.color))
+                .clickable { onToggle() }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Icon(
+                imageVector = Icons.Outlined.KeyboardArrowDown,
+                contentDescription = if (expanded) "收起" else "展开",
+                tint = TagColors.contentColor(group.color),
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer { rotationZ = arrowRotation }
+            )
             Box(
                 modifier = Modifier
-                    .size(16.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(TagColors.containerColor(g.color)),
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = TagIcons.iconFor(g.icon),
+                    imageVector = TagIcons.iconFor(group.icon),
                     contentDescription = null,
-                    tint = TagColors.contentColor(g.color),
-                    modifier = Modifier.size(10.dp)
+                    tint = TagColors.contentColor(group.color),
+                    modifier = Modifier.size(14.dp)
                 )
             }
             Text(
-                text = "${g.name}（${groupTags.size}）",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = group.name,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+                maxLines = 1
             )
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
         }
-        ReorderableColumn(
-            items = groupTags,
-            keyOf = { it.id },
-            onReorder = { reordered -> onReorderTags(g.id, reordered) },
-            onCommit = { onCommitTags(g.id) }
-        ) { item, dragHandle, _ ->
-            TaxonomyRow(
-                name = item.name,
-                color = item.color,
-                icon = item.icon,
-                dragHandle = dragHandle,
-                onEdit = { onEdit(item) },
-                onDelete = { onDelete(item) }
-            )
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(
+                modifier = Modifier.padding(top = 8.dp, start = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                content()
+            }
         }
     }
-}
-
-@Composable
-private fun TabHeader(
-    title: String,
-    count: Int,
-    addLabel: String,
-    onAdd: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "$title（$count）",
-            style = MaterialTheme.typography.titleMedium
-        )
-        TextButton(onClick = onAdd) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(addLabel)
-        }
-    }
-}
-
-@Composable
-private fun EmptyHint(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp)
-    )
 }
 
 @Composable
@@ -496,7 +654,8 @@ private fun TaxonomyRow(
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceBright)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .clickable { onEdit() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -517,7 +676,7 @@ private fun TaxonomyRow(
         }
         Box(
             modifier = Modifier
-                .size(26.dp)
+                .size(28.dp)
                 .clip(CircleShape)
                 .background(TagColors.containerColor(color)),
             contentAlignment = Alignment.Center
@@ -526,27 +685,22 @@ private fun TaxonomyRow(
                 imageVector = TagIcons.iconFor(icon),
                 contentDescription = null,
                 tint = TagColors.contentColor(color),
-                modifier = Modifier.size(14.dp)
+                modifier = Modifier.size(15.dp)
             )
         }
-        Text(
-            text = name,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
-        if (trailingText != null) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = trailingText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1
             )
-        }
-        IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-            Icon(
-                Icons.Outlined.Edit,
-                contentDescription = "编辑",
-                modifier = Modifier.size(18.dp)
-            )
+            if (trailingText != null) {
+                Text(
+                    text = trailingText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         IconButton(
             onClick = onDelete,
@@ -554,9 +708,9 @@ private fun TaxonomyRow(
             modifier = Modifier.size(32.dp)
         ) {
             Icon(
-                Icons.Outlined.Close,
+                imageVector = Icons.Outlined.Close,
                 contentDescription = "删除",
-                tint = if (canDelete) MaterialTheme.colorScheme.error
+                tint = if (canDelete) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                 modifier = Modifier.size(18.dp)
             )
@@ -593,6 +747,19 @@ private fun TaxonomyEditorDialog(
             ) {
                 Text(title, style = MaterialTheme.typography.titleLarge)
 
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TagChip(
+                        name = name.trim().ifBlank { "预览" },
+                        color = color,
+                        icon = icon
+                    )
+                }
+
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it; nameError = false },
@@ -618,7 +785,7 @@ private fun TaxonomyEditorDialog(
                 ) {
                     TextButton(onClick = onDismiss) { Text("取消") }
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val trimmed = name.trim()
                         if (trimmed.isEmpty()) {
                             nameError = true
@@ -632,6 +799,7 @@ private fun TaxonomyEditorDialog(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TagEditorDialog(
     title: String,
@@ -649,9 +817,6 @@ private fun TagEditorDialog(
     var icon by remember { mutableStateOf(initialIcon) }
     var groupId by remember { mutableStateOf(initialGroupId) }
     var nameError by remember { mutableStateOf<String?>(null) }
-    var groupExpanded by remember { mutableStateOf(false) }
-
-    val selectedGroup = groups.firstOrNull { it.id == groupId }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -668,6 +833,19 @@ private fun TagEditorDialog(
             ) {
                 Text(title, style = MaterialTheme.typography.titleLarge)
 
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TagChip(
+                        name = name.trim().ifBlank { "预览" },
+                        color = color,
+                        icon = icon
+                    )
+                }
+
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it; nameError = null },
@@ -681,52 +859,36 @@ private fun TagEditorDialog(
                 )
 
                 Text("所属分组", style = MaterialTheme.typography.labelLarge)
-                Box {
-                    OutlinedButton(
-                        onClick = { groupExpanded = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    ) {
-                        if (selectedGroup != null) {
-                            Box(
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(TagColors.containerColor(selectedGroup.color)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = TagIcons.iconFor(selectedGroup.icon),
-                                    contentDescription = null,
-                                    tint = TagColors.contentColor(selectedGroup.color),
-                                    modifier = Modifier.size(9.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        Text(
-                            text = selectedGroup?.name ?: "选择分组",
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(Icons.Outlined.ArrowDropDown, contentDescription = null)
-                    }
-                    DropdownMenu(
-                        expanded = groupExpanded,
-                        onDismissRequest = { groupExpanded = false }
-                    ) {
-                        groups.forEach { g ->
-                            DropdownMenuItem(
-                                text = { Text(g.name) },
-                                onClick = {
-                                    groupId = g.id
-                                    groupExpanded = false
-                                    nameError = null
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    groups.forEach { g ->
+                        FilterChip(
+                            selected = g.id == groupId,
+                            onClick = {
+                                groupId = g.id
+                                nameError = null
+                            },
+                            label = { Text(g.name) },
+                            leadingIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(TagColors.containerColor(g.color)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = TagIcons.iconFor(g.icon),
+                                        contentDescription = null,
+                                        tint = TagColors.contentColor(g.color),
+                                        modifier = Modifier.size(9.dp)
+                                    )
                                 }
-                            )
-                        }
+                            }
+                        )
                     }
                 }
 
@@ -743,7 +905,7 @@ private fun TagEditorDialog(
                 ) {
                     TextButton(onClick = onDismiss) { Text("取消") }
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val trimmed = name.trim()
                         when {
                             trimmed.isEmpty() -> nameError = "名称不能为空"
@@ -843,6 +1005,10 @@ private fun <T> ReorderableColumn(
                                 .offset { IntOffset(0, dragOffset.roundToInt()) }
                                 .zIndex(1f)
                                 .shadow(12.dp, MaterialTheme.shapes.medium)
+                                .graphicsLayer {
+                                    scaleX = 1.03f
+                                    scaleY = 1.03f
+                                }
                             else Modifier
                         )
                 ) {
