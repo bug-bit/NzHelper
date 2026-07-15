@@ -2,15 +2,18 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main, master ]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
-    name: Build & Publish Release APK
+    name: Build Release APK & Publish to Telegram
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -24,7 +27,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -42,11 +45,14 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
           if [ ! -s "$RUNNER_TEMP/release.keystore" ]; then
             echo "::error::keystore 解码后为空，请检查 KEYSTORE_BASE64 内容。"
             exit 1
           fi
+
           echo "enabled=true" >> "$GITHUB_OUTPUT"
 
       - name: Build Release APK
@@ -57,26 +63,59 @@ jobs:
           NZH_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace
 
-      - name: Upload Release APK (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: NzHelper-release
-          path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-          retention-days: 30
+      - name: Publish Release APK to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -uo pipefail
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: app/build/outputs/apk/release/*.apk
-          generate_release_notes: true
-          draft: false
+          [ -n "${TELEGRAM_BOT_TOKEN}" ] || {
+            echo "::error::未配置 TELEGRAM_BOT_TOKEN。"
+            exit 1
+          }
 
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          body: |
-            > 该 APK 由 CI 自动构建。
+          [ -n "${TELEGRAM_CHAT_ID}" ] || {
+            echo "::error::未配置 TELEGRAM_CHAT_ID。"
+            exit 1
+          }
 
-            ---
-            ### 更新内容
+          APK=$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)
 
-            以下由 GitHub 根据 commit 自动生成：
+          [ -f "${APK}" ] || {
+            echo "::error::未找到 release APK 文件。"
+            exit 1
+          }
+
+          esc() {
+            sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
+          }
+
+          commit_sha="${GITHUB_SHA}"
+          commit_subject=$(git log -1 --format=%s | esc)
+          author="${GITHUB_ACTOR}"
+          repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          commit_url="${repo_url}/commit/${commit_sha}"
+
+          caption=$(cat <<EOF
+          New push to GitHub!
+
+          <pre>${commit_subject}</pre>
+
+          by ${author}
+          <a href="${commit_url}">See commit detail here</a>
+          EOF
+          )
+
+          response=$(curl -sS \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+            -F "chat_id=${TELEGRAM_CHAT_ID}" \
+            -F "document=@${APK}" \
+            -F "caption=${caption}" \
+            -F "parse_mode=HTML" \
+            -F "disable_content_type_detection=true")
+
+          echo "${response}" | grep -q '"ok":true' || {
+            echo "::error::Telegram API 返回错误。"
+            exit 1
+          }
