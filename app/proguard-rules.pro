@@ -95,3 +95,23 @@
 # WorkManager
 -keep class me.neko.nzhelper.core.worker.** { *; }
 -dontwarn androidx.work.**
+
+# Room
+-keep class me.neko.nzhelper.core.database.entity.** { *; }
+-keep class me.neko.nzhelper.core.database.AppDatabase { *; }
+-keep class me.neko.nzhelper.core.database.AppDatabase$* { *; }
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep @androidx.room.Entity class * { *; }
+-keepclassmembers class * {
+    @androidx.room.* <methods>;
+    @androidx.room.* <fields>;
+}
+-dontwarn androidx.room.paging.**
+
+# SQLCipher
+-keep class net.zetetic.database.** { *; }
+-keep class net.zetetic.** { *; }
+-dontwarn net.zetetic.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**

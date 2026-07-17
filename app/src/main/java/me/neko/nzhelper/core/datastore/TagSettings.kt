@@ -1,10 +1,12 @@
 package me.neko.nzhelper.core.datastore
 
 import android.content.Context
-import androidx.core.content.edit
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.runBlocking
 import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.database.AppDatabase
+import me.neko.nzhelper.core.database.entity.TaxonomyEntity
 import me.neko.nzhelper.core.model.CategoryDef
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.TagDef
@@ -15,7 +17,6 @@ object TagSettings {
 
     const val DEFAULT_CATEGORY_ID: String = Session.DEFAULT_CATEGORY_ID
 
-    private const val PREFS_NAME = "tag_taxonomy_prefs"
     private const val KEY_CATEGORIES = "categories"
     private const val KEY_GROUPS = "groups"
     private const val KEY_TAGS = "tags"
@@ -36,14 +37,12 @@ object TagSettings {
     )
 
     private val DEFAULT_TAGS = listOf(
-        // 环境
         TagDef("tag_env_bedroom", "卧室", "bed", "emerald", "grp_env", 0),
         TagDef("tag_env_bathroom", "浴室", "shower-head", "teal", "grp_env", 1),
         TagDef("tag_env_toilet", "厕所", "door-closed", "emerald", "grp_env", 2),
         TagDef("tag_env_sofa", "沙发", "sofa", "emerald", "grp_env", 3),
         TagDef("tag_env_office", "办公室", "briefcase", "emerald", "grp_env", 4),
         TagDef("tag_env_hotel", "酒店出差", "building-2", "teal", "grp_env", 5),
-        // 时间
         TagDef("tag_time_morning", "上午", "sunrise", "amber", "grp_time", 0),
         TagDef("tag_time_afternoon", "下午", "sun", "orange", "grp_time", 1),
         TagDef("tag_time_evening", "晚上", "sunset", "amber", "grp_time", 2),
@@ -51,7 +50,6 @@ object TagSettings {
         TagDef("tag_time_dawn", "凌晨", "moon-star", "orange", "grp_time", 4),
         TagDef("tag_time_weekend", "周末", "calendar-days", "amber", "grp_time", 5),
         TagDef("tag_time_weekday", "工作日", "calendar", "orange", "grp_time", 6),
-        // 状态
         TagDef("tag_state_calm", "平静", "leaf", "slate", "grp_state", 0),
         TagDef("tag_state_stress", "压力大", "brain", "rose", "grp_state", 1),
         TagDef("tag_state_happy", "开心", "smile", "pink", "grp_state", 2),
@@ -62,34 +60,59 @@ object TagSettings {
         TagDef("tag_state_insomnia", "失眠", "eye-off", "rose", "grp_state", 7),
         TagDef("tag_state_empty", "空虚", "cloud-fog", "slate", "grp_state", 8),
         TagDef("tag_state_sick", "生病", "thermometer", "rose", "grp_state", 9),
-        // 行为
         TagDef("tag_act_porn", "看小电影", "monitor-play", "violet", "grp_act", 0),
         TagDef("tag_act_aftershower", "洗澡后", "droplets", "violet", "grp_act", 1),
         TagDef("tag_act_aftergym", "运动后", "dumbbell", "violet", "grp_act", 2),
         TagDef("tag_act_drunk", "喝酒", "wine", "violet", "grp_act", 3),
         TagDef("tag_act_bed", "赖床", "bed-double", "violet", "grp_act", 4),
         TagDef("tag_act_beforesleep", "睡前", "moon", "violet", "grp_act", 5),
-        // 道具
         TagDef("tag_tool_hand", "手", "hand", "teal", "grp_tool", 0),
         TagDef("tag_tool_cup", "飞机杯", "cup-soda", "teal", "grp_tool", 1),
         TagDef("tag_tool_doll", "小胶妻", "baby", "teal", "grp_tool", 2)
     )
 
-    /** 分组 id → 默认色（迁移旧字段时按分组归位）。 */
     val LEGACY_GROUP_ENV: String = "grp_env"
     val LEGACY_GROUP_STATE: String = "grp_state"
     val LEGACY_GROUP_TOOL: String = "grp_tool"
     val LEGACY_GROUP_ACT: String = "grp_act"
 
-    // ===================== 初始化 =====================
+    private fun dao(context: Context) = AppDatabase.get(context).taxonomyDao()
+
+    private val cache = HashMap<String, String?>()
+
+    private fun readRaw(context: Context, key: String): String? {
+        if (cache.containsKey(key)) return cache[key]
+        val v = runBlocking { dao(context).get(key) }
+        cache[key] = v
+        return v
+    }
+
+    private fun writeRaw(context: Context, key: String, value: String) {
+        cache[key] = value
+        runBlocking { dao(context).upsert(TaxonomyEntity(key, value)) }
+    }
+
     fun ensureDefaults(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        if (prefs.getBoolean(KEY_DEFAULTS_SEEDED, false)) return
-        prefs.edit {
-            putString(KEY_CATEGORIES, gson.toJson(DEFAULT_CATEGORIES))
-            putString(KEY_GROUPS, gson.toJson(DEFAULT_GROUPS))
-            putString(KEY_TAGS, gson.toJson(DEFAULT_TAGS))
-            putBoolean(KEY_DEFAULTS_SEEDED, true)
+        if (readRaw(context, KEY_DEFAULTS_SEEDED) == "true") return
+        runBlocking {
+            val dao = dao(context)
+            if (dao.get(KEY_CATEGORIES) == null) {
+                val j = gson.toJson(DEFAULT_CATEGORIES)
+                dao.upsert(TaxonomyEntity(KEY_CATEGORIES, j))
+                cache[KEY_CATEGORIES] = j
+            }
+            if (dao.get(KEY_GROUPS) == null) {
+                val j = gson.toJson(DEFAULT_GROUPS)
+                dao.upsert(TaxonomyEntity(KEY_GROUPS, j))
+                cache[KEY_GROUPS] = j
+            }
+            if (dao.get(KEY_TAGS) == null) {
+                val j = gson.toJson(DEFAULT_TAGS)
+                dao.upsert(TaxonomyEntity(KEY_TAGS, j))
+                cache[KEY_TAGS] = j
+            }
+            dao.upsert(TaxonomyEntity(KEY_DEFAULTS_SEEDED, "true"))
+            cache[KEY_DEFAULTS_SEEDED] = "true"
         }
     }
 
@@ -105,7 +128,6 @@ object TagSettings {
         readList<TagDef>(context, KEY_TAGS)
             .sortedWith(compareBy({ it.sortOrder }, { it.name }))
 
-    /** 分组及其下标签，按 sortOrder 排序。 */
     fun groupedTags(context: Context): List<Pair<TagGroupDef, List<TagDef>>> {
         val tags = getTags(context)
         return getGroups(context).map { g -> g to tags.filter { it.groupId == g.id } }
@@ -120,11 +142,9 @@ object TagSettings {
     fun getTag(context: Context, id: String): TagDef? =
         getTags(context).firstOrNull { it.id == id }
 
-    /** 按 name 全局查找（name 唯一）。 */
     fun findTagByName(context: Context, name: String): TagDef? =
         getTags(context).firstOrNull { it.name == name }
 
-    /** 默认分类（第一条 / cat_self）。 */
     fun defaultCategory(context: Context): CategoryDef {
         ensureDefaults(context)
         val list = getCategories(context)
@@ -163,10 +183,9 @@ object TagSettings {
         writeList(context, KEY_CATEGORIES, list)
     }
 
-    /** 删除分类；若仍被 Session 引用则返回 false。 */
     fun deleteCategory(context: Context, id: String): Boolean {
         val list = getCategories(context)
-        if (list.size <= 1) return false // 至少保留 1 个
+        if (list.size <= 1) return false
         writeList(context, KEY_CATEGORIES, list.filterNot { it.id == id })
         return true
     }
@@ -201,7 +220,6 @@ object TagSettings {
         writeList(context, KEY_GROUPS, list)
     }
 
-    /** 删除分组（连同其下标签一起删除）。若其下标签仍被 Session 引用则返回 false。 */
     fun deleteGroup(context: Context, id: String): Boolean {
         val groups = getGroups(context).filterNot { it.id == id }
         val tags = getTags(context).filterNot { it.groupId == id }
@@ -228,7 +246,7 @@ object TagSettings {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return null
         val list = getTags(context).toMutableList()
-        if (list.any { it.name == trimmed }) return null // name 全局唯一
+        if (list.any { it.name == trimmed }) return null
         val inGroup = list.count { it.groupId == groupId }
         val item = TagDef("tag_" + uuid(), trimmed, icon, color, groupId, inGroup)
         list += item
@@ -267,17 +285,12 @@ object TagSettings {
         writeList(context, KEY_TAGS, list)
     }
 
-    /**
-     * 按 name 查找标签；找不到则在指定分组下创建（用于旧数据迁移）。
-     * 返回标签 id。
-     */
     fun getOrCreateTag(context: Context, groupId: String, name: String): String {
         val trimmed = name.trim()
         findTagByName(context, trimmed)?.let { return it.id }
         return (addTag(context, trimmed, groupId) ?: error("tag create failed")).id
     }
 
-    /** 合并外部分类法（备份恢复用）：按 id upsert，不破坏既有项。 */
     fun mergeTaxonomy(
         context: Context,
         categories: List<CategoryDef>?,
@@ -314,12 +327,6 @@ object TagSettings {
         }
     }
 
-    // ===================== 旧数据迁移 =====================
-    /**
-     * 把旧 Session 的 location/mood/props/watchedMovie 字段迁移为 tagIds
-     * - 已有 tagIds 的直接返回
-     * - 缺失的标签会自动在对应分组下创建
-     */
     fun migrateLegacySession(context: Context, s: Session): Session {
         val existingTagIds: List<String> = s.tagIds.orEmpty()
         val catRaw: String = s.categoryId.orEmpty()
@@ -368,17 +375,14 @@ object TagSettings {
         context: Context,
         key: String
     ): List<T> {
-        val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(key, null)
-
+        val json = readRaw(context, key)
         if (json.isNullOrBlank()) return emptyList()
         val type = object : TypeToken<List<T>>() {}.type
         return gson.fromJson(json, type) ?: emptyList()
     }
 
     private fun <T> writeList(context: Context, key: String, list: List<T>) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit { putString(key, gson.toJson(list)) }
+        writeRaw(context, key, gson.toJson(list))
     }
 
     private fun uuid(): String = UUID.randomUUID().toString().take(8)

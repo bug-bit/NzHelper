@@ -6,7 +6,13 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSerializer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.crash.CrashHandler
+import me.neko.nzhelper.core.database.AppDatabase
+import me.neko.nzhelper.core.database.LegacyMigrator
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.notification.NotificationUtil
 import me.neko.nzhelper.core.worker.RecycleBinWorker
@@ -22,6 +28,8 @@ class NzApplication : Application() {
 
         lateinit var instance: NzApplication
             private set
+
+        val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     override fun onCreate() {
@@ -52,5 +60,10 @@ class NzApplication : Application() {
             .create()
 
         TagSettings.ensureDefaults(this)
+
+        appScope.launch {
+            AppDatabase.get(this@NzApplication)
+            LegacyMigrator.migrateIfNeeded(this@NzApplication)
+        }
     }
 }
