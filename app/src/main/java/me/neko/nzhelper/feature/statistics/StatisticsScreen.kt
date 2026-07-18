@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -29,6 +30,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -59,12 +61,14 @@ import java.time.LocalDateTime
 fun StatisticsScreen(isActive: Boolean = false) {
     val context = LocalContext.current
     val sessions = remember { mutableStateListOf<Session>() }
+    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(isActive) {
         if (isActive) {
             val loaded = StatisticsRepository.loadSessions(context)
             sessions.clear()
             sessions.addAll(loaded)
+            isLoading = false
         }
     }
 
@@ -119,7 +123,14 @@ fun StatisticsScreen(isActive: Boolean = false) {
                 .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
-            if (sessions.isEmpty()) {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (sessions.isEmpty()) {
                 EmptyStateView()
             } else {
                 LazyColumn(

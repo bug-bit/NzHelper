@@ -38,6 +38,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -133,12 +134,14 @@ fun HomeScreen(isActive: Boolean = false) {
     var showManualAddDialog by remember { mutableStateOf(false) }
     var formState by remember { mutableStateOf(SessionFormState()) }
     val sessions = remember { mutableStateListOf<Session>() }
+    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         val loaded = SessionRepository.loadSessions(context)
             .sortedByDescending { it.timestamp }
         sessions.clear()
         sessions.addAll(loaded)
+        isLoading = false
     }
     LaunchedEffect(isActive) {
         if (isActive) {
@@ -146,6 +149,7 @@ fun HomeScreen(isActive: Boolean = false) {
                 .sortedByDescending { it.timestamp }
             sessions.clear()
             sessions.addAll(loaded)
+            isLoading = false
         }
     }
 
@@ -277,7 +281,18 @@ fun HomeScreen(isActive: Boolean = false) {
                     }
                 }
 
-                if (sessions.isNotEmpty()) {
+                if (isLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (sessions.isNotEmpty()) {
                     item {
                         Card(
                             shape = MaterialTheme.shapes.extraLarge,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -32,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -63,6 +65,7 @@ fun HistoryScreen(isActive: Boolean = false) {
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
     val sessions = remember { mutableStateListOf<Session>() }
+    var isLoading by remember { mutableStateOf(true) }
 
     var searchQuery by remember { mutableStateOf("") }
     var activeFilter by remember { mutableStateOf(HistoryQuickFilter.ALL) }
@@ -82,6 +85,7 @@ fun HistoryScreen(isActive: Boolean = false) {
                 .sortedByDescending { it.timestamp }
             sessions.clear()
             sessions.addAll(loaded)
+            isLoading = false
         }
     }
 
@@ -116,7 +120,14 @@ fun HistoryScreen(isActive: Boolean = false) {
                 .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
-            if (sessions.isEmpty()) {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (sessions.isEmpty()) {
                 HistoryEmptyState()
             } else {
                 LazyColumn(
