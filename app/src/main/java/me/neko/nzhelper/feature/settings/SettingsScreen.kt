@@ -13,14 +13,11 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.AutoDelete
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CloudSync
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
@@ -57,9 +54,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.crash.CrashLogManager
-import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
-import me.neko.nzhelper.core.datastore.RecycleBinSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.feature.about.AboutActivity
 import me.neko.nzhelper.feature.backup.BackupActivity
@@ -67,10 +62,9 @@ import me.neko.nzhelper.feature.crash.CrashLogActivity
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.lock.GestureLockSetupActivity
-import me.neko.nzhelper.feature.recyclebin.RecycleBinActivity
+import me.neko.nzhelper.feature.recyclebin.RecycleBinSettingsActivity
 import me.neko.nzhelper.feature.settings.components.AgeSliderDialog
 import me.neko.nzhelper.feature.tagmanage.TagManageActivity
-import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.SettingsItem
@@ -84,13 +78,9 @@ fun SettingsScreen() {
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var showClearDialog by remember { mutableStateOf(false) }
-
-    var recycleBinCount by remember { mutableIntStateOf(0) }
     var crashLogCount by remember { mutableIntStateOf(CrashLogManager.listCrashLogs(context).size) }
     var unreadCrashCount by remember { mutableIntStateOf(CrashLogManager.unreadCount(context)) }
     var tagCount by remember { mutableIntStateOf(TagSettings.getTags(context).size) }
-    var autoCleanEnabled by remember { mutableStateOf(RecycleBinSettings.isAutoCleanEnabled(context)) }
     var age by remember {
         mutableIntStateOf(AgeGroupSettings.getAge(context))
     }
@@ -120,7 +110,6 @@ fun SettingsScreen() {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 scope.launch {
-                    recycleBinCount = RecycleRepository.loadRecycleBin(context).size
                     tagCount = TagSettings.getTags(context).size
                     crashLogCount = CrashLogManager.listCrashLogs(context).size
                     unreadCrashCount = CrashLogManager.unreadCount(context)
@@ -133,7 +122,6 @@ fun SettingsScreen() {
     }
 
     LaunchedEffect(Unit) {
-        recycleBinCount = RecycleRepository.loadRecycleBin(context).size
         crashLogCount = CrashLogManager.listCrashLogs(context).size
         unreadCrashCount = CrashLogManager.unreadCount(context)
     }
@@ -342,48 +330,19 @@ fun SettingsScreen() {
             item {
                 SettingsCard {
                     SettingsItem(
-                        icon = Icons.Outlined.Delete,
+                        icon = Icons.Outlined.DeleteOutline,
                         title = "回收站",
-                        subtitle = if (recycleBinCount > 0) "共 $recycleBinCount 条记录，点击管理"
-                        else "暂无已删除的记录",
+                        subtitle = "管理已删除记录",
                         iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
                         iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         onClick = {
-                            context.startActivity(Intent(context, RecycleBinActivity::class.java))
-                        },
-                        badgeText = if (recycleBinCount > 0) "$recycleBinCount" else null
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Outlined.AutoDelete,
-                        title = "自动清理回收站",
-                        subtitle = if (autoCleanEnabled) "已开启，记录将在 30 天后自动永久删除"
-                        else "已关闭，记录将一直保留在回收站中",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        onClick = {
-                            autoCleanEnabled = !autoCleanEnabled
-                            RecycleBinSettings.setAutoCleanEnabled(context, autoCleanEnabled)
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = autoCleanEnabled,
-                                onCheckedChange = { enabled ->
-                                    autoCleanEnabled = enabled
-                                    RecycleBinSettings.setAutoCleanEnabled(context, enabled)
-                                }
+                            context.startActivity(
+                                Intent(
+                                    context,
+                                    RecycleBinSettingsActivity::class.java
+                                )
                             )
                         }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Outlined.DeleteSweep,
-                        title = "移入回收站",
-                        subtitle = "将所有记录移入回收站，可从回收站恢复",
-                        titleColor = MaterialTheme.colorScheme.error,
-                        iconContainerColor = MaterialTheme.colorScheme.errorContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        onClick = { showClearDialog = true }
                     )
                 }
             }
@@ -422,23 +381,6 @@ fun SettingsScreen() {
                 }
             }
         }
-    }
-
-    if (showClearDialog) {
-        ConfirmDialog(
-            icon = Icons.Default.Warning,
-            title = "移入回收站",
-            message = "确定要将所有记录移入回收站吗？可从回收站恢复。",
-            confirmText = "移入回收站",
-            onConfirm = {
-                scope.launch {
-                    RecycleRepository.moveAllToRecycleBin(context)
-                    recycleBinCount = RecycleRepository.loadRecycleBin(context).size
-                }
-                showClearDialog = false
-            },
-            onDismiss = { showClearDialog = false }
-        )
     }
 
     if (showAgeDialog) {

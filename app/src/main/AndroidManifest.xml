@@ -49,6 +49,9 @@
             android:name=".feature.recyclebin.RecycleBinActivity"
             android:exported="false" />
         <activity
+            android:name=".feature.recyclebin.RecycleBinSettingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".feature.backup.BackupActivity"
             android:exported="false" />
         <activity
