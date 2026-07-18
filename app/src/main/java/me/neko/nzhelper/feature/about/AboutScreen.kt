@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -157,8 +157,6 @@ fun AboutScreen(
                         painter = painterResource(id = R.drawable.code_24px),
                         title = "GitHub 仓库",
                         subtitle = "我要好多好多小星星✨~",
-                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         onClick = {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
@@ -176,8 +174,6 @@ fun AboutScreen(
                         painter = painterResource(id = R.drawable.ic_telegram),
                         title = "Telegram CI 构建频道",
                         subtitle = "获取最新测试版",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onClick = {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
@@ -191,8 +187,6 @@ fun AboutScreen(
                         painter = painterResource(id = R.drawable.ic_telegram),
                         title = "Telegram 群组",
                         subtitle = "@NzHelper",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onClick = {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
@@ -210,8 +204,6 @@ fun AboutScreen(
                         painter = painterResource(id = R.drawable.source_code_24px),
                         title = "开放源代码",
                         subtitle = "查看第三方开源声明",
-                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         onClick = { navController.navigate("open_source") }
                     )
                 }
@@ -224,8 +216,6 @@ fun AboutScreen(
 private fun SettingsItem(
     painter: Painter,
     title: String,
-    iconContainerColor: Color,
-    iconContentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
@@ -249,14 +239,13 @@ private fun SettingsItem(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(iconContainerColor.copy(alpha = contentAlpha)),
+                    .clip(CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painter = painter,
                     contentDescription = null,
-                    tint = iconContentColor,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp)
                 )
             }

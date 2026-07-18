@@ -1,7 +1,6 @@
 package me.neko.nzhelper.ui.component.setting
 
 import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -72,8 +72,6 @@ fun SettingsCard(
 fun SettingsItem(
     icon: ImageVector,
     title: String,
-    iconContainerColor: Color,
-    iconContentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
@@ -98,14 +96,13 @@ fun SettingsItem(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(iconContainerColor.copy(alpha = contentAlpha)),
+                    .clip(CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = iconContentColor,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp)
                 )
             }

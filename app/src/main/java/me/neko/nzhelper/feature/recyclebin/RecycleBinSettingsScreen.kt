@@ -121,8 +121,6 @@ fun RecycleBinSettingsScreen(
                         title = "回收站记录",
                         subtitle = if (recycleBinCount > 0) "共 $recycleBinCount 条记录，点击管理"
                         else "暂无已删除的记录",
-                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         onClick = {
                             context.startActivity(Intent(context, RecycleBinActivity::class.java))
                         },
@@ -138,8 +136,6 @@ fun RecycleBinSettingsScreen(
                         title = "自动清理回收站",
                         subtitle = if (autoCleanEnabled) "已开启，记录将在 30 天后自动永久删除"
                         else "已关闭，记录将一直保留在回收站中",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onClick = {
                             autoCleanEnabled = !autoCleanEnabled
                             RecycleBinSettings.setAutoCleanEnabled(context, autoCleanEnabled)
@@ -164,8 +160,6 @@ fun RecycleBinSettingsScreen(
                         title = "移入回收站",
                         subtitle = "将所有记录移入回收站，可从回收站恢复",
                         titleColor = MaterialTheme.colorScheme.error,
-                        iconContainerColor = MaterialTheme.colorScheme.errorContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onErrorContainer,
                         onClick = { showClearDialog = true }
                     )
                 }

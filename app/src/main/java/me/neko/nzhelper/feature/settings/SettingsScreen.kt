@@ -198,8 +198,6 @@ fun SettingsScreen() {
                         icon = Icons.Outlined.Lock,
                         title = "应用锁",
                         subtitle = "使用生物识别或锁屏密码解锁",
-                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         onClick = { requestToggleLock(!lockEnabled) },
                         trailingContent = {
                             Switch(
@@ -213,8 +211,6 @@ fun SettingsScreen() {
                         icon = Icons.Outlined.Gesture,
                         title = "手势密码",
                         subtitle = if (hasGesturePassword) "已开启，点击可设置" else "关闭，点击开启并设置",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onClick = {
                             context.startActivity(
                                 Intent(
@@ -255,8 +251,6 @@ fun SettingsScreen() {
                         icon = Icons.Outlined.Cake,
                         title = "年龄",
                         subtitle = "当前：$age 岁",
-                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         onClick = { showAgeDialog = true }
                     )
                     SettingsDivider()
@@ -264,8 +258,6 @@ fun SettingsScreen() {
                         icon = Icons.Outlined.Timer,
                         title = "自动计时",
                         subtitle = "进入首页时自动开始计时",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onClick = { toggleAutoStart(!autoStartEnabled) },
                         trailingContent = {
                             Switch(
@@ -279,8 +271,6 @@ fun SettingsScreen() {
                         icon = Icons.Outlined.AutoAwesome,
                         title = "自动标签",
                         subtitle = "按时间/星期自动打标签",
-                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         onClick = { toggleAutoTag(!autoTagEnabled) },
                         trailingContent = {
                             Switch(
@@ -298,8 +288,6 @@ fun SettingsScreen() {
                         icon = Icons.Outlined.Sell,
                         title = "标签管理",
                         subtitle = "分类 · 分组 · 标签（共 $tagCount 个标签）",
-                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         onClick = {
                             context.startActivity(
                                 Intent(
@@ -309,32 +297,20 @@ fun SettingsScreen() {
                             )
                         }
                     )
-                }
-            }
-
-            item {
-                SettingsCard {
+                    SettingsDivider()
                     SettingsItem(
                         icon = Icons.Outlined.CloudSync,
                         title = "备份与恢复",
                         subtitle = "导出 / 导入 / WebDAV 云备份",
-                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         onClick = {
                             context.startActivity(Intent(context, BackupActivity::class.java))
                         }
                     )
-                }
-            }
-
-            item {
-                SettingsCard {
+                    SettingsDivider()
                     SettingsItem(
                         icon = Icons.Outlined.DeleteOutline,
                         title = "回收站",
                         subtitle = "管理已删除记录",
-                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         onClick = {
                             context.startActivity(
                                 Intent(
@@ -357,8 +333,6 @@ fun SettingsScreen() {
                             unreadCrashCount > 0 -> "共 $crashLogCount 条，$unreadCrashCount 条未读"
                             else -> "共 $crashLogCount 条记录"
                         },
-                        iconContainerColor = MaterialTheme.colorScheme.errorContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onErrorContainer,
                         onClick = {
                             context.startActivity(Intent(context, CrashLogActivity::class.java))
                         },
@@ -372,8 +346,6 @@ fun SettingsScreen() {
                     SettingsItem(
                         icon = Icons.Outlined.Info,
                         title = "关于",
-                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         onClick = {
                             context.startActivity(Intent(context, AboutActivity::class.java))
                         }

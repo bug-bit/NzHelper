@@ -180,8 +180,6 @@ fun BackupScreen(
                         title = "备份密码",
                         subtitle = if (hasCustomBackupPassword) "已设置：换手机也能用相同密码恢复备份"
                         else "未设置：备份只能在本机恢复，换手机/重装后打不开",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onClick = { showBackupPasswordDialog = true }
                     )
                 }
@@ -193,8 +191,6 @@ fun BackupScreen(
                         icon = Icons.Outlined.Upload,
                         title = "导出数据",
                         subtitle = "导出加密备份，需用密码才能恢复",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onClick = {
                             exportLauncher.launch("NzHelper_Backup_${System.currentTimeMillis()}.nz")
                         },
@@ -205,8 +201,6 @@ fun BackupScreen(
                         icon = Icons.Outlined.Download,
                         title = "导入数据",
                         subtitle = "从备份文件恢复数据",
-                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         onClick = {
                             importLauncher.launch(
                                 arrayOf(
@@ -237,8 +231,6 @@ fun BackupScreen(
                         icon = Icons.Outlined.Cloud,
                         title = "WebDAV 备份",
                         subtitle = if (webDavConfigured) "已配置，点击修改" else "未配置，点击设置",
-                        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         onClick = { showWebDavDialog = true }
                     )
                     SettingsDivider()
@@ -247,8 +239,6 @@ fun BackupScreen(
                         title = "云端备份",
                         subtitle = webDavBackupDateStr?.let { "上次备份：$it" }
                             ?: "上传加密备份到 WebDAV 服务器",
-                        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onClick = {
                             if (webDavConfigured && !webDavBackingUp) {
                                 webDavBackingUp = true
@@ -277,8 +267,6 @@ fun BackupScreen(
                         icon = Icons.Outlined.CloudDownload,
                         title = "云端恢复",
                         subtitle = "从 WebDAV 恢复并合并到本地",
-                        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        iconContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         onClick = {
                             if (webDavConfigured && !webDavRestoring) {
                                 webDavRestoring = true
