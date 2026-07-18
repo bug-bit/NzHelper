@@ -88,20 +88,15 @@ object RecycleRepository {
         withContext(Dispatchers.IO) {
             if (itemsToRestore.isEmpty()) return@withContext
             val currentSessions = SessionRepository.loadSessions(context)
-            val currentRecycleBin = dao(context).getAll().map { Mappers.entityToItem(it, gson) }
 
             val sessionsToRestore = itemsToRestore.map { it.session }
             val timestampsToRestore = sessionsToRestore.map { Mappers.sessionKey(it) }.toSet()
 
             val mergedSessions = (currentSessions + sessionsToRestore)
                 .distinctBy { Mappers.sessionKey(it) }
-            val remainingRecycleBin =
-                currentRecycleBin.filter { Mappers.sessionKey(it.session) !in timestampsToRestore }
 
+            dao(context).deleteBySessionKeys(timestampsToRestore.toList())
             SessionRepository.saveSessions(context, mergedSessions)
-            val dao = dao(context)
-            dao.deleteAll()
-            dao.upsertAll(remainingRecycleBin.map { Mappers.itemToEntity(it, gson) })
         }
 
     suspend fun deleteFromRecycleBin(context: Context, itemsToDelete: List<RecycleBinItem>) =
