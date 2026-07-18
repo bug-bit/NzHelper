@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.statistics.components.EmptyStateView
-import me.neko.nzhelper.feature.statistics.components.LatestSessionCard
 import me.neko.nzhelper.feature.statistics.components.PeriodDashboardCard
 import me.neko.nzhelper.feature.statistics.components.PeriodOverviewDialog
 import me.neko.nzhelper.feature.statistics.components.TotalStatCard
@@ -94,10 +93,6 @@ fun StatisticsScreen(isActive: Boolean = false) {
         derivedStateOf { StatisticsRepository.calculateTotalStats(sessions, currentTime) }
     }
 
-    val latestInfo by remember(sessions) {
-        derivedStateOf { StatisticsRepository.calculateLatestInfo(sessions) }
-    }
-
     var selectedOverview by remember { mutableStateOf<PeriodOverview?>(null) }
 
     val scrollBehavior =
@@ -138,12 +133,6 @@ fun StatisticsScreen(isActive: Boolean = false) {
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    item {
-                        LatestSessionCard(
-                            latestInfo = latestInfo,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
                     item {
                         TotalStatCard(
                             stats = totalStats,

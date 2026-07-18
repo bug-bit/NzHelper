@@ -6,13 +6,10 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -25,20 +22,14 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AddCircle
-import androidx.compose.material.icons.outlined.Timeline
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -47,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -57,7 +49,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +58,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionFormState
@@ -74,7 +66,6 @@ import me.neko.nzhelper.core.service.TimerService
 import me.neko.nzhelper.feature.home.components.ConfirmResetDialog
 import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
 import me.neko.nzhelper.feature.home.components.SinceLastCard
-import me.neko.nzhelper.feature.home.components.TimelineItem
 import me.neko.nzhelper.feature.home.components.TimerCard
 import me.neko.nzhelper.ui.component.dialog.DetailsDialog
 import java.time.LocalDateTime
@@ -160,18 +151,9 @@ fun HomeScreen(isActive: Boolean = false) {
             nowTick = System.currentTimeMillis()
         }
     }
-    val sinceLastText = remember(sessions.size, nowTick) {
-        val latest = sessions.firstOrNull()?.timestamp ?: return@remember "还没有记录哦"
-        val mins = java.time.Duration.between(latest, LocalDateTime.now()).toMinutes()
-        when {
-            mins < 1 -> "刚刚"
-            mins < 60 -> "${mins}分钟前"
-            mins < 1440 -> "${mins / 60}小时前"
-            mins < 10080 -> "${mins / 1440}天前"
-            else -> "${mins / 10080}周前"
-        }
+    val latestInfo by remember(sessions, nowTick) {
+        derivedStateOf { StatisticsRepository.calculateLatestInfo(sessions) }
     }
-    val hasRecord = sessions.isNotEmpty()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -199,9 +181,8 @@ fun HomeScreen(isActive: Boolean = false) {
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
             ) {
-                // 计时器主区域
                 item {
                     TimerCard(
                         elapsedSeconds = elapsedSeconds,
@@ -223,26 +204,13 @@ fun HomeScreen(isActive: Boolean = false) {
                             else Toast.makeText(context, "计时尚未开始", Toast.LENGTH_SHORT).show()
                         },
                         onReset = {
-                            if (elapsedSeconds > 0) {
-                                showResetConfirmDialog = true
-                            } else {
-                                Toast.makeText(context, "计时尚未开始", Toast.LENGTH_SHORT).show()
-                            }
+                            if (elapsedSeconds > 0) showResetConfirmDialog = true
+                            else Toast.makeText(context, "计时尚未开始", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
-
-                // 距上次记录
                 item {
-                    SinceLastCard(
-                        sinceLastText = sinceLastText,
-                        hasRecord = hasRecord
-                    )
-                }
-
-                // 手动添加记录
-                item {
-                    FilledTonalButton(
+                    OutlinedButton(
                         onClick = {
                             val nowTime = LocalDateTime.now()
                             val suggested = AutoTagRules.suggest(context, nowTime)
@@ -261,95 +229,23 @@ fun HomeScreen(isActive: Boolean = false) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
-                        shape = MaterialTheme.shapes.large,
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                        shape = MaterialTheme.shapes.large
                     ) {
                         Icon(
-                            Icons.Outlined.AddCircle,
+                            Icons.Outlined.Add,
                             contentDescription = null,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "手动添加记录",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
-
-                if (isLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                } else if (sessions.isNotEmpty()) {
-                    item {
-                        Card(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceBright
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(20.dp)) {
-                                val recentSessions = sessions.take(8)
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(MaterialTheme.shapes.medium)
-                                            .background(MaterialTheme.colorScheme.primaryContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Timeline,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "活动时间轴",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "共 ${sessions.size} 次记录",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-
-                                Spacer(Modifier.height(16.dp))
-
-                                recentSessions.forEachIndexed { index, session ->
-                                    TimelineItem(
-                                        session = session,
-                                        isLast = index == recentSessions.lastIndex
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    item { EmptyStateCard() }
+                item {
+                    SinceLastCard(latestInfo = latestInfo)
                 }
             }
         }
@@ -455,50 +351,6 @@ fun HomeScreen(isActive: Boolean = false) {
         },
         onDismiss = { showManualAddDialog = false }
     )
-}
-
-@Composable
-private fun EmptyStateCard() {
-    Card(
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.5f)
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "(。・ω・。)",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                )
-            }
-            Text(
-                text = "暂无记录",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-            Text(
-                text = "点击上方「开始」计时，或手动添加第一条记录",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
-        }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

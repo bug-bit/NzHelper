@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
@@ -51,7 +51,7 @@ import me.neko.nzhelper.feature.history.components.HistoryQuickFilter
 import me.neko.nzhelper.feature.history.components.HistorySearchBar
 import me.neko.nzhelper.feature.history.components.HistorySearchEmptyState
 import me.neko.nzhelper.feature.history.components.SessionDetailDialog
-import me.neko.nzhelper.feature.history.components.SessionHistoryItem
+import me.neko.nzhelper.feature.history.components.TimelineItem
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.ui.component.dialog.DetailsDialog
 
@@ -133,8 +133,8 @@ fun HistoryScreen(isActive: Boolean = false) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     item {
                         HistorySearchBar(
@@ -158,23 +158,16 @@ fun HistoryScreen(isActive: Boolean = false) {
                             )
                         }
                     } else {
-                        items(filteredSessions) { session ->
-                            SessionHistoryItem(
+                        itemsIndexed(
+                            filteredSessions,
+                            key = { _, session -> session.timestamp.toString() }) { index, session ->
+                            TimelineItem(
                                 session = session,
+                                isFirst = index == 0,
+                                isLast = index == filteredSessions.lastIndex,
                                 onClick = {
                                     selectedSession = session
                                     isViewingDetails = true
-                                },
-                                onEdit = {
-                                    selectedSession = session
-                                    isEditing = true
-                                    editFormState = SessionFormState(
-                                        remark = session.remark,
-                                        categoryId = session.categoryId,
-                                        tagIds = session.tagIds.toSet(),
-                                        climax = session.climax,
-                                        rating = session.rating
-                                    )
                                 },
                                 onDelete = {
                                     sessionToDelete = session

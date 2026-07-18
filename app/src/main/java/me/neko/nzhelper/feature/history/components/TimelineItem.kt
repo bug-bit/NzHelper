@@ -1,7 +1,9 @@
-package me.neko.nzhelper.feature.home.components
+package me.neko.nzhelper.feature.history.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,13 +19,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.StarRate
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,8 +53,10 @@ import java.util.Locale
 fun TimelineItem(
     modifier: Modifier = Modifier,
     session: Session,
+    isFirst: Boolean,
     isLast: Boolean,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val primaryContainer = MaterialTheme.colorScheme.primaryContainer
@@ -77,11 +86,55 @@ fun TimelineItem(
         session.tagIds.mapNotNull { TagSettings.getTag(context, it) }.take(4)
     }
 
+    val showActions = onDelete != null
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val largeRadius = MaterialTheme.shapes.large.topStart
+    val smallRadius = MaterialTheme.shapes.extraSmall.topStart
+
+    val shape = when {
+        isPressed -> RoundedCornerShape(
+            topStart = largeRadius, topEnd = largeRadius,
+            bottomStart = largeRadius, bottomEnd = largeRadius
+        )
+
+        isFirst && isLast -> RoundedCornerShape(
+            topStart = largeRadius, topEnd = largeRadius,
+            bottomStart = largeRadius, bottomEnd = largeRadius
+        )
+
+        isFirst -> RoundedCornerShape(
+            topStart = largeRadius, topEnd = largeRadius,
+            bottomStart = smallRadius, bottomEnd = smallRadius
+        )
+
+        isLast -> RoundedCornerShape(
+            topStart = smallRadius, topEnd = smallRadius,
+            bottomStart = largeRadius, bottomEnd = largeRadius
+        )
+
+        else -> RoundedCornerShape(
+            topStart = smallRadius, topEnd = smallRadius,
+            bottomStart = smallRadius, bottomEnd = smallRadius
+        )
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceBright)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(),
+                        onClick = onClick
+                    )
+                } else Modifier
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Column(
             modifier = Modifier
@@ -123,10 +176,11 @@ fun TimelineItem(
                 }
             }
             if (!isLast) {
+                Spacer(Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
                         .width(2.dp)
-                        .fillMaxHeight()
+                        .weight(1f)
                         .background(outline.copy(alpha = 0.6f))
                 )
             }
@@ -137,24 +191,42 @@ fun TimelineItem(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(bottom = if (isLast) 0.dp else 18.dp)
+                .padding(bottom = if (isLast) 0.dp else 0.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = relativeDate,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (isToday) primary else onSurface,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = timeText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = onSurfaceVariant
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = relativeDate,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (isToday) primary else onSurface
+                    )
+                    Text(
+                        text = timeText,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                if (showActions) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                Icons.Rounded.Delete,
+                                contentDescription = "删除",
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(5.dp))

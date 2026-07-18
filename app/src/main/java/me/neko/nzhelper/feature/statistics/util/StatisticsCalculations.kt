@@ -215,7 +215,11 @@ fun calculateLatestInfo(sessions: List<Session>): LatestSessionInfo? {
         else -> lastDate.format(DateTimeFormatter.ofPattern("M月d日 EEEE", Locale.CHINA))
     }
 
-    val time = latest.timestamp.format(DateTimeFormatter.ofPattern("a h:mm", Locale.CHINA))
+    val time = buildString {
+        append(formatPeriod(latest.timestamp))
+        append(" · ")
+        append(latest.timestamp.format(DateTimeFormatter.ofPattern("HH:mm")))
+    }
     val durationText = formatDuration(latest.duration)
 
     val isErrorState = if (daysAgo <= 1) {
@@ -234,6 +238,19 @@ fun calculateLatestInfo(sessions: List<Session>): LatestSessionInfo? {
     val detailText = getRandomComment(daysAgo, isErrorState)
 
     return LatestSessionInfo(displayDate, time, durationText, daysAgo, detailText, isErrorState)
+}
+
+private fun formatPeriod(dateTime: LocalDateTime): String {
+    val hour = dateTime.hour
+    return when (hour) {
+        in 5..7 -> "清晨"
+        in 8..10 -> "上午"
+        in 11..13 -> "中午"
+        in 14..17 -> "下午"
+        in 18..20 -> "傍晚"
+        in 21..23 -> "深夜"
+        else -> "凌晨"
+    }
 }
 
 private fun getRandomComment(days: Long, isError: Boolean): String {
