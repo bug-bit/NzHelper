@@ -315,6 +315,18 @@ private val licenseList = listOf(
         "https://developer.android.com/jetpack/androidx/releases/work",
         LicenseType.Apache2
     ),
+    LicenseItem(
+        "Google",
+        "Room",
+        "https://developer.android.com/jetpack/androidx/releases/room",
+        LicenseType.Apache2
+    ),
+    LicenseItem(
+        "Google",
+        "Kotlin Symbol Processing API",
+        "https://github.com/google/ksp",
+        LicenseType.Apache2
+    )
 )
 
 data class LicenseItem(

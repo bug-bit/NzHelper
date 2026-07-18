@@ -2,7 +2,7 @@
 agp = "9.2.1"
 biometric = "1.4.0-alpha07"
 gson = "2.14.0"
-kotlin = "2.4.0"
+kotlin = "2.3.10"
 ksp = "2.3.10"
 coreKtx = "1.19.0"
 junit = "4.13.2"
