@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Bolt
@@ -74,7 +73,7 @@ fun PeriodDashboardCard(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(CircleShape)
+                        .clip(MaterialTheme.shapes.medium)
                         .background(MaterialTheme.colorScheme.tertiaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
@@ -137,8 +136,10 @@ fun PeriodDashboardCard(
                             label = "次数",
                             value = db.count.toString(),
                             sub = changeBadge(db),
-                            accentContainer = MaterialTheme.colorScheme.primaryContainer,
-                            accentContent = MaterialTheme.colorScheme.onPrimaryContainer,
+                            accentContainer = MaterialTheme.colorScheme.surfaceContainerHighest.copy(
+                                alpha = 0.3f
+                            ),
+                            accentContent = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
                             onClick = { onPeriodClick(db.type, db.label) }
                         )
@@ -147,8 +148,10 @@ fun PeriodDashboardCard(
                             label = "平均持续",
                             value = formatAvgDuration(db.avgDurationSeconds),
                             sub = "本周期内均值",
-                            accentContainer = MaterialTheme.colorScheme.secondaryContainer,
-                            accentContent = MaterialTheme.colorScheme.onSecondaryContainer,
+                            accentContainer = MaterialTheme.colorScheme.surfaceContainerHighest.copy(
+                                alpha = 0.3f
+                            ),
+                            accentContent = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
                             onClick = { onPeriodClick(db.type, db.label) }
                         )
@@ -162,8 +165,10 @@ fun PeriodDashboardCard(
                             label = "高潮率",
                             value = "${db.climaxRate}%",
                             sub = if (db.count > 0) "${db.climaxCount}/${db.count} 次" else "暂无记录",
-                            accentContainer = MaterialTheme.colorScheme.tertiaryContainer,
-                            accentContent = MaterialTheme.colorScheme.onTertiaryContainer,
+                            accentContainer = MaterialTheme.colorScheme.surfaceContainerHighest.copy(
+                                alpha = 0.3f
+                            ),
+                            accentContent = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
                             onClick = { onPeriodClick(db.type, db.label) }
                         )
@@ -172,8 +177,10 @@ fun PeriodDashboardCard(
                             label = "连续记录",
                             value = "${db.streakDays}",
                             sub = streakSub(db.streakDays),
-                            accentContainer = MaterialTheme.colorScheme.errorContainer,
-                            accentContent = MaterialTheme.colorScheme.onErrorContainer,
+                            accentContainer = MaterialTheme.colorScheme.surfaceContainerHighest.copy(
+                                alpha = 0.3f
+                            ),
+                            accentContent = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
                             onClick = { onPeriodClick(db.type, db.label) }
                         )
@@ -230,7 +237,7 @@ private fun MetricTile(
                     fontWeight = FontWeight.Bold,
                     fontFeatureSettings = "tnum"
                 ),
-                color = accentContent,
+                color = accentContent.copy(alpha = 0.8f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

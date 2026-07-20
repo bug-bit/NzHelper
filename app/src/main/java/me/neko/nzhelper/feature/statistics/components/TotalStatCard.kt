@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -67,7 +66,7 @@ fun TotalStatCard(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(CircleShape)
+                        .clip(MaterialTheme.shapes.medium)
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
@@ -146,11 +145,6 @@ fun TotalStatCard(
                 val tipContainer = if (isWarning)
                     MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)
                 else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
-                val tipContent = if (isWarning)
-                    MaterialTheme.colorScheme.tertiary
-                else MaterialTheme.colorScheme.onTertiaryContainer
-                val tipIcon = if (isWarning) Icons.Outlined.Error
-                else Icons.Outlined.Info
 
                 Spacer(Modifier.height(16.dp))
                 Surface(
@@ -169,16 +163,16 @@ fun TotalStatCard(
                         )
                     ) {
                         Icon(
-                            imageVector = tipIcon,
+                            imageVector = Icons.Outlined.Info,
                             contentDescription = null,
                             modifier = Modifier.size(15.dp),
-                            tint = tipContent
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = statusText,
                             style = MaterialTheme.typography.bodySmall,
-                            color = tipContent,
-                            fontWeight = if (isWarning) FontWeight.Medium else FontWeight.Normal
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
