@@ -3,24 +3,19 @@ package me.neko.nzhelper.ui.component.dialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -37,13 +32,14 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,14 +47,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.CategoryDef
@@ -92,220 +85,202 @@ fun DetailsDialog(
         formState.categoryId.ifBlank { TagSettings.defaultCategory(context).id }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                tonalElevation = 6.dp
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 12.dp, bottom = 4.dp)
-                            .align(Alignment.CenterHorizontally)
-                            .width(36.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                    )
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 8.dp),
-                        textAlign = TextAlign.Center
-                    )
+    @Suppress("DEPRECATION")
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f, fill = false)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        if (showDurationField) {
-                            DurationInputSection(
-                                formState = formState,
-                                onFormStateChange = onFormStateChange
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                textAlign = TextAlign.Center
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (showDurationField) {
+                    DurationInputSection(
+                        formState = formState,
+                        onFormStateChange = onFormStateChange
+                    )
+                    DateTimeInputSection(
+                        formState = formState,
+                        onFormStateChange = { newForm ->
+                            val ts = try {
+                                newForm.toLocalDateTime()
+                            } catch (_: Exception) {
+                                onFormStateChange(newForm); return@DateTimeInputSection
+                            }
+                            val suggested = AutoTagRules.suggest(context, ts)
+                            val (merged, added) = AutoTagRules.merge(
+                                newForm.tagIds,
+                                suggested
                             )
-                            DateTimeInputSection(
-                                formState = formState,
-                                onFormStateChange = { newForm ->
+                            onFormStateChange(
+                                newForm.copy(
+                                    tagIds = merged,
+                                    autoTagIds = newForm.autoTagIds + added
+                                )
+                            )
+                        }
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                }
+
+                // 分类（单选）
+                CategorySection(
+                    categories = categories,
+                    selectedId = effectiveCategoryId,
+                    onSelect = { onFormStateChange(formState.copy(categoryId = it)) }
+                )
+
+                // 标签（多选）
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "标签",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "已选 ${formState.tagIds.size}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(
+                                onClick = {
                                     val ts = try {
-                                        newForm.toLocalDateTime()
+                                        formState.toLocalDateTime()
                                     } catch (_: Exception) {
-                                        onFormStateChange(newForm); return@DateTimeInputSection
+                                        LocalDateTime.now()
                                     }
                                     val suggested = AutoTagRules.suggest(context, ts)
                                     val (merged, added) = AutoTagRules.merge(
-                                        newForm.tagIds,
+                                        formState.tagIds,
                                         suggested
                                     )
                                     onFormStateChange(
-                                        newForm.copy(
-                                            tagIds = merged,
-                                            autoTagIds = newForm.autoTagIds + added
-                                        )
-                                    )
-                                }
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 4.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
-
-                        // 分类（单选）
-                        CategorySection(
-                            categories = categories,
-                            selectedId = effectiveCategoryId,
-                            onSelect = { onFormStateChange(formState.copy(categoryId = it)) }
-                        )
-
-                        // 标签（多选）
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "标签",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(
-                                        "已选 ${formState.tagIds.size}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    TextButton(
-                                        onClick = {
-                                            val ts = try {
-                                                formState.toLocalDateTime()
-                                            } catch (_: Exception) {
-                                                LocalDateTime.now()
-                                            }
-                                            val suggested = AutoTagRules.suggest(context, ts)
-                                            val (merged, added) = AutoTagRules.merge(
-                                                formState.tagIds,
-                                                suggested
-                                            )
-                                            onFormStateChange(
-                                                formState.copy(
-                                                    tagIds = merged,
-                                                    autoTagIds = formState.autoTagIds + added
-                                                )
-                                            )
-                                        },
-                                        contentPadding = PaddingValues(
-                                            horizontal = 8.dp,
-                                            vertical = 0.dp
-                                        )
-                                    ) {
-                                        Icon(
-                                            Icons.Outlined.AutoAwesome,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(
-                                            "自动匹配",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            }
-                            TagPicker(
-                                groups = groupedTags,
-                                selectedIds = formState.tagIds,
-                                autoTagIds = formState.autoTagIds,
-                                onToggle = { id ->
-                                    val newSet = formState.tagIds.toMutableSet()
-                                    val newAuto = formState.autoTagIds.toMutableSet()
-                                    val wasSelected = id in formState.tagIds
-                                    if (wasSelected) {
-                                        newSet.remove(id)
-                                        newAuto.remove(id)
-                                    } else {
-                                        newSet.add(id)
-                                        newAuto.remove(id)
-                                    }
-                                    onFormStateChange(
                                         formState.copy(
-                                            tagIds = newSet,
-                                            autoTagIds = newAuto
+                                            tagIds = merged,
+                                            autoTagIds = formState.autoTagIds + added
                                         )
                                     )
-                                }
-                            )
-                        }
-
-                        // 评分
-                        RatingSection(
-                            rating = formState.rating,
-                            onRatingChange = { onFormStateChange(formState.copy(rating = it)) }
-                        )
-
-                        // 高潮
-                        ClimaxSection(
-                            climax = formState.climax,
-                            onClimaxChange = { onFormStateChange(formState.copy(climax = it)) }
-                        )
-
-                        // 备注
-                        InputSection(title = "备注") {
-                            OutlinedTextField(
-                                value = formState.remark,
-                                onValueChange = { onFormStateChange(formState.copy(remark = it)) },
-                                placeholder = { Text("说点什么吧...") },
-                                modifier = Modifier.fillMaxWidth(),
-                                maxLines = Int.MAX_VALUE
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.large
-                        ) {
-                            Text("取消")
-                        }
-                        Button(
-                            onClick = onConfirm,
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.large
-                        ) {
-                            Text("保存记录")
+                                },
+                                contentPadding = PaddingValues(
+                                    horizontal = 8.dp,
+                                    vertical = 0.dp
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Outlined.AutoAwesome,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "自动匹配",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
+                    TagPicker(
+                        groups = groupedTags,
+                        selectedIds = formState.tagIds,
+                        autoTagIds = formState.autoTagIds,
+                        onToggle = { id ->
+                            val newSet = formState.tagIds.toMutableSet()
+                            val newAuto = formState.autoTagIds.toMutableSet()
+                            val wasSelected = id in formState.tagIds
+                            if (wasSelected) {
+                                newSet.remove(id)
+                                newAuto.remove(id)
+                            } else {
+                                newSet.add(id)
+                                newAuto.remove(id)
+                            }
+                            onFormStateChange(
+                                formState.copy(
+                                    tagIds = newSet,
+                                    autoTagIds = newAuto
+                                )
+                            )
+                        }
+                    )
+                }
+
+                // 评分
+                RatingSection(
+                    rating = formState.rating,
+                    onRatingChange = { onFormStateChange(formState.copy(rating = it)) }
+                )
+
+                // 高潮
+                ClimaxSection(
+                    climax = formState.climax,
+                    onClimaxChange = { onFormStateChange(formState.copy(climax = it)) }
+                )
+
+                // 备注
+                InputSection(title = "备注") {
+                    OutlinedTextField(
+                        value = formState.remark,
+                        onValueChange = { onFormStateChange(formState.copy(remark = it)) },
+                        placeholder = { Text("说点什么吧...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = Int.MAX_VALUE
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Text("取消")
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Text("保存记录")
                 }
             }
         }
