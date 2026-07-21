@@ -70,7 +70,6 @@ import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.SettingsItem
 import java.time.LocalDate
 import java.time.Period
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -257,7 +256,7 @@ fun SettingsScreen() {
                     SettingsItem(
                         icon = Icons.Outlined.Cake,
                         title = "年龄",
-                        subtitle = "出生：${birthDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))}（$age 岁）",
+                        subtitle = "当前：$age 岁",
                         onClick = { showAgeDialog = true }
                     )
                     SettingsDivider()
