@@ -11,7 +11,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,11 +76,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -659,21 +661,6 @@ private fun TaxonomyRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        if (dragHandle != null) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .then(dragHandle),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.DragHandle,
-                    contentDescription = "拖动排序",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
         Box(
             modifier = Modifier
                 .size(28.dp)
@@ -702,18 +689,38 @@ private fun TaxonomyRow(
                 )
             }
         }
-        IconButton(
-            onClick = onDelete,
-            enabled = canDelete,
-            modifier = Modifier.size(32.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Close,
-                contentDescription = "删除",
-                tint = if (canDelete) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                modifier = Modifier.size(18.dp)
-            )
+            IconButton(
+                onClick = onDelete,
+                enabled = canDelete,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = "删除",
+                    tint = if (canDelete) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            if (dragHandle != null) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .then(dragHandle),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.DragHandle,
+                        contentDescription = "拖动排序",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -938,6 +945,7 @@ private fun <T> ReorderableColumn(
     val itemHeights = remember { hashMapOf<String, Int>() }
     var draggingKey by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
+    val hapticFeedback = LocalHapticFeedback.current
 
     Column(
         modifier = modifier,
@@ -947,15 +955,17 @@ private fun <T> ReorderableColumn(
             val itemKey = keyOf(item)
             val isDragging = draggingKey == itemKey
             val dragHandle = Modifier.pointerInput(itemKey) {
-                detectDragGesturesAfterLongPress(
+                detectDragGestures(
                     onDragStart = {
                         draggingKey = itemKey
                         dragOffset = 0f
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
                     onDragEnd = {
                         latestOnCommit.value()
                         draggingKey = null
                         dragOffset = 0f
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
                     onDragCancel = {
                         draggingKey = null
@@ -966,9 +976,9 @@ private fun <T> ReorderableColumn(
                         dragOffset += dragAmount.y
                         val cur = latestItems.value
                         val curIndex = cur.indexOfFirst { keyOf(it) == itemKey }
-                        if (curIndex < 0) return@detectDragGesturesAfterLongPress
+                        if (curIndex < 0) return@detectDragGestures
                         val dH = (itemHeights[itemKey] ?: 0).toFloat()
-                        if (dH <= 0f) return@detectDragGesturesAfterLongPress
+                        if (dH <= 0f) return@detectDragGestures
                         var newIndex = curIndex
                         while (newIndex < cur.lastIndex) {
                             val nH = (itemHeights[keyOf(cur[newIndex + 1])] ?: 0).toFloat()
@@ -987,6 +997,7 @@ private fun <T> ReorderableColumn(
                             } else break
                         }
                         if (newIndex != curIndex) {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             val mutable = cur.toMutableList()
                             val moved = mutable.removeAt(curIndex)
                             mutable.add(newIndex, moved)
