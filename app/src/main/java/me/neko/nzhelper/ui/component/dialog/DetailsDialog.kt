@@ -95,15 +95,6 @@ fun DetailsDialog(
         shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                textAlign = TextAlign.Center
-            )
-
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -112,6 +103,15 @@ fun DetailsDialog(
                     .padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    textAlign = TextAlign.Center
+                )
+
                 if (showDurationField) {
                     DurationInputSection(
                         formState = formState,
