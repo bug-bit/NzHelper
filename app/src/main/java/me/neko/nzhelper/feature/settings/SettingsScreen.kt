@@ -63,11 +63,14 @@ import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.lock.GestureLockSetupActivity
 import me.neko.nzhelper.feature.recyclebin.RecycleBinSettingsActivity
-import me.neko.nzhelper.feature.settings.components.AgeSliderDialog
+import me.neko.nzhelper.feature.settings.components.AgePickerBottomSheet
 import me.neko.nzhelper.feature.tagmanage.TagManageActivity
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.SettingsItem
+import java.time.LocalDate
+import java.time.Period
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -81,8 +84,12 @@ fun SettingsScreen() {
     var crashLogCount by remember { mutableIntStateOf(CrashLogManager.listCrashLogs(context).size) }
     var unreadCrashCount by remember { mutableIntStateOf(CrashLogManager.unreadCount(context)) }
     var tagCount by remember { mutableIntStateOf(TagSettings.getTags(context).size) }
-    var age by remember {
-        mutableIntStateOf(AgeGroupSettings.getAge(context))
+    var birthDate by remember {
+        mutableStateOf(AgeGroupSettings.getBirthDate(context))
+    }
+    val age = remember(birthDate) {
+        Period.between(birthDate, LocalDate.now()).years
+            .coerceIn(AgeGroupSettings.MIN_AGE, AgeGroupSettings.MAX_AGE)
     }
     var showAgeDialog by remember { mutableStateOf(false) }
 
@@ -250,7 +257,7 @@ fun SettingsScreen() {
                     SettingsItem(
                         icon = Icons.Outlined.Cake,
                         title = "年龄",
-                        subtitle = "当前：$age 岁",
+                        subtitle = "出生：${birthDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))}（$age 岁）",
                         onClick = { showAgeDialog = true }
                     )
                     SettingsDivider()
@@ -356,11 +363,11 @@ fun SettingsScreen() {
     }
 
     if (showAgeDialog) {
-        AgeSliderDialog(
+        AgePickerBottomSheet(
             currentAge = age,
-            onConfirm = { selectedAge ->
-                AgeGroupSettings.setAge(context, selectedAge)
-                age = selectedAge
+            onConfirm = { selectedBirth ->
+                AgeGroupSettings.setBirthDate(context, selectedBirth)
+                birthDate = selectedBirth
                 showAgeDialog = false
             },
             onDismiss = { showAgeDialog = false }

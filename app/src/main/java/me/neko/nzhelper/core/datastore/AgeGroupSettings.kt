@@ -2,11 +2,16 @@ package me.neko.nzhelper.core.datastore
 
 import android.content.Context
 import androidx.core.content.edit
+import java.time.Instant
+import java.time.LocalDate
+import java.time.Period
+import java.time.ZoneId
 
 object AgeGroupSettings {
 
     const val PREFS_NAME = "age_prefs"
     const val KEY_AGE = "age"
+    const val KEY_BIRTH_DATE = "birth_date"
     const val DEFAULT_AGE = 22
     const val MIN_AGE = 18
     const val MAX_AGE = 99
@@ -26,15 +31,40 @@ object AgeGroupSettings {
         AGE_61_99("61 岁以上", "61-99", 1, 2, 2)
     }
 
-    fun getAge(context: Context): Int {
-        val age = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt(KEY_AGE, DEFAULT_AGE)
-        return age.coerceIn(MIN_AGE, MAX_AGE)
+    fun getBirthDate(context: Context): LocalDate {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        when (val stored = prefs.all[KEY_BIRTH_DATE]) {
+            is String -> runCatching { LocalDate.parse(stored) }
+                .getOrNull()?.let { return it }
+            is Long -> runCatching {
+                Instant.ofEpochMilli(stored)
+                    .atZone(ZoneId.of("UTC"))
+                    .toLocalDate()
+            }.getOrNull()?.let { return it }
+            is Int -> runCatching {
+                Instant.ofEpochMilli(stored.toLong())
+                    .atZone(ZoneId.of("UTC"))
+                    .toLocalDate()
+            }.getOrNull()?.let { return it }
+            else -> Unit
+        }
+        val legacyAge = (prefs.all[KEY_AGE] as? Int ?: DEFAULT_AGE)
+            .coerceIn(MIN_AGE, MAX_AGE)
+        return LocalDate.now().minusYears(legacyAge.toLong())
     }
 
-    fun setAge(context: Context, age: Int) {
+    fun setBirthDate(context: Context, date: LocalDate) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit { putInt(KEY_AGE, age.coerceIn(MIN_AGE, MAX_AGE)) }
+            .edit {
+                putString(KEY_BIRTH_DATE, date.toString())
+                remove(KEY_AGE)
+            }
+    }
+
+    fun getAge(context: Context): Int {
+        val birth = getBirthDate(context)
+        val age = Period.between(birth, LocalDate.now()).years
+        return age.coerceIn(MIN_AGE, MAX_AGE)
     }
 
     fun ageToGroup(age: Int): AgeGroup {
