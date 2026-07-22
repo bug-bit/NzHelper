@@ -3,6 +3,7 @@ package me.neko.nzhelper.feature.tagmanage
 import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -69,6 +70,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -78,6 +80,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -484,6 +487,12 @@ private fun TagTabContent(
     }
 }
 
+/**
+ * 顶部分组选择器：单选切换当前展示的分组。
+ *
+ * 与下方标签行视觉区分：使用描边样式（[FilterChip] + [BorderStroke]）+ 圆形分组色徽标
+ * 作为前导图标，选中时填充分组色。标签则是实心浅底行，二者一眼可辨。
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GroupSelectorBar(
@@ -498,21 +507,44 @@ private fun GroupSelectorBar(
     ) {
         groups.forEach { group ->
             val selected = group.id == selectedId
+            val groupColor = TagColors.colorFor(group.color)
             FilterChip(
                 selected = selected,
                 onClick = { onSelect(group.id) },
-                label = { Text(group.name) },
-                leadingIcon = {
-                    Icon(
-                        TagIcons.iconFor(group.icon),
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp)
+                label = {
+                    Text(
+                        group.name,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
                     )
                 },
+                leadingIcon = {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(if (selected) Color.Transparent else groupColor.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            TagIcons.iconFor(group.icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = groupColor
+                        )
+                    }
+                },
+                shape = CircleShape,
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = if (selected) groupColor else groupColor.copy(alpha = 0.4f)
+                ),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = TagColors.containerColor(group.color),
-                    selectedLabelColor = TagColors.contentColor(group.color),
-                    selectedLeadingIconColor = TagColors.contentColor(group.color)
+                    containerColor = Color.Transparent,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    iconColor = groupColor,
+                    selectedContainerColor = groupColor.copy(alpha = 0.14f),
+                    selectedLabelColor = groupColor,
+                    selectedLeadingIconColor = groupColor
                 )
             )
         }
