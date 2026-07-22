@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.model.BackupModules
 import me.neko.nzhelper.core.model.WebDavBackupPayload
 import me.neko.nzhelper.core.security.BackupCipher
 import me.neko.nzhelper.core.webdav.WebDavSettings
@@ -112,15 +113,18 @@ object BackupRepository {
         return newOkHttpClient().newCall(request).execute().use { it.code }
     }
 
-    suspend fun exportNzBytes(context: Context): ByteArray = withContext(Dispatchers.IO) {
+    suspend fun exportNzBytes(
+        context: Context,
+        modules: BackupModules = BackupModules.ALL
+    ): ByteArray = withContext(Dispatchers.IO) {
         val payload = WebDavBackupPayload(
             version = 3,
             exportedAt = System.currentTimeMillis(),
-            sessions = SessionRepository.loadSessions(context),
-            recycleBin = RecycleRepository.loadRecycleBin(context),
-            categories = TagSettings.getCategories(context),
-            tagGroups = TagSettings.getGroups(context),
-            tags = TagSettings.getTags(context)
+            sessions = if (modules.sessions) SessionRepository.loadSessions(context) else emptyList(),
+            recycleBin = if (modules.recycleBin) RecycleRepository.loadRecycleBin(context) else emptyList(),
+            categories = if (modules.taxonomy) TagSettings.getCategories(context) else emptyList(),
+            tagGroups = if (modules.taxonomy) TagSettings.getGroups(context) else emptyList(),
+            tags = if (modules.taxonomy) TagSettings.getTags(context) else emptyList()
         )
         val json = gson.toJson(payload)
         BackupCipher.encrypt(context, json.toByteArray(Charsets.UTF_8))
@@ -128,91 +132,135 @@ object BackupRepository {
 
     private suspend fun applyPayload(
         context: Context,
-        payload: WebDavBackupPayload
+        payload: WebDavBackupPayload,
+        modules: BackupModules
     ): Pair<Int, Int> {
-        val currentSessions = SessionRepository.loadSessions(context)
-        val mergedSessions = (currentSessions + payload.sessions)
-            .distinctBy { Mappers.sessionKey(it) }
-            .map { TagSettings.migrateLegacySession(context, it) }
+        var addedSessions = 0
+        var addedRecycle = 0
 
-        val currentRecycle = RecycleRepository.loadRecycleBin(context)
-        val mergedRecycle = (currentRecycle + payload.recycleBin)
-            .distinctBy { Mappers.sessionKey(it.session) }
-            .map { it.copy(session = TagSettings.migrateLegacySession(context, it.session)) }
+        if (modules.sessions) {
+            val currentSessions = SessionRepository.loadSessions(context)
+            val mergedSessions = (currentSessions + payload.sessions)
+                .distinctBy { Mappers.sessionKey(it) }
+                .map { TagSettings.migrateLegacySession(context, it) }
+            SessionRepository.saveSessions(context, mergedSessions, triggerAutoBackup = false)
+            addedSessions = mergedSessions.size - currentSessions.size
+        }
 
-        TagSettings.mergeTaxonomy(
-            context,
-            payload.categories,
-            payload.tagGroups,
-            payload.tags
-        )
+        if (modules.recycleBin) {
+            val currentRecycle = RecycleRepository.loadRecycleBin(context)
+            val mergedRecycle = (currentRecycle + payload.recycleBin)
+                .distinctBy { Mappers.sessionKey(it.session) }
+                .map { it.copy(session = TagSettings.migrateLegacySession(context, it.session)) }
+            RecycleRepository.saveRecycleBin(context, mergedRecycle)
+            addedRecycle = mergedRecycle.size - currentRecycle.size
+        }
 
-        SessionRepository.saveSessions(context, mergedSessions, triggerAutoBackup = false)
-        RecycleRepository.saveRecycleBin(context, mergedRecycle)
+        if (modules.taxonomy) {
+            TagSettings.mergeTaxonomy(
+                context,
+                payload.categories,
+                payload.tagGroups,
+                payload.tags
+            )
+        }
 
-        return (mergedSessions.size - currentSessions.size) to
-                (mergedRecycle.size - currentRecycle.size)
+        return addedSessions to addedRecycle
     }
 
-    suspend fun importNzBytes(context: Context, data: ByteArray): Pair<Boolean, String> =
-        withContext(Dispatchers.IO) {
-            val plain = BackupCipher.decrypt(context, data)
-                ?: return@withContext false to "备份密码不匹配或文件已损坏"
-            val text = String(plain, Charsets.UTF_8)
-            val payload = try {
-                gson.fromJson(text, WebDavBackupPayload::class.java)
-            } catch (_: Exception) {
-                null
-            } ?: return@withContext false to "备份内容格式无效"
-            val (addedS, addedR) = applyPayload(context, payload)
-            true to "恢复成功：记录 +$addedS，回收站 +$addedR"
-        }
+    data class BackupPreview(
+        val payload: WebDavBackupPayload,
+        val legacySessionsOnly: Boolean = false
+    ) {
+        val sessionCount: Int get() = payload.sessions.size
+        val recycleCount: Int get() = payload.recycleBin.size
+        val taxonomyCount: Int get() = payload.categories.size + payload.tagGroups.size + payload.tags.size
+    }
 
-    suspend fun importFromUri(context: Context, uri: Uri): Pair<Boolean, String> =
-        withContext(Dispatchers.IO) {
-            val bytes = try {
-                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                null
-            } ?: return@withContext false to "无法读取文件"
-            if (BackupCipher.isNzFile(bytes)) {
-                return@withContext importNzBytes(context, bytes)
-            }
-            val text = String(bytes, Charsets.UTF_8)
-            val payload = try {
-                gson.fromJson(text, WebDavBackupPayload::class.java)
-            } catch (_: Exception) {
-                null
-            }
-            if (payload != null && payload.version > 0) {
-                val (addedS, addedR) = applyPayload(context, payload)
-                return@withContext true to "恢复成功：记录 +$addedS，回收站 +$addedR"
-            }
-            val listType = com.google.gson.reflect.TypeToken
-                .getParameterized(
-                    List::class.java,
-                    me.neko.nzhelper.core.model.Session::class.java
-                ).type
-            val sessions = try {
-                gson.fromJson<List<me.neko.nzhelper.core.model.Session>>(text, listType)
-            } catch (_: Exception) {
-                null
-            } ?: return@withContext false to "无法识别的备份格式"
-            val current = SessionRepository.loadSessions(context)
-            val merged = (current + sessions).distinctBy { Mappers.sessionKey(it) }
-                .map { TagSettings.migrateLegacySession(context, it) }
-            SessionRepository.saveSessions(context, merged, triggerAutoBackup = false)
-            true to "恢复成功（仅记录）：新增 ${merged.size - current.size} 条"
-        }
+    suspend fun previewNzBytes(
+        context: Context,
+        data: ByteArray
+    ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
+        val plain = BackupCipher.decrypt(context, data)
+            ?: return@withContext null to "备份密码不匹配或文件已损坏"
+        val payload = try {
+            gson.fromJson(String(plain, Charsets.UTF_8), WebDavBackupPayload::class.java)
+        } catch (_: Exception) {
+            null
+        } ?: return@withContext null to "备份内容格式无效"
+        BackupPreview(payload) to ""
+    }
 
-    suspend fun backupToWebDav(context: Context): Pair<Boolean, String> =
+    suspend fun previewFromUri(
+        context: Context,
+        uri: Uri
+    ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
+        val bytes = try {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        } ?: return@withContext null to "无法读取文件"
+        if (BackupCipher.isNzFile(bytes)) {
+            return@withContext previewNzBytes(context, bytes)
+        }
+        val text = String(bytes, Charsets.UTF_8)
+        val payload = try {
+            gson.fromJson(text, WebDavBackupPayload::class.java)
+        } catch (_: Exception) {
+            null
+        }
+        if (payload != null && payload.version > 0) {
+            return@withContext BackupPreview(payload) to ""
+        }
+        val listType = com.google.gson.reflect.TypeToken
+            .getParameterized(
+                List::class.java,
+                me.neko.nzhelper.core.model.Session::class.java
+            ).type
+        val sessions = try {
+            gson.fromJson<List<me.neko.nzhelper.core.model.Session>>(text, listType)
+        } catch (_: Exception) {
+            null
+        } ?: return@withContext null to "无法识别的备份格式"
+        BackupPreview(
+            payload = WebDavBackupPayload(
+                version = 1,
+                exportedAt = 0L,
+                sessions = sessions
+            ),
+            legacySessionsOnly = true
+        ) to ""
+    }
+
+    suspend fun applyPreview(
+        context: Context,
+        preview: BackupPreview,
+        modules: BackupModules
+    ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        val effective = if (preview.legacySessionsOnly) {
+            BackupModules(sessions = modules.sessions, recycleBin = false, taxonomy = false)
+        } else {
+            modules
+        }
+        val (addedS, addedR) = applyPayload(context, preview.payload, effective)
+        val parts = mutableListOf<String>()
+        if (effective.sessions) parts += "记录 +$addedS"
+        if (effective.recycleBin) parts += "回收站 +$addedR"
+        if (effective.taxonomy) parts += "标签体系已合并"
+        true to if (parts.isEmpty()) "未选择任何模块" else "恢复成功：${parts.joinToString("，")}"
+    }
+
+    suspend fun backupToWebDav(
+        context: Context,
+        modules: BackupModules = BackupModules.ALL
+    ): Pair<Boolean, String> =
         withContext(Dispatchers.IO) {
             if (!WebDavSettings.isConfigured(context)) {
                 return@withContext false to "未配置 WebDAV 服务器"
             }
             try {
-                val data = exportNzBytes(context)
+                val data = exportNzBytes(context, modules)
                 val mediaType = "application/octet-stream".toMediaTypeOrNull()
 
                 val url = buildFullUrl(context, WEBDAV_BACKUP_FILENAME)
@@ -256,72 +304,62 @@ object BackupRepository {
             }
         }
 
-    suspend fun restoreFromWebDav(context: Context): Pair<Boolean, String> =
-        withContext(Dispatchers.IO) {
-            if (!WebDavSettings.isConfigured(context)) {
-                return@withContext false to "未配置 WebDAV 服务器"
-            }
-            try {
-                val url = buildFullUrl(context, WEBDAV_BACKUP_FILENAME)
-                val auth = buildAuthHeader(context)
-                    ?: return@withContext false to "未配置 WebDAV 服务器"
-
-                val request = Request.Builder()
-                    .url(url)
-                    .get()
-                    .header("Authorization", auth)
-                    .build()
-
-                newOkHttpClient().newCall(request).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        val msg = when (resp.code) {
-                            404, 403, 405 -> "恢复失败: 服务器上未找到备份文件 (HTTP ${resp.code})"
-                            401 -> "恢复失败: 认证失败 (HTTP 401)"
-                            else -> "恢复失败: HTTP ${resp.code}"
-                        }
-                        return@withContext false to msg
-                    }
-                    val body = resp.body.bytes()
-
-                    if (!BackupCipher.isNzFile(body)) {
-                        val text = String(body, Charsets.UTF_8)
-                        val legacyPayload = try {
-                            gson.fromJson(text, WebDavBackupPayload::class.java)
-                        } catch (_: Exception) {
-                            null
-                        }
-                        if (legacyPayload != null && legacyPayload.version > 0) {
-                            val (addedS, addedR) = applyPayload(context, legacyPayload)
-                            return@withContext true to "恢复成功：记录 +$addedS，回收站 +$addedR"
-                        }
-                        val remoteSessions = SessionRepository.parseSessionsJson(context, text)
-                        val currentSessions = SessionRepository.loadSessions(context)
-                        val merged = (currentSessions + remoteSessions)
-                            .distinctBy { Mappers.sessionKey(it) }
-                            .map { TagSettings.migrateLegacySession(context, it) }
-                        SessionRepository.saveSessions(context, merged)
-                        return@withContext true to "恢复成功（仅记录）：新增 ${merged.size - currentSessions.size} 条"
-                    }
-
-                    val plain = BackupCipher.decrypt(context, body)
-                        ?: return@withContext false to "备份密码不匹配或文件已损坏"
-                    val payload = try {
-                        gson.fromJson(
-                            String(plain, Charsets.UTF_8),
-                            WebDavBackupPayload::class.java
-                        )
-                    } catch (_: Exception) {
-                        null
-                    } ?: return@withContext false to "备份内容格式无效"
-
-                    val (addedS, addedR) = applyPayload(context, payload)
-                    true to "恢复成功：记录 +$addedS，回收站 +$addedR"
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                false to "恢复失败: ${e.message ?: "未知错误"}"
-            }
+    suspend fun previewFromWebDav(
+        context: Context
+    ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
+        if (!WebDavSettings.isConfigured(context)) {
+            return@withContext null to "未配置 WebDAV 服务器"
         }
+        try {
+            val url = buildFullUrl(context, WEBDAV_BACKUP_FILENAME)
+            val auth = buildAuthHeader(context)
+                ?: return@withContext null to "未配置 WebDAV 服务器"
+
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("Authorization", auth)
+                .build()
+
+            newOkHttpClient().newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    val msg = when (resp.code) {
+                        404, 403, 405 -> "恢复失败: 服务器上未找到备份文件 (HTTP ${resp.code})"
+                        401 -> "恢复失败: 认证失败 (HTTP 401)"
+                        else -> "恢复失败: HTTP ${resp.code}"
+                    }
+                    return@withContext null to msg
+                }
+                val body = resp.body.bytes()
+
+                if (BackupCipher.isNzFile(body)) {
+                    return@withContext previewNzBytes(context, body)
+                }
+
+                val text = String(body, Charsets.UTF_8)
+                val legacyPayload = try {
+                    gson.fromJson(text, WebDavBackupPayload::class.java)
+                } catch (_: Exception) {
+                    null
+                }
+                if (legacyPayload != null && legacyPayload.version > 0) {
+                    return@withContext BackupPreview(legacyPayload) to ""
+                }
+                val remoteSessions = SessionRepository.parseSessionsJson(context, text)
+                BackupPreview(
+                    payload = WebDavBackupPayload(
+                        version = 1,
+                        exportedAt = 0L,
+                        sessions = remoteSessions
+                    ),
+                    legacySessionsOnly = true
+                ) to ""
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null to "恢复失败: ${e.message ?: "未知错误"}"
+        }
+    }
 
     suspend fun testWebDavConnection(
         url: String,

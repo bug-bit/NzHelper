@@ -37,3 +37,15 @@ data class WebDavBackupPayload(
     @SerializedName("tagGroups") val tagGroups: List<TagGroupDef> = emptyList(),
     @SerializedName("tags") val tags: List<TagDef> = emptyList()
 )
+
+data class BackupModules(
+    val sessions: Boolean = true,
+    val recycleBin: Boolean = true,
+    val taxonomy: Boolean = true
+) {
+    val noneSelected: Boolean get() = !sessions && !recycleBin && !taxonomy
+
+    companion object {
+        val ALL = BackupModules()
+    }
+}
