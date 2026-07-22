@@ -363,7 +363,7 @@ fun SettingsScreen() {
 
     if (showAgeDialog) {
         AgePickerBottomSheet(
-            currentAge = age,
+            currentBirthDate = birthDate,
             onConfirm = { selectedBirth ->
                 AgeGroupSettings.setBirthDate(context, selectedBirth)
                 birthDate = selectedBirth

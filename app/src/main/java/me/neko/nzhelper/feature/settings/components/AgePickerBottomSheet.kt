@@ -31,15 +31,13 @@ import java.time.temporal.ChronoUnit
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgePickerBottomSheet(
-    currentAge: Int,
+    currentBirthDate: LocalDate,
     onConfirm: (LocalDate) -> Unit,
     onDismiss: () -> Unit
 ) {
     val today = LocalDate.now()
 
-    val initialBirth = today.minusYears(currentAge.toLong())
-
-    val initialMillis = initialBirth
+    val initialMillis = currentBirthDate
         .atStartOfDay(ZoneOffset.UTC)
         .toInstant()
         .toEpochMilli()
@@ -73,7 +71,7 @@ fun AgePickerBottomSheet(
                 .ofEpochMilli(millis)
                 .atZone(ZoneOffset.UTC)
                 .toLocalDate()
-        } ?: initialBirth
+        } ?: currentBirthDate
 
     val age = ChronoUnit.YEARS
         .between(selectedDate, today)
