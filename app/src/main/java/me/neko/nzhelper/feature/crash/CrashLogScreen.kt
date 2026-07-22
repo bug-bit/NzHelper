@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +49,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -67,17 +70,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import me.neko.nzhelper.BuildConfig
+import me.neko.nzhelper.MainActivity
 import me.neko.nzhelper.core.crash.CrashLog
 import me.neko.nzhelper.core.crash.CrashLogManager
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun CrashLogScreen(onClose: () -> Unit) {
+fun CrashLogScreen(
+    onClose: () -> Unit,
+    initialCrashFileName: String? = null
+) {
     val context = LocalContext.current
     val logs = remember { mutableStateListOf<CrashLog>() }
     var selectedLog by remember { mutableStateOf<CrashLog?>(null) }
     var showClearAllDialog by remember { mutableStateOf(false) }
+
+    var crashLog by remember { mutableStateOf<CrashLog?>(null) }
+    var showCrashOverview by remember { mutableStateOf(false) }
 
     fun refresh() {
         logs.clear()
@@ -87,6 +97,27 @@ fun CrashLogScreen(onClose: () -> Unit) {
     LaunchedEffect(Unit) {
         refresh()
         CrashLogManager.markAllViewed(context)
+        if (initialCrashFileName != null) {
+            val match = logs.firstOrNull { it.name == initialCrashFileName }
+            if (match != null) {
+                crashLog = match
+                showCrashOverview = true
+            }
+        }
+    }
+
+    if (showCrashOverview) {
+        crashLog?.let { log ->
+            CrashOverview(
+                log = log,
+                onViewDetail = {
+                    showCrashOverview = false
+                    selectedLog = log
+                },
+                onClose = onClose
+            )
+            return
+        }
     }
 
     val current = selectedLog
@@ -331,6 +362,132 @@ private fun TestCrashCard() {
             ) {
                 Text("崩溃")
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CrashOverview(
+    log: CrashLog,
+    onViewDetail: () -> Unit,
+    onClose: () -> Unit
+) {
+    val context = LocalContext.current
+    val content = remember(log.name) {
+        CrashLogManager.readContent(log.file)
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentWindowInsets = WindowInsets.safeDrawing
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Spacer(Modifier.height(16.dp))
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.errorContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.BugReport,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+            Text(
+                text = "应用刚才崩溃了",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "NzHelper 遇到意外错误并已退出，崩溃记录已保存。可查看详情用于排查，或分享给开发者。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = log.timeLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = log.summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onViewDetail,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large
+            ) {
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.size(4.dp))
+                Text("查看崩溃详情")
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        copyToClipboard(context, content)
+                        Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.large
+                ) { Text("复制") }
+                OutlinedButton(
+                    onClick = { shareFile(context, log) },
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.large
+                ) { Text("分享") }
+            }
+            OutlinedButton(
+                onClick = {
+                    val intent = Intent(context, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    }
+                    context.startActivity(intent)
+                    onClose()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large
+            ) { Text("重启应用") }
+            TextButton(
+                onClick = onClose,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("关闭") }
         }
     }
 }
