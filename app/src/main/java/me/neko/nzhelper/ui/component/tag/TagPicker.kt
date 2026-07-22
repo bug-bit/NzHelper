@@ -23,6 +23,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,12 +38,6 @@ import me.neko.nzhelper.core.model.TagGroupDef
 import me.neko.nzhelper.ui.theme.TagColors
 import me.neko.nzhelper.ui.theme.TagIcons
 
-/**
- * 分组多标签选择器 —— 标签系统的核心交互组件。
- *
- * 按分组渲染：每个分组一个标题（图标 + 名称 + 分组色条），其下是该分组的标签 FlowRow，
- * 支持跨分组多选。选中态使用标签自身颜色高亮。
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TagPicker(
@@ -49,9 +47,24 @@ fun TagPicker(
     modifier: Modifier = Modifier,
     autoTagIds: Set<String> = emptySet()
 ) {
+    val visibleGroups = groups.filter { it.second.isNotEmpty() }
+    var selectedGroupId by remember(visibleGroups) {
+        mutableStateOf(visibleGroups.firstOrNull()?.first?.id)
+    }
+    val current =
+        visibleGroups.firstOrNull { it.first.id == selectedGroupId } ?: visibleGroups.firstOrNull()
+
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        groups.forEach { (group, tags) ->
-            if (tags.isEmpty()) return@forEach
+        if (visibleGroups.size > 1) {
+            GroupSelector(
+                groups = visibleGroups.map { it.first },
+                selectedId = current?.first?.id,
+                onSelect = { selectedGroupId = it }
+            )
+        }
+
+        if (current != null) {
+            val (group, tags) = current
             GroupHeader(group)
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -100,6 +113,41 @@ fun TagPicker(
                     )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GroupSelector(
+    groups: List<TagGroupDef>,
+    selectedId: String?,
+    onSelect: (String) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        groups.forEach { group ->
+            val selected = group.id == selectedId
+            FilterChip(
+                selected = selected,
+                onClick = { onSelect(group.id) },
+                label = { Text(group.name) },
+                leadingIcon = {
+                    Icon(
+                        TagIcons.iconFor(group.icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = TagColors.containerColor(group.color),
+                    selectedLabelColor = TagColors.contentColor(group.color),
+                    selectedLeadingIconColor = TagColors.contentColor(group.color)
+                )
+            )
         }
     }
 }

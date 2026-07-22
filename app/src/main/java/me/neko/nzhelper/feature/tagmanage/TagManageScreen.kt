@@ -2,12 +2,6 @@ package me.neko.nzhelper.feature.tagmanage
 
 import android.annotation.SuppressLint
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,13 +34,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,6 +56,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -418,7 +413,22 @@ private fun TagTabContent(
     TabHeader(title = "标签", count = tags.size)
 
     var query by remember { mutableStateOf("") }
-    var collapsedGroups by remember { mutableStateOf(emptySet<String>()) }
+
+    val visibleGroups = remember(groups, tags) {
+        groups.mapNotNull { g ->
+            val groupTags = tags.filter { it.groupId == g.id }
+            if (groupTags.isEmpty()) null else g to groupTags
+        }
+    }
+    var selectedGroupId by remember { mutableStateOf(visibleGroups.firstOrNull()?.first?.id) }
+
+    LaunchedEffect(visibleGroups, selectedGroupId) {
+        if (selectedGroupId == null || visibleGroups.none { it.first.id == selectedGroupId }) {
+            selectedGroupId = visibleGroups.firstOrNull()?.first?.id
+        }
+    }
+    val current =
+        visibleGroups.firstOrNull { it.first.id == selectedGroupId } ?: visibleGroups.firstOrNull()
 
     SearchField(query = query, onQueryChange = { query = it })
 
@@ -445,37 +455,66 @@ private fun TagTabContent(
             }
         }
     } else {
-        groups.forEach { g ->
-            val groupTags = tags.filter { it.groupId == g.id }
-            if (groupTags.isEmpty()) return@forEach
-            CollapsibleGroupSection(
-                group = g,
-                count = groupTags.size,
-                expanded = g.id !in collapsedGroups,
-                onToggle = {
-                    collapsedGroups = if (g.id in collapsedGroups) {
-                        collapsedGroups - g.id
-                    } else {
-                        collapsedGroups + g.id
-                    }
-                }
-            ) {
-                ReorderableColumn(
-                    items = groupTags,
-                    keyOf = { it.id },
-                    onReorder = { reordered -> onReorderTags(g.id, reordered) },
-                    onCommit = { onCommitTags(g.id) }
-                ) { item, dragHandle, _ ->
-                    TaxonomyRow(
-                        name = item.name,
-                        color = item.color,
-                        icon = item.icon,
-                        dragHandle = dragHandle,
-                        onEdit = { onEdit(item) },
-                        onDelete = { onDelete(item) }
-                    )
-                }
+        if (visibleGroups.size > 1) {
+            GroupSelectorBar(
+                groups = visibleGroups.map { it.first },
+                selectedId = current?.first?.id,
+                onSelect = { selectedGroupId = it }
+            )
+        }
+
+        if (current != null) {
+            val (g, groupTags) = current
+            ReorderableColumn(
+                items = groupTags,
+                keyOf = { it.id },
+                onReorder = { reordered -> onReorderTags(g.id, reordered) },
+                onCommit = { onCommitTags(g.id) }
+            ) { item, dragHandle, _ ->
+                TaxonomyRow(
+                    name = item.name,
+                    color = item.color,
+                    icon = item.icon,
+                    dragHandle = dragHandle,
+                    onEdit = { onEdit(item) },
+                    onDelete = { onDelete(item) }
+                )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GroupSelectorBar(
+    groups: List<TagGroupDef>,
+    selectedId: String?,
+    onSelect: (String) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        groups.forEach { group ->
+            val selected = group.id == selectedId
+            FilterChip(
+                selected = selected,
+                onClick = { onSelect(group.id) },
+                label = { Text(group.name) },
+                leadingIcon = {
+                    Icon(
+                        TagIcons.iconFor(group.icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = TagColors.containerColor(group.color),
+                    selectedLabelColor = TagColors.contentColor(group.color),
+                    selectedLeadingIconColor = TagColors.contentColor(group.color)
+                )
+            )
         }
     }
 }
@@ -559,85 +598,6 @@ private fun SearchField(
         singleLine = true,
         shape = MaterialTheme.shapes.large
     )
-}
-
-@Composable
-private fun CollapsibleGroupSection(
-    group: TagGroupDef,
-    count: Int,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    val arrowRotation by animateFloatAsState(
-        targetValue = if (expanded) 0f else -90f,
-        label = "arrowRotation"
-    )
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
-                .background(TagColors.containerColor(group.color))
-                .clickable { onToggle() }
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.KeyboardArrowDown,
-                contentDescription = if (expanded) "收起" else "展开",
-                tint = TagColors.contentColor(group.color),
-                modifier = Modifier
-                    .size(20.dp)
-                    .graphicsLayer { rotationZ = arrowRotation }
-            )
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = TagIcons.iconFor(group.icon),
-                    contentDescription = null,
-                    tint = TagColors.contentColor(group.color),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-            Text(
-                text = group.name,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f),
-                maxLines = 1
-            )
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Text(
-                    text = count.toString(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                )
-            }
-        }
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Column(
-                modifier = Modifier.padding(top = 8.dp, start = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                content()
-            }
-        }
-    }
 }
 
 @Composable
