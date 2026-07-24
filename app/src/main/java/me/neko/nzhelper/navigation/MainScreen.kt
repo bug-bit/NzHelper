@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
@@ -76,7 +78,7 @@ fun BottomNavigationBar(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(stopRequest: StateFlow<Int>? = null) {
     val context = LocalContext.current
 
     // ── 应用锁状态 ──
@@ -182,6 +184,14 @@ fun MainScreen() {
     // ── Pager 状态 ──
     val pagerState = rememberPagerState(pageCount = { BottomNavItem.items.size })
     val scope = rememberCoroutineScope()
+    val stopRequestId by stopRequest?.collectAsState(initial = 0)
+        ?: remember { mutableStateOf(0) }
+
+    LaunchedEffect(stopRequestId) {
+        if (stopRequestId > 0) {
+            pagerState.scrollToPage(BottomNavItem.items.indexOf(BottomNavItem.Home))
+        }
+    }
 
     // ── UI ──
     Box(modifier = Modifier.fillMaxSize()) {
@@ -209,7 +219,10 @@ fun MainScreen() {
                 val isCurrentPage = pagerState.currentPage == page
 
                 when (BottomNavItem.items[page].route) {
-                    BottomNavItem.Home.route -> HomeScreen(isActive = isCurrentPage)
+                    BottomNavItem.Home.route -> HomeScreen(
+                        isActive = isCurrentPage,
+                        stopRequestId = if (isLocked) 0 else stopRequestId
+                    )
                     BottomNavItem.Statistics.route -> StatisticsScreen(isActive = isCurrentPage)
                     BottomNavItem.History.route -> HistoryScreen(isActive = isCurrentPage)
                     BottomNavItem.Settings.route -> SettingsScreen()
