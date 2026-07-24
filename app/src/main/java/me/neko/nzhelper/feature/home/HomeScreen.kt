@@ -76,7 +76,10 @@ import kotlin.time.Duration.Companion.milliseconds
     ExperimentalMaterial3ExpressiveApi::class
 )
 @Composable
-fun HomeScreen(isActive: Boolean = false) {
+fun HomeScreen(
+    isActive: Boolean = false,
+    stopRequestId: Int = 0
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollBehavior =
@@ -126,6 +129,14 @@ fun HomeScreen(isActive: Boolean = false) {
     var formState by remember { mutableStateOf(SessionFormState()) }
     val sessions = remember { mutableStateListOf<Session>() }
     var isLoading by remember { mutableStateOf(true) }
+    var handledStopRequestId by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(stopRequestId, timerService) {
+        if (stopRequestId > handledStopRequestId && timerService != null) {
+            handledStopRequestId = stopRequestId
+            showConfirmDialog = true
+        }
+    }
 
     LaunchedEffect(Unit) {
         val loaded = SessionRepository.loadSessions(context)

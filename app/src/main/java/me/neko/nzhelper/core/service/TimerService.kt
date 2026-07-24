@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import me.neko.nzhelper.MainActivity
 import me.neko.nzhelper.R
 import me.neko.nzhelper.core.notification.NotificationUtil
 import me.neko.nzhelper.core.util.formatTime
@@ -118,6 +119,7 @@ class TimerService : Service() {
 
         val builder = NotificationCompat.Builder(this, NotificationUtil.CHANNEL_ID)
             .setSmallIcon(R.drawable.baseline_access_alarm_24)
+            .setContentIntent(getOpenAppPendingIntent())
             .setOngoing(isRunning)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -158,6 +160,19 @@ class TimerService : Service() {
         return PendingIntent.getService(
             this,
             action.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun getOpenAppPendingIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_OPEN_STOP_CONFIRM
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        return PendingIntent.getActivity(
+            this,
+            MainActivity.ACTION_OPEN_STOP_CONFIRM.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
