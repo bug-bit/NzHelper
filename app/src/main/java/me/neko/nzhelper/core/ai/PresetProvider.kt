@@ -17,7 +17,7 @@ data class PresetProvider(
                 label = "OpenAI",
                 baseUrl = "https://api.openai.com/v1",
                 defaultModel = "gpt-4o-mini",
-                mode = ApiMode.OpenAI,
+                mode = ApiMode.OpenAICompat,
                 compatModes = listOf(
                     CompatMode("standard", "标准"),
                     CompatMode("deepseek", "DeepSeek", JsonObject().apply {
@@ -25,7 +25,9 @@ data class PresetProvider(
                     }),
                     CompatMode("qwen", "通义千问"),
                     CompatMode("moonshot", "Moonshot"),
-                    CompatMode("zhipu", "智谱 GLM")
+                    CompatMode("zhipu", "智谱 GLM", JsonObject().apply {
+                        add("thinking", JsonObject().apply { addProperty("type", "disabled") })
+                    })
                 )
             ),
             PresetProvider(

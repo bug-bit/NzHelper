@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Sell
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -267,6 +268,7 @@ fun SettingsScreen() {
                     )
                 }
             }
+
             item {
                 SettingsCard {
                     SettingsItem(
@@ -275,7 +277,11 @@ fun SettingsScreen() {
                         subtitle = "当前：$age 岁",
                         onClick = { showAgeDialog = true }
                     )
-                    SettingsDivider()
+                }
+            }
+
+            item {
+                SettingsCard {
                     SettingsItem(
                         icon = Icons.Outlined.Timer,
                         title = "自动计时",
@@ -303,7 +309,7 @@ fun SettingsScreen() {
                     )
                     SettingsDivider()
                     SettingsItem(
-                        icon = Icons.Outlined.AutoAwesome,
+                        icon = Icons.Outlined.SmartToy,
                         title = "AI 健康建议",
                         subtitle = aiSubtitle,
                         onClick = {

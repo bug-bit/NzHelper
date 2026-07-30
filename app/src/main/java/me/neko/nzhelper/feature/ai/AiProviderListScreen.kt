@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -35,7 +36,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -212,7 +212,7 @@ private fun ProviderCard(
     onActivate: () -> Unit
 ) {
     Card(
-        onClick = onClick,
+        onClick = onActivate,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
@@ -255,10 +255,12 @@ private fun ProviderCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (!provider.isActive) {
-                TextButton(onClick = onActivate) {
-                    Text("启用")
-                }
+            IconButton(onClick = onClick) {
+                Icon(
+                    Icons.Outlined.Edit,
+                    "编辑",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             IconButton(onClick = onDelete) {
                 Icon(

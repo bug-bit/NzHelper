@@ -2,7 +2,6 @@ package me.neko.nzhelper.core.ai
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 
 sealed class ApiMode(
     val key: String,
@@ -15,23 +14,23 @@ sealed class ApiMode(
 
     abstract fun buildRequestBody(
         model: String, systemPrompt: String, userPrompt: String,
-        maxTokens: Int, extraFields: JsonObject? = null
+        maxTokens: Int, extraFields: JsonObject? = null,
+        temperature: Float = 0.7f
     ): String
 
-    abstract fun parseResponse(json: String): String?
-
-    object OpenAI : ApiMode("openai", "OpenAI", "/chat/completions", "/models", AuthType.BEARER) {
+    object OpenAICompat : ApiMode("openai", "OpenAI", "/chat/completions", "/models", AuthType.BEARER) {
         override fun buildRequestBody(
             model: String, systemPrompt: String, userPrompt: String,
-            maxTokens: Int, extraFields: JsonObject?
-        ): String = buildOpenAiBody(model, systemPrompt, userPrompt, maxTokens, extraFields)
-        override fun parseResponse(json: String): String? = parseOpenAiResponse(json)
+            maxTokens: Int, extraFields: JsonObject?,
+            temperature: Float
+        ): String = buildOpenAiBody(model, systemPrompt, userPrompt, maxTokens, extraFields, temperature)
     }
 
     object Google : ApiMode("google", "Google", "/v1/models/__MODEL__:generateContent", "/models", AuthType.QUERY_PARAM) {
         override fun buildRequestBody(
             model: String, systemPrompt: String, userPrompt: String,
-            maxTokens: Int, extraFields: JsonObject?
+            maxTokens: Int, extraFields: JsonObject?,
+            temperature: Float
         ): String {
             val body = JsonObject().apply {
                 add("contents", JsonArray().apply {
@@ -43,19 +42,19 @@ sealed class ApiMode(
                 })
                 add("generationConfig", JsonObject().apply {
                     addProperty("maxOutputTokens", maxTokens)
-                    addProperty("temperature", 0.7)
+                    addProperty("temperature", temperature.toDouble())
                 })
             }
             extraFields?.entrySet()?.forEach { (k, v) -> body.add(k, v) }
             return body.toString()
         }
-        override fun parseResponse(json: String): String? = parseGoogleResponse(json)
     }
 
-    object Claude : ApiMode("claude", "Claude", "/v1/messages", null, AuthType.X_API_KEY) {
+    object Claude : ApiMode("claude", "Claude", "/v1/messages", "/v1/models", AuthType.X_API_KEY) {
         override fun buildRequestBody(
             model: String, systemPrompt: String, userPrompt: String,
-            maxTokens: Int, extraFields: JsonObject?
+            maxTokens: Int, extraFields: JsonObject?,
+            temperature: Float
         ): String {
             val body = JsonObject().apply {
                 addProperty("model", model)
@@ -71,16 +70,16 @@ sealed class ApiMode(
             extraFields?.entrySet()?.forEach { (k, v) -> body.add(k, v) }
             return body.toString()
         }
-        override fun parseResponse(json: String): String? = parseClaudeResponse(json)
     }
 
     companion object {
-        val ALL = listOf(OpenAI, Google, Claude)
-        fun fromKey(key: String): ApiMode = ALL.firstOrNull { it.key == key } ?: OpenAI
+        val ALL = listOf(OpenAICompat, Google, Claude)
+        fun fromKey(key: String): ApiMode = ALL.firstOrNull { it.key == key } ?: OpenAICompat
 
         private fun buildOpenAiBody(
             model: String, systemPrompt: String, userPrompt: String,
-            maxTokens: Int, extraFields: JsonObject?
+            maxTokens: Int, extraFields: JsonObject?,
+            temperature: Float
         ): String {
             val body = JsonObject().apply {
                 addProperty("model", model)
@@ -93,44 +92,10 @@ sealed class ApiMode(
                     })
                 })
                 addProperty("max_tokens", maxTokens)
-                addProperty("temperature", 0.7f)
+                addProperty("temperature", temperature)
             }
             extraFields?.entrySet()?.forEach { (k, v) -> body.add(k, v) }
             return body.toString()
-        }
-
-        private fun parseOpenAiResponse(json: String): String? {
-            return try {
-                val root = JsonParser.parseString(json).asJsonObject
-                val choices = root.getAsJsonArray("choices") ?: return null
-                val first = choices.get(0)?.asJsonObject ?: return null
-                val msg = first.getAsJsonObject("message") ?: return null
-                msg.get("content")?.asString?.trim()?.takeIf { it.isNotBlank() }
-                    ?: msg.get("reasoning_content")?.asString?.trim()
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { it.substringAfterLast("。").takeIf { s -> s.isNotBlank() } }
-            } catch (_: Exception) { null }
-        }
-
-        private fun parseGoogleResponse(json: String): String? {
-            return try {
-                JsonParser.parseString(json).asJsonObject
-                    .getAsJsonArray("candidates")
-                    ?.get(0)?.asJsonObject
-                    ?.getAsJsonObject("content")
-                    ?.getAsJsonArray("parts")
-                    ?.get(0)?.asJsonObject
-                    ?.get("text")?.asString?.trim()?.takeIf { it.isNotBlank() }
-            } catch (_: Exception) { null }
-        }
-
-        private fun parseClaudeResponse(json: String): String? {
-            return try {
-                JsonParser.parseString(json).asJsonObject
-                    .getAsJsonArray("content")
-                    ?.get(0)?.asJsonObject
-                    ?.get("text")?.asString?.trim()?.takeIf { it.isNotBlank() }
-            } catch (_: Exception) { null }
         }
     }
 }

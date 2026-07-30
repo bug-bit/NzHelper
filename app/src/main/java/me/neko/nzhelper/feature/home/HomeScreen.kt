@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -24,6 +25,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.rounded.Celebration
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -65,6 +69,7 @@ import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.database.StatisticsRepository
+import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionFormState
@@ -75,6 +80,7 @@ import me.neko.nzhelper.feature.home.components.HealthTipCard
 import me.neko.nzhelper.feature.home.components.TimerCard
 import me.neko.nzhelper.feature.home.components.analyzeHealthTip
 import me.neko.nzhelper.ui.component.dialog.DetailsDialog
+import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -187,8 +193,23 @@ fun HomeScreen(
         derivedStateOf { analyzeHealthTip(sessions) }
     }
 
-    var aiHealthTip by remember { mutableStateOf<String?>(null) }
+    var aiHealthTip by remember { mutableStateOf(AiSettings.getLastAiText(context)) }
     var aiLoading by remember { mutableStateOf(false) }
+    var aiError by remember { mutableStateOf<String?>(null) }
+    var aiUsage by remember { mutableStateOf(AiSettings.getLastAiUsage(context)) }
+    var lastSessionCount by remember { mutableIntStateOf(0) }
+
+    val birthdayGreeting = remember {
+        try {
+            val birth = AgeGroupSettings.getBirthDate(context)
+            val today = LocalDate.now()
+            if (birth.month == today.month && birth.dayOfMonth == today.dayOfMonth)
+                "生日快乐！🎂 \n今天对自己好一点，放松心情享受生活吧～"
+            else null
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     fun refreshAi() {
         if (!AiSettings.isEnabled(context) || !AiSettings.isConfigured(context)) return
@@ -196,17 +217,35 @@ fun HomeScreen(
         NzApplication.appScope.launch {
             val result = AiAnalyzer.analyze(context, sessions)
             result.fold(
-                onSuccess = { aiHealthTip = it },
-                onFailure = { aiHealthTip = "❌ ${it.message ?: "未知错误"}" }
+                onSuccess = {
+                    aiHealthTip = it.text; aiError = null; aiUsage = it.usage
+                    AiSettings.setLastRefreshTime(context, System.currentTimeMillis())
+                    AiSettings.saveLastAiResponse(context, it.text, it.usage)
+                },
+                onFailure = {
+                    aiHealthTip = "❌ ${it.message ?: "未知错误"}"; aiError = it.message; aiUsage =
+                    null
+                }
             )
             aiLoading = false
         }
     }
 
-    LaunchedEffect(resumeKey, sessions.isNotEmpty()) {
-        if (sessions.isNotEmpty() && AiSettings.isEnabled(context)
-            && AiSettings.isConfigured(context)
-        ) {
+    LaunchedEffect(sessions.size) {
+        if (sessions.isEmpty() || !AiSettings.isEnabled(context)
+            || !AiSettings.isConfigured(context)
+        ) return@LaunchedEffect
+
+        val newRecordAdded = sessions.size > lastSessionCount && lastSessionCount > 0
+        lastSessionCount = sessions.size
+
+        val intervalMin = AiSettings.getRefreshIntervalMin(context)
+        val lastRefresh = AiSettings.getLastRefreshTime(context)
+        val now = System.currentTimeMillis()
+        val shouldRefresh = newRecordAdded ||
+                (intervalMin > 0 && (lastRefresh == 0L || now - lastRefresh > intervalMin * 60_000L))
+
+        if (shouldRefresh) {
             refreshAi()
         }
     }
@@ -304,6 +343,36 @@ fun HomeScreen(
                         )
                     }
                 }
+                if (birthdayGreeting != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(
+                                    alpha = 0.6f
+                                )
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Celebration, null,
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    birthdayGreeting,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
                 if (healthTip != null && !showAiCard) {
                     item {
                         HealthTipCard(tip = healthTip!!)
@@ -315,6 +384,8 @@ fun HomeScreen(
                             tip = healthTip,
                             aiTip = aiHealthTip,
                             aiLoading = aiLoading,
+                            errorText = aiError,
+                            usage = aiUsage,
                             onRefreshAi = { refreshAi() }
                         )
                     }

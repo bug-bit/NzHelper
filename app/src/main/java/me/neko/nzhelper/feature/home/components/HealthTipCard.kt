@@ -1,5 +1,9 @@
 package me.neko.nzhelper.feature.home.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
@@ -22,8 +27,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import me.neko.nzhelper.core.ai.AiUsage
 import me.neko.nzhelper.core.model.Session
 import java.time.LocalDateTime
 
@@ -40,9 +47,12 @@ fun HealthTipCard(
     tip: HealthTip? = null,
     aiTip: String? = null,
     aiLoading: Boolean = false,
+    errorText: String? = null,
+    usage: AiUsage? = null,
     onRefreshAi: (() -> Unit)? = null
 ) {
     val isAi = onRefreshAi != null
+    val context = LocalContext.current
     val message = when {
         aiTip != null -> aiTip
         isAi -> "点击刷新获取 AI 建议"
@@ -108,6 +118,23 @@ fun HealthTipCard(
                             }
                         }
                     }
+                    if (errorText != null) {
+                        IconButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("AI Error", errorText))
+                                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.ContentCopy,
+                                "复制错误信息",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
             }
             Spacer(Modifier.size(8.dp))
@@ -136,6 +163,16 @@ fun HealthTipCard(
                     )
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (isAi && usage != null && aiTip != null) {
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        text = "↑${usage.inputTokens ?: "?"} ↓${usage.outputTokens ?: "?"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                    )
+                }
             }
         }
     }

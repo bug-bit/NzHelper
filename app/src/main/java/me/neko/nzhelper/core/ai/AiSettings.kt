@@ -17,7 +17,8 @@ data class AiProvider(
     val isActive: Boolean = false,
     val cachedModels: List<String> = emptyList(),
     val extraFieldsJson: String? = null,
-    val compatKey: String? = null
+    val compatKey: String? = null,
+    val config: AiConfig = AiConfig()
 ) {
     val isComplete: Boolean
         get() = name.isNotBlank() && apiKey.isNotBlank() && baseUrl.isNotBlank()
@@ -48,6 +49,13 @@ object AiSettings {
     private const val KEY_PROMPT_TONE = "prompt_tone"
     private const val KEY_PROMPT_LENGTH = "prompt_length"
     private const val KEY_PROMPT_CUSTOM = "prompt_custom"
+    private const val KEY_MAX_TOKENS = "max_tokens"
+    private const val KEY_REFRESH_INTERVAL = "refresh_interval"
+    private const val KEY_LAST_REFRESH = "last_ai_refresh"
+    private const val KEY_LAST_AI_TEXT = "last_ai_text"
+    private const val KEY_LAST_AI_USAGE = "last_ai_usage"
+    private const val KEY_DATA_OPTIONS = "ai_data_options"
+    private const val KEY_ANALYSIS_DAYS = "analysis_days"
 
     private val gson = NzApplication.gson
 
@@ -71,6 +79,98 @@ object AiSettings {
 
     fun getPromptCustom(context: Context): String =
         prefs(context).getString(KEY_PROMPT_CUSTOM, "") ?: ""
+
+    fun getMaxTokens(context: Context): Int =
+        prefs(context).getInt(KEY_MAX_TOKENS, 500)
+
+    fun setMaxTokens(context: Context, tokens: Int) {
+        prefs(context).edit { putInt(KEY_MAX_TOKENS, tokens) }
+    }
+
+    fun getRefreshIntervalMin(context: Context): Int =
+        prefs(context).getInt(KEY_REFRESH_INTERVAL, 0)
+
+    fun setRefreshIntervalMin(context: Context, minutes: Int) {
+        prefs(context).edit { putInt(KEY_REFRESH_INTERVAL, minutes) }
+    }
+
+    fun getLastRefreshTime(context: Context): Long =
+        prefs(context).getLong(KEY_LAST_REFRESH, 0L)
+
+    fun setLastRefreshTime(context: Context, time: Long) {
+        prefs(context).edit { putLong(KEY_LAST_REFRESH, time) }
+    }
+
+    fun getLastAiText(context: Context): String? =
+        prefs(context).getString(KEY_LAST_AI_TEXT, null)
+
+    fun getLastAiUsage(context: Context): AiUsage? {
+        val json = prefs(context).getString(KEY_LAST_AI_USAGE, null) ?: return null
+        return try {
+            gson.fromJson(json, AiUsage::class.java)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun saveLastAiResponse(context: Context, text: String, usage: AiUsage?) {
+        prefs(context).edit {
+            putString(KEY_LAST_AI_TEXT, text)
+            if (usage != null) putString(KEY_LAST_AI_USAGE, gson.toJson(usage))
+            else remove(KEY_LAST_AI_USAGE)
+        }
+    }
+
+    data class DataOptions(
+        val fields: Set<String> = emptySet()
+    ) {
+        fun isEnabled(key: String) = key in fields
+    }
+
+    enum class DataField(val key: String, val label: String, val category: String) {
+        COUNT("count", "总次数", "基础"),
+        DAYS("days", "天数", "基础"),
+        TIME_PERIOD("time_period", "时段分布", "基础"),
+        MAX_GAP("max_gap", "间隔天数", "基础"),
+        AVG_DURATION("avg_duration", "平均时长", "详情"),
+        RATING("rating", "评分", "详情"),
+        CLIMAX("climax", "高潮", "详情"),
+        TAGS("tags", "标签统计", "标签"),
+        AGE("age", "年龄", "个人");
+
+        companion object {
+            val ALL = entries.toList()
+            val GROUPS: Map<String, List<DataField>> = ALL.groupBy { it.category }
+        }
+    }
+
+    fun getDataOptions(context: Context): DataOptions {
+        val raw = try {
+            prefs(context).getString(KEY_DATA_OPTIONS, null)
+        } catch (_: ClassCastException) {
+            null
+        } ?: return DataOptions()
+        return try {
+            val type = com.google.gson.reflect.TypeToken.getParameterized(
+                Set::class.java, String::class.java
+            ).type
+            val fields: Set<String> = gson.fromJson(raw, type) ?: emptySet()
+            DataOptions(fields)
+        } catch (_: Exception) {
+            DataOptions()
+        }
+    }
+
+    fun setDataOptions(context: Context, opts: DataOptions) {
+        prefs(context).edit { putString(KEY_DATA_OPTIONS, gson.toJson(opts.fields)) }
+    }
+
+    fun getAnalysisDays(context: Context): Int =
+        prefs(context).getInt(KEY_ANALYSIS_DAYS, 7)
+
+    fun setAnalysisDays(context: Context, days: Int) {
+        prefs(context).edit { putInt(KEY_ANALYSIS_DAYS, days) }
+    }
 
     fun savePrompt(
         context: Context,
