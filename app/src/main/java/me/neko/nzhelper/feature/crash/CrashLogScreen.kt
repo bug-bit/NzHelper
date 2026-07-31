@@ -79,7 +79,8 @@ import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 @Composable
 fun CrashLogScreen(
     onClose: () -> Unit,
-    initialCrashFileName: String? = null
+    initialCrashFileName: String? = null,
+    onRestart: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val logs = remember { mutableStateListOf<CrashLog>() }
@@ -114,7 +115,8 @@ fun CrashLogScreen(
                     showCrashOverview = false
                     selectedLog = log
                 },
-                onClose = onClose
+                onClose = onClose,
+                onRestart = onRestart
             )
             return
         }
@@ -371,7 +373,8 @@ private fun TestCrashCard() {
 private fun CrashOverview(
     log: CrashLog,
     onViewDetail: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onRestart: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val content = remember(log.name) {
@@ -475,11 +478,7 @@ private fun CrashOverview(
             }
             OutlinedButton(
                 onClick = {
-                    val intent = Intent(context, MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    }
-                    context.startActivity(intent)
-                    onClose()
+                    onRestart()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large

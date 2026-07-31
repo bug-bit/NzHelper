@@ -39,6 +39,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.navigation.NavController
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
@@ -78,13 +79,17 @@ fun BottomNavigationBar(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(stopRequest: StateFlow<Int>? = null) {
+fun MainScreen(
+    rootNavController: NavController,
+    stopRequest: StateFlow<Int>? = null
+) {
     val context = LocalContext.current
 
     // ── 应用锁状态 ──
     var isLocked by remember {
         mutableStateOf(
-            AppLockManager.isLockEnabled(context) || GestureLockManager.hasGesturePassword(context)
+            (AppLockManager.isLockEnabled(context) || GestureLockManager.hasGesturePassword(context))
+                    && !AppLockManager.isAuthenticated
         )
     }
     var wentToBackground by remember { mutableStateOf(false) }
@@ -225,7 +230,9 @@ fun MainScreen(stopRequest: StateFlow<Int>? = null) {
                     )
                     BottomNavItem.Statistics.route -> StatisticsScreen(isActive = isCurrentPage)
                     BottomNavItem.History.route -> HistoryScreen(isActive = isCurrentPage)
-                    BottomNavItem.Settings.route -> SettingsScreen()
+                    BottomNavItem.Settings.route -> SettingsScreen(
+                        rootNavController = rootNavController
+                    )
                 }
             }
         }
@@ -280,5 +287,5 @@ fun MainScreen(stopRequest: StateFlow<Int>? = null) {
 @Preview(showBackground = true)
 @Composable
 fun MainScreenPreview() {
-    MainScreen()
+    MainScreen(rootNavController = NavController(LocalContext.current))
 }

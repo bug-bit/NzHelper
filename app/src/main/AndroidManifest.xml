@@ -43,29 +43,6 @@
         </activity>
 
         <activity
-            android:name=".feature.about.AboutActivity"
-            android:exported="false" />
-        <activity
-            android:name=".feature.recyclebin.RecycleBinActivity"
-            android:exported="false" />
-        <activity
-            android:name=".feature.recyclebin.RecycleBinSettingsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".feature.backup.BackupActivity"
-            android:exported="false" />
-        <activity
-            android:name=".feature.lock.GestureLockSetupActivity"
-            android:exported="false" />
-        <activity
-            android:name=".feature.tagmanage.TagManageActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".feature.ai.AiConfigActivity"
-            android:exported="false" />
-
-        <activity
             android:name=".feature.crash.CrashLogActivity"
             android:exported="false" />
 

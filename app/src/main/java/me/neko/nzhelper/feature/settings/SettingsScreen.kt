@@ -1,7 +1,6 @@
 package me.neko.nzhelper.feature.settings
 
 import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +20,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.Timer
@@ -35,7 +35,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,22 +51,16 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.crash.CrashLogManager
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.datastore.TagSettings
-import me.neko.nzhelper.feature.about.AboutActivity
-import me.neko.nzhelper.feature.ai.AiConfigActivity
-import me.neko.nzhelper.feature.backup.BackupActivity
-import me.neko.nzhelper.feature.crash.CrashLogActivity
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
-import me.neko.nzhelper.feature.lock.GestureLockSetupActivity
-import me.neko.nzhelper.feature.recyclebin.RecycleBinSettingsActivity
 import me.neko.nzhelper.feature.settings.components.AgePickerBottomSheet
-import me.neko.nzhelper.feature.tagmanage.TagManageActivity
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.SettingsItem
@@ -76,7 +69,9 @@ import java.time.Period
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    rootNavController: NavController
+) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val context = LocalContext.current
@@ -144,11 +139,6 @@ fun SettingsScreen() {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(Unit) {
-        crashLogCount = CrashLogManager.listCrashLogs(context).size
-        unreadCrashCount = CrashLogManager.unreadCount(context)
-    }
-
     val requestToggleLock: (Boolean) -> Unit = { targetState ->
         val activity = context as? FragmentActivity
         if (activity == null) {
@@ -201,7 +191,9 @@ fun SettingsScreen() {
                 )
             )
         },
-        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+        contentWindowInsets = WindowInsets.safeDrawing.only(
+            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+        )
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -235,24 +227,14 @@ fun SettingsScreen() {
                         title = "手势密码",
                         subtitle = if (hasGesturePassword) "已开启，点击可设置" else "关闭，点击开启并设置",
                         onClick = {
-                            context.startActivity(
-                                Intent(
-                                    context,
-                                    GestureLockSetupActivity::class.java
-                                )
-                            )
+                            rootNavController.navigate("gesture_lock")
                         },
                         trailingContent = {
                             Switch(
                                 checked = hasGesturePassword,
                                 onCheckedChange = { targetState ->
                                     if (targetState) {
-                                        context.startActivity(
-                                            Intent(
-                                                context,
-                                                GestureLockSetupActivity::class.java
-                                            )
-                                        )
+                                        rootNavController.navigate("gesture_lock")
                                     } else {
                                         GestureLockManager.clearGesturePassword(context)
                                         hasGesturePassword = false
@@ -265,6 +247,17 @@ fun SettingsScreen() {
                                 }
                             )
                         }
+                    )
+                }
+            }
+
+            item {
+                SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Outlined.Palette,
+                        title = "主题设置",
+                        subtitle = "外观模式 · 深色选项 · 动态取色",
+                        onClick = { rootNavController.navigate("theme_settings") }
                     )
                 }
             }
@@ -312,9 +305,7 @@ fun SettingsScreen() {
                         icon = Icons.Outlined.SmartToy,
                         title = "AI 健康建议",
                         subtitle = aiSubtitle,
-                        onClick = {
-                            context.startActivity(Intent(context, AiConfigActivity::class.java))
-                        }
+                        onClick = { rootNavController.navigate("ai_config") }
                     )
                 }
             }
@@ -325,37 +316,21 @@ fun SettingsScreen() {
                         icon = Icons.Outlined.Sell,
                         title = "标签管理",
                         subtitle = "分类 · 分组 · 标签（共 $tagCount 个标签）",
-                        onClick = {
-                            context.startActivity(
-                                Intent(
-                                    context,
-                                    TagManageActivity::class.java
-                                )
-                            )
-                        }
+                        onClick = { rootNavController.navigate("tag_manage") }
                     )
                     SettingsDivider()
                     SettingsItem(
                         icon = Icons.Outlined.CloudSync,
                         title = "备份与恢复",
                         subtitle = "导出 / 导入 / WebDAV 云备份",
-                        onClick = {
-                            context.startActivity(Intent(context, BackupActivity::class.java))
-                        }
+                        onClick = { rootNavController.navigate("backup") }
                     )
                     SettingsDivider()
                     SettingsItem(
                         icon = Icons.Outlined.DeleteOutline,
                         title = "回收站",
                         subtitle = "管理已删除记录",
-                        onClick = {
-                            context.startActivity(
-                                Intent(
-                                    context,
-                                    RecycleBinSettingsActivity::class.java
-                                )
-                            )
-                        }
+                        onClick = { rootNavController.navigate("recycle_bin_settings") }
                     )
                 }
             }
@@ -370,9 +345,7 @@ fun SettingsScreen() {
                             unreadCrashCount > 0 -> "共 $crashLogCount 条，$unreadCrashCount 条未读"
                             else -> "共 $crashLogCount 条记录"
                         },
-                        onClick = {
-                            context.startActivity(Intent(context, CrashLogActivity::class.java))
-                        },
+                        onClick = { rootNavController.navigate("crash_logs") },
                         badgeText = if (unreadCrashCount > 0) "$unreadCrashCount" else null
                     )
                 }
@@ -383,9 +356,7 @@ fun SettingsScreen() {
                     SettingsItem(
                         icon = Icons.Outlined.Info,
                         title = "关于",
-                        onClick = {
-                            context.startActivity(Intent(context, AboutActivity::class.java))
-                        }
+                        onClick = { rootNavController.navigate("about") }
                     )
                 }
             }
@@ -408,5 +379,6 @@ fun SettingsScreen() {
 @Preview(showBackground = true)
 @Composable
 fun SettingsScreenPreview() {
-    SettingsScreen()
+    val navController = NavController(LocalContext.current)
+    SettingsScreen(rootNavController = navController)
 }

@@ -1,6 +1,5 @@
 package me.neko.nzhelper.feature.recyclebin
 
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -54,7 +53,8 @@ import me.neko.nzhelper.ui.component.setting.SettingsItem
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun RecycleBinSettingsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToRecycleBin: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -122,7 +122,7 @@ fun RecycleBinSettingsScreen(
                         subtitle = if (recycleBinCount > 0) "共 $recycleBinCount 条记录，点击管理"
                         else "暂无已删除的记录",
                         onClick = {
-                            context.startActivity(Intent(context, RecycleBinActivity::class.java))
+                            onNavigateToRecycleBin()
                         },
                         badgeText = if (recycleBinCount > 0) "$recycleBinCount" else null
                     )
