@@ -7,6 +7,7 @@ interface ModelFetcher {
         baseUrl: String,
         apiKey: String,
         mode: ApiMode,
-        extraFields: JsonObject? = null
+        extraFields: JsonObject? = null,
+        fallbackModel: String = ""
     ): Result<List<String>>
 }

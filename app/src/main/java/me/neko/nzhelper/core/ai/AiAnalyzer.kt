@@ -13,15 +13,16 @@ object AiAnalyzer {
         apiKey: String,
         mode: ApiMode,
         extraFields: com.google.gson.JsonObject? = null,
+        fallbackModel: String = "",
         fetcher: ModelFetcher = AiModelFetcher
-    ): Result<List<String>> = fetcher.fetch(baseUrl, apiKey, mode, extraFields)
+    ): Result<List<String>> = fetcher.fetch(baseUrl, apiKey, mode, extraFields, fallbackModel)
 
     suspend fun analyze(context: Context, sessions: List<Session>): Result<AiResponse> =
         withContext(Dispatchers.IO) {
             if (!AiSettings.isEnabled(context))
-                return@withContext Result.failure(AiError.NotEnabled)
+                return@withContext Result.failure(AiError.NotEnabled.INSTANCE)
             if (!AiSettings.isConfigured(context))
-                return@withContext Result.failure(AiError.NotConfigured)
+                return@withContext Result.failure(AiError.NotConfigured.INSTANCE)
 
             val now = LocalDateTime.now()
             val rangeDays = AiSettings.getAnalysisDays(context)
@@ -30,10 +31,10 @@ object AiAnalyzer {
                 !it.timestamp.isBefore(now.minusDays(rangeDays.toLong())) && !it.timestamp.isAfter(now)
             }
             if (recent.isEmpty())
-                return@withContext Result.failure(AiError.NoRecentData)
+                return@withContext Result.failure(AiError.NoRecentData.INSTANCE)
 
             val provider = AiSettings.getActiveProvider(context)
-                ?: return@withContext Result.failure(AiError.NoActiveProvider)
+                ?: return@withContext Result.failure(AiError.NoActiveProvider.INSTANCE)
             val mode = provider.mode
             val model = provider.model
 

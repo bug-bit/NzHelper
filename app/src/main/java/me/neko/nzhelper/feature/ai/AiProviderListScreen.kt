@@ -18,17 +18,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -54,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.ai.AiProvider
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.feature.ai.components.AiProviderEditDialog
+import me.neko.nzhelper.feature.ai.components.ModelPickerDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +70,7 @@ fun AiProviderListScreen(onBack: () -> Unit) {
     var providers by remember { mutableStateOf(AiSettings.getProviders(context)) }
     var editingProvider by remember { mutableStateOf<AiProvider?>(null) }
     var deleteTarget by remember { mutableStateOf<AiProvider?>(null) }
+    var modelPickerProvider by remember { mutableStateOf<AiProvider?>(null) }
 
     fun refresh() {
         providers = AiSettings.getProviders(context)
@@ -133,6 +139,7 @@ fun AiProviderListScreen(onBack: () -> Unit) {
                         provider = provider,
                         onClick = { editingProvider = provider },
                         onDelete = { deleteTarget = provider },
+                        onPickModel = { modelPickerProvider = provider },
                         onActivate = {
                             AiSettings.setActive(context, provider.id)
                             refresh()
@@ -202,6 +209,35 @@ fun AiProviderListScreen(onBack: () -> Unit) {
             }
         )
     }
+
+    if (modelPickerProvider != null) {
+        ModelPickerDialog(
+            provider = modelPickerProvider!!,
+            onDismiss = { modelPickerProvider = null },
+            onConfirmed = { model, cached, manual ->
+                AiSettings.saveProvider(
+                    context,
+                    modelPickerProvider!!.copy(
+                        model = model,
+                        cachedModels = cached,
+                        manualModels = manual
+                    )
+                )
+                modelPickerProvider = null
+                refresh()
+            },
+            onChanged = { cached, manual ->
+                AiSettings.saveProvider(
+                    context,
+                    modelPickerProvider!!.copy(
+                        cachedModels = cached,
+                        manualModels = manual
+                    )
+                )
+                refresh()
+            }
+        )
+    }
 }
 
 @Composable
@@ -209,8 +245,10 @@ private fun ProviderCard(
     provider: AiProvider,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onPickModel: () -> Unit,
     onActivate: () -> Unit
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Card(
         onClick = onActivate,
         modifier = Modifier.fillMaxWidth(),
@@ -248,26 +286,63 @@ private fun ProviderCard(
                 Text(
                     text = if (provider.cachedModels.isNotEmpty())
                         "${provider.model} · ${provider.cachedModels.size} 个模型"
-                    else provider.mode.label,
+                    else "暂无模型",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            IconButton(onClick = onClick) {
-                Icon(
-                    Icons.Outlined.Edit,
-                    "编辑",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Outlined.Delete,
-                    "删除",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        Icons.Outlined.MoreVert,
+                        "更多",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("选择模型") },
+                        onClick = { menuExpanded = false; onPickModel() },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Outlined.ViewInAr,
+                                null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("编辑") },
+                        onClick = { menuExpanded = false; onClick() },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Outlined.Edit,
+                                null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+                    DropdownMenuItem(
+                        text = { Text("删除", color = MaterialTheme.colorScheme.error) },
+                        onClick = { menuExpanded = false; onDelete() },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Outlined.DeleteOutline,
+                                null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                }
             }
         }
     }

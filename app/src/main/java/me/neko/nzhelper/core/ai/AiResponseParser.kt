@@ -12,7 +12,6 @@ object AiResponseParser {
         extractApiError(json)?.let { Log.e(TAG, "API error: $it") }
         return when (mode) {
             ApiMode.OpenAICompat -> parseOpenAiCompat(json, compatKey)
-            ApiMode.Google -> parseGoogle(json)
             ApiMode.Claude -> parseClaude(json)
         }
     }
@@ -24,11 +23,6 @@ object AiResponseParser {
                 ApiMode.OpenAICompat -> root.getAsJsonArray("data")
                     ?.mapNotNull { it.asJsonObject.get("id")?.asString }
                     ?.sorted() ?: emptyList()
-                ApiMode.Google -> root.getAsJsonArray("models")
-                    ?.mapNotNull {
-                        it.asJsonObject.get("name")?.asString
-                            ?.removePrefix("models/")
-                    }?.sorted() ?: emptyList()
                 ApiMode.Claude -> root.getAsJsonArray("data")
                     ?.mapNotNull { it.asJsonObject.get("id")?.asString }
                     ?.sorted() ?: emptyList()
@@ -144,19 +138,6 @@ object AiResponseParser {
             if (t.isJsonNull) null else t.asString
         }.joinToString("").trim()
         return text.takeIf { it.isNotBlank() }
-    }
-
-    private fun parseGoogle(json: String): AiResponse? {
-        return try {
-            JsonParser.parseString(json).asJsonObject
-                .getAsJsonArray("candidates")
-                ?.get(0)?.asJsonObject
-                ?.getAsJsonObject("content")
-                ?.getAsJsonArray("parts")
-                ?.get(0)?.asJsonObject
-                ?.get("text")?.asString?.trim()?.takeIf { it.isNotBlank() }
-                ?.let { AiResponse(it) }
-        } catch (_: Exception) { null }
     }
 
     private fun parseClaude(json: String): AiResponse? {

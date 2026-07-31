@@ -27,28 +27,23 @@ object AiClient {
         try {
             val cleanBase = baseUrl.trimEnd('/')
             val path = chatPath.replace("__MODEL__", model)
-            val url = when (authType) {
-                ApiMode.AuthType.QUERY_PARAM -> "$cleanBase$path?key=$apiKey"
-                else -> "$cleanBase$path"
-            }
+            val url = "$cleanBase$path"
             val reqBuilder = Request.Builder().url(url)
                 .post(body.toRequestBody("application/json".toMediaTypeOrNull()))
                 .header("Content-Type", "application/json")
             when (authType) {
                 ApiMode.AuthType.BEARER -> reqBuilder.header("Authorization", "Bearer $apiKey")
-                ApiMode.AuthType.X_API_KEY -> {
-                    reqBuilder.header("x-api-key", apiKey)
-                    reqBuilder.header("anthropic-version", "2023-06-01")
-                }
-                ApiMode.AuthType.QUERY_PARAM -> {}
+                ApiMode.AuthType.X_API_KEY -> reqBuilder.header("x-api-key", apiKey)
             }
             extraHeaders.forEach { (k, v) -> reqBuilder.header(k, v) }
             val resp = client.newCall(reqBuilder.build()).execute()
-            if (!resp.isSuccessful)
-                return@withContext Result.failure(AiError.Http(resp.code))
+            if (!resp.isSuccessful) {
+                val errorBody = resp.body.string().take(200)
+                return@withContext Result.failure(AiError.Http(resp.code, errorBody))
+            }
             Result.success(resp.body.string())
         } catch (e: Exception) {
-            Result.failure(AiError.Network)
+            Result.failure(AiError.Network.INSTANCE)
         }
     }
 
@@ -61,25 +56,20 @@ object AiClient {
         try {
             val cleanBase = baseUrl.trimEnd('/')
             val path = modelsPath ?: return@withContext Result.success("[]")
-            val url = when (authType) {
-                ApiMode.AuthType.QUERY_PARAM -> "$cleanBase$path?key=$apiKey"
-                else -> "$cleanBase$path"
-            }
+            val url = "$cleanBase$path"
             val reqBuilder = Request.Builder().url(url)
             when (authType) {
                 ApiMode.AuthType.BEARER -> reqBuilder.header("Authorization", "Bearer $apiKey")
-                ApiMode.AuthType.X_API_KEY -> {
-                    reqBuilder.header("x-api-key", apiKey)
-                    reqBuilder.header("anthropic-version", "2023-06-01")
-                }
-                ApiMode.AuthType.QUERY_PARAM -> {}
+                ApiMode.AuthType.X_API_KEY -> reqBuilder.header("x-api-key", apiKey)
             }
             val resp = client.newCall(reqBuilder.build()).execute()
-            if (!resp.isSuccessful)
-                return@withContext Result.failure(AiError.Http(resp.code))
+            if (!resp.isSuccessful) {
+                val errorBody = resp.body.string().take(200)
+                return@withContext Result.failure(AiError.Http(resp.code, errorBody))
+            }
             Result.success(resp.body.string())
         } catch (e: Exception) {
-            Result.failure(AiError.Network)
+            Result.failure(AiError.Network.INSTANCE)
         }
     }
 }

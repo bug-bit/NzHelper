@@ -10,7 +10,7 @@ sealed class ApiMode(
     val modelsPath: String?,
     val authType: AuthType = AuthType.BEARER
 ) {
-    enum class AuthType { BEARER, X_API_KEY, QUERY_PARAM }
+    enum class AuthType { BEARER, X_API_KEY }
 
     abstract fun buildRequestBody(
         model: String, systemPrompt: String, userPrompt: String,
@@ -26,30 +26,6 @@ sealed class ApiMode(
         ): String = buildOpenAiBody(model, systemPrompt, userPrompt, maxTokens, extraFields, temperature)
     }
 
-    object Google : ApiMode("google", "Google", "/v1/models/__MODEL__:generateContent", "/models", AuthType.QUERY_PARAM) {
-        override fun buildRequestBody(
-            model: String, systemPrompt: String, userPrompt: String,
-            maxTokens: Int, extraFields: JsonObject?,
-            temperature: Float
-        ): String {
-            val body = JsonObject().apply {
-                add("contents", JsonArray().apply {
-                    add(JsonObject().apply {
-                        add("parts", JsonArray().apply {
-                            add(JsonObject().apply { addProperty("text", "$systemPrompt\n\n$userPrompt") })
-                        })
-                    })
-                })
-                add("generationConfig", JsonObject().apply {
-                    addProperty("maxOutputTokens", maxTokens)
-                    addProperty("temperature", temperature.toDouble())
-                })
-            }
-            extraFields?.entrySet()?.forEach { (k, v) -> body.add(k, v) }
-            return body.toString()
-        }
-    }
-
     object Claude : ApiMode("claude", "Claude", "/v1/messages", "/v1/models", AuthType.X_API_KEY) {
         override fun buildRequestBody(
             model: String, systemPrompt: String, userPrompt: String,
@@ -58,7 +34,7 @@ sealed class ApiMode(
         ): String {
             val body = JsonObject().apply {
                 addProperty("model", model)
-                addProperty("system", systemPrompt)
+                if (systemPrompt.isNotBlank()) addProperty("system", systemPrompt)
                 add("messages", JsonArray().apply {
                     add(JsonObject().apply {
                         addProperty("role", "user")
@@ -73,7 +49,7 @@ sealed class ApiMode(
     }
 
     companion object {
-        val ALL = listOf(OpenAICompat, Google, Claude)
+        val ALL = listOf(OpenAICompat, Claude)
         fun fromKey(key: String): ApiMode = ALL.firstOrNull { it.key == key } ?: OpenAICompat
 
         private fun buildOpenAiBody(

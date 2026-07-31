@@ -16,6 +16,7 @@ data class AiProvider(
     val model: String = "gpt-4o-mini",
     val isActive: Boolean = false,
     val cachedModels: List<String> = emptyList(),
+    val manualModels: List<String> = emptyList(),
     val extraFieldsJson: String? = null,
     val compatKey: String? = null,
     val config: AiConfig = AiConfig()
