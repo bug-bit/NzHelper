@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudUpload
@@ -69,6 +70,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
+import me.neko.nzhelper.core.database.AppDatabase
 import me.neko.nzhelper.core.database.BackupRepository
 import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.database.SessionRepository
@@ -125,7 +127,12 @@ fun BackupScreen(
         val taxonomy = TagSettings.getCategories(context).size +
                 TagSettings.getGroups(context).size +
                 TagSettings.getTags(context).size
-        return ModuleCounts(sessions, recycle, taxonomy)
+        val aiConfig = try {
+            AppDatabase.get(context).aiConfigDao().getAll().size
+        } catch (_: Exception) {
+            0
+        }
+        return ModuleCounts(sessions, recycle, taxonomy, aiConfig)
     }
 
     var importing by remember { mutableStateOf(false) }
@@ -371,15 +378,15 @@ fun BackupScreen(
             counts = ModuleCounts(
                 sessions = preview.sessionCount,
                 recycleBin = preview.recycleCount,
-                taxonomy = preview.taxonomyCount
+                taxonomy = preview.taxonomyCount,
+                aiConfig = preview.aiConfigCount
             ),
             legacySessionsOnly = preview.legacySessionsOnly,
             onConfirm = { selected ->
-                val p = preview
                 pendingImportPreview = null
                 importing = true
                 scope.launch {
-                    val (_, msg) = BackupRepository.applyPreview(context, p, selected)
+                    val (_, msg) = BackupRepository.applyPreview(context, preview, selected)
                     importing = false
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }
@@ -429,15 +436,15 @@ fun BackupScreen(
             counts = ModuleCounts(
                 sessions = preview.sessionCount,
                 recycleBin = preview.recycleCount,
-                taxonomy = preview.taxonomyCount
+                taxonomy = preview.taxonomyCount,
+                aiConfig = preview.aiConfigCount
             ),
             legacySessionsOnly = preview.legacySessionsOnly,
             onConfirm = { selected ->
-                val p = preview
                 pendingWebDavRestorePreview = null
                 webDavRestoring = true
                 scope.launch {
-                    val (_, msg) = BackupRepository.applyPreview(context, p, selected)
+                    val (_, msg) = BackupRepository.applyPreview(context, preview, selected)
                     webDavRestoring = false
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }
@@ -475,7 +482,8 @@ fun BackupScreen(
 private data class ModuleCounts(
     val sessions: Int,
     val recycleBin: Int,
-    val taxonomy: Int
+    val taxonomy: Int,
+    val aiConfig: Int = 0
 )
 
 @Composable
@@ -492,6 +500,7 @@ private fun BackupModuleDialog(
     var sessions by remember { mutableStateOf(modules.sessions) }
     var recycleBin by remember { mutableStateOf(modules.recycleBin && !legacySessionsOnly) }
     var taxonomy by remember { mutableStateOf(modules.taxonomy && !legacySessionsOnly) }
+    var aiConfig by remember { mutableStateOf(modules.aiConfig && !legacySessionsOnly) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -532,12 +541,20 @@ private fun BackupModuleDialog(
                     enabled = !legacySessionsOnly,
                     onCheckedChange = { taxonomy = it }
                 )
+                ModuleRow(
+                    icon = Icons.Outlined.AutoAwesome,
+                    label = "AI 配置",
+                    count = counts.aiConfig,
+                    checked = aiConfig,
+                    enabled = !legacySessionsOnly,
+                    onCheckedChange = { aiConfig = it }
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm(BackupModules(sessions, recycleBin, taxonomy))
+                    onConfirm(BackupModules(sessions, recycleBin, taxonomy, aiConfig))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,

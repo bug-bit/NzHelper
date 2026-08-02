@@ -5,6 +5,7 @@ import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.database.entity.AiConfigEntity
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.BackupModules
 import me.neko.nzhelper.core.model.WebDavBackupPayload
@@ -118,6 +119,12 @@ object BackupRepository {
         context: Context,
         modules: BackupModules = BackupModules.ALL
     ): ByteArray = withContext(Dispatchers.IO) {
+        val aiConfigMap = if (modules.aiConfig) {
+            val db = AppDatabase.get(context)
+            val entries = db.aiConfigDao().getAll()
+            entries.associate { it.key to it.value }
+        } else emptyMap()
+
         val payload = WebDavBackupPayload(
             version = 3,
             exportedAt = System.currentTimeMillis(),
@@ -125,7 +132,8 @@ object BackupRepository {
             recycleBin = if (modules.recycleBin) RecycleRepository.loadRecycleBin(context) else emptyList(),
             categories = if (modules.taxonomy) TagSettings.getCategories(context) else emptyList(),
             tagGroups = if (modules.taxonomy) TagSettings.getGroups(context) else emptyList(),
-            tags = if (modules.taxonomy) TagSettings.getTags(context) else emptyList()
+            tags = if (modules.taxonomy) TagSettings.getTags(context) else emptyList(),
+            aiConfig = aiConfigMap
         )
         val json = gson.toJson(payload)
         BackupCipher.encrypt(context, json.toByteArray(Charsets.UTF_8))
@@ -166,6 +174,13 @@ object BackupRepository {
             )
         }
 
+        if (modules.aiConfig && !payload.aiConfig.isNullOrEmpty()) {
+            val aiDao = AppDatabase.get(context).aiConfigDao()
+            for ((key, value) in payload.aiConfig) {
+                aiDao.upsert(AiConfigEntity(key, value))
+            }
+        }
+
         return addedSessions to addedRecycle
     }
 
@@ -176,6 +191,7 @@ object BackupRepository {
         val sessionCount: Int get() = payload.sessions.size
         val recycleCount: Int get() = payload.recycleBin.size
         val taxonomyCount: Int get() = payload.categories.size + payload.tagGroups.size + payload.tags.size
+        val aiConfigCount: Int get() = payload.aiConfig?.size ?: 0
     }
 
     suspend fun previewNzBytes(
@@ -240,7 +256,7 @@ object BackupRepository {
         modules: BackupModules
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         val effective = if (preview.legacySessionsOnly) {
-            BackupModules(sessions = modules.sessions, recycleBin = false, taxonomy = false)
+            BackupModules(sessions = modules.sessions, recycleBin = false, taxonomy = false, aiConfig = false)
         } else {
             modules
         }

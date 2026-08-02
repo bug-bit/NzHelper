@@ -12,6 +12,9 @@ interface AiConfigDao {
     @Query("SELECT value FROM ai_config WHERE `key` = :key")
     suspend fun get(key: String): String?
 
+    @Query("SELECT * FROM ai_config")
+    suspend fun getAll(): List<AiConfigEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: AiConfigEntity)
 
