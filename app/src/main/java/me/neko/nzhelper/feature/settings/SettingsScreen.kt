@@ -35,6 +35,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -110,16 +111,19 @@ fun SettingsScreen(
         AutoTagRules.setEnabled(context, enabled)
     }
 
-    fun buildAiSubtitle(ctx: Context, enabled: Boolean): String {
+    suspend fun buildAiSubtitle(ctx: Context, enabled: Boolean): String {
         if (!enabled) return "AI 分析记录数据 · 点击配置"
         val p = AiSettings.getActiveProvider(ctx)
         return if (p != null) "已启用模型：${p.model}"
         else "已启用 · 点击配置"
     }
 
-    var aiEnabled by remember { mutableStateOf(AiSettings.isEnabled(context)) }
-    var aiSubtitle by remember {
-        mutableStateOf(buildAiSubtitle(context, aiEnabled))
+    var aiEnabled by remember { mutableStateOf(false) }
+    var aiSubtitle by remember { mutableStateOf("AI 分析记录数据 · 点击配置") }
+
+    LaunchedEffect(Unit) {
+        aiEnabled = AiSettings.isEnabled(context)
+        aiSubtitle = buildAiSubtitle(context, aiEnabled)
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -129,10 +133,10 @@ fun SettingsScreen(
                     tagCount = TagSettings.getTags(context).size
                     crashLogCount = CrashLogManager.listCrashLogs(context).size
                     unreadCrashCount = CrashLogManager.unreadCount(context)
+                    hasGesturePassword = GestureLockManager.hasGesturePassword(context)
+                    aiEnabled = AiSettings.isEnabled(context)
+                    aiSubtitle = buildAiSubtitle(context, aiEnabled)
                 }
-                hasGesturePassword = GestureLockManager.hasGesturePassword(context)
-                aiEnabled = AiSettings.isEnabled(context)
-                aiSubtitle = buildAiSubtitle(context, aiEnabled)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

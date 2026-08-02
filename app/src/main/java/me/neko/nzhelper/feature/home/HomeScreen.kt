@@ -66,6 +66,7 @@ import kotlinx.coroutines.launch
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.ai.AiAnalyzer
 import me.neko.nzhelper.core.ai.AiSettings
+import me.neko.nzhelper.core.ai.AiUsage
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.database.StatisticsRepository
@@ -193,11 +194,18 @@ fun HomeScreen(
         derivedStateOf { analyzeHealthTip(sessions) }
     }
 
-    var aiHealthTip by remember { mutableStateOf(AiSettings.getLastAiText(context)) }
+    var aiHealthTip by remember { mutableStateOf<String?>(null) }
     var aiLoading by remember { mutableStateOf(false) }
     var aiError by remember { mutableStateOf<String?>(null) }
-    var aiUsage by remember { mutableStateOf(AiSettings.getLastAiUsage(context)) }
+    var aiUsage by remember { mutableStateOf<AiUsage?>(null) }
     var lastSessionCount by remember { mutableIntStateOf(0) }
+    var showAiCard by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        aiHealthTip = AiSettings.getLastAiText(context)
+        aiUsage = AiSettings.getLastAiUsage(context)
+        showAiCard = AiSettings.isEnabled(context)
+    }
 
     val birthdayGreeting = remember {
         try {
@@ -212,9 +220,12 @@ fun HomeScreen(
     }
 
     fun refreshAi() {
-        if (!AiSettings.isEnabled(context) || !AiSettings.isConfigured(context)) return
         aiLoading = true
         NzApplication.appScope.launch {
+            if (!AiSettings.isEnabled(context) || !AiSettings.isConfigured(context)) {
+                aiLoading = false
+                return@launch
+            }
             val result = AiAnalyzer.analyze(context, sessions)
             result.fold(
                 onSuccess = {
@@ -232,9 +243,12 @@ fun HomeScreen(
     }
 
     LaunchedEffect(sessions.size) {
-        if (sessions.isEmpty() || !AiSettings.isEnabled(context)
-            || !AiSettings.isConfigured(context)
-        ) return@LaunchedEffect
+        if (sessions.isEmpty()) return@LaunchedEffect
+        if (!AiSettings.isEnabled(context) || !AiSettings.isConfigured(context)) {
+            showAiCard = false
+            return@LaunchedEffect
+        }
+        showAiCard = true
 
         val newRecordAdded = sessions.size > lastSessionCount && lastSessionCount > 0
         lastSessionCount = sessions.size
@@ -249,8 +263,6 @@ fun HomeScreen(
             refreshAi()
         }
     }
-
-    val showAiCard = remember(resumeKey) { AiSettings.isEnabled(context) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,

@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.core.content.edit
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.google.gson.reflect.TypeToken
 import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.database.AppDatabase
+import me.neko.nzhelper.core.database.entity.AiConfigEntity
 import java.util.UUID.randomUUID
 
 data class AiProvider(
@@ -44,7 +47,9 @@ data class AiProvider(
 
 object AiSettings {
 
-    private const val PREFS = "ai_prefs"
+    private const val LEGACY_PREFS = "ai_prefs"
+    private const val MIGRATED_KEY = "ai_migrated_to_db"
+
     private const val KEY_ENABLED = "enabled"
     private const val KEY_PROVIDERS = "providers"
     private const val KEY_PROMPT_TONE = "prompt_tone"
@@ -60,53 +65,118 @@ object AiSettings {
 
     private val gson = NzApplication.gson
 
-    private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun dao(context: Context) = AppDatabase.get(context).aiConfigDao()
+
+    private suspend fun migrateIfNeeded(context: Context) {
+        val legacyPrefs = context.getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
+        val alreadyMigrated = legacyPrefs.getBoolean(MIGRATED_KEY, false)
+        val legacyKeys = legacyPrefs.all.keys.filter { it != MIGRATED_KEY }
+
+        if (alreadyMigrated && legacyKeys.isEmpty()) return
+
+        val dbDao = dao(context)
+
+        if (!alreadyMigrated && legacyKeys.isNotEmpty()) {
+            if (dbDao.get(KEY_ENABLED) == null) {
+                for (key in legacyKeys) {
+                    val str = legacyPrefs.all[key]?.toString() ?: continue
+                    dbDao.upsert(AiConfigEntity(key, str))
+                }
+            }
+        }
+
+        if (legacyKeys.isNotEmpty()) {
+            legacyPrefs.edit { clear(); putBoolean(MIGRATED_KEY, true) }
+        }
+    }
+
+    private suspend fun getString(context: Context, key: String, default: String): String {
+        migrateIfNeeded(context)
+        return dao(context).get(key) ?: default
+    }
+
+    private suspend fun getInt(context: Context, key: String, default: Int): Int {
+        migrateIfNeeded(context)
+        return dao(context).get(key)?.toIntOrNull() ?: default
+    }
+
+    private suspend fun getLong(context: Context, key: String, default: Long): Long {
+        migrateIfNeeded(context)
+        return dao(context).get(key)?.toLongOrNull() ?: default
+    }
+
+    private suspend fun getBoolean(context: Context, key: String, default: Boolean): Boolean {
+        migrateIfNeeded(context)
+        return dao(context).get(key)?.toBooleanStrictOrNull() ?: default
+    }
+
+    private suspend fun setString(context: Context, key: String, value: String) {
+        migrateIfNeeded(context)
+        dao(context).upsert(AiConfigEntity(key, value))
+    }
+
+    private suspend fun setInt(context: Context, key: String, value: Int) {
+        migrateIfNeeded(context)
+        dao(context).upsert(AiConfigEntity(key, value.toString()))
+    }
+
+    private suspend fun setLong(context: Context, key: String, value: Long) {
+        migrateIfNeeded(context)
+        dao(context).upsert(AiConfigEntity(key, value.toString()))
+    }
+
+    private suspend fun setBoolean(context: Context, key: String, value: Boolean) {
+        migrateIfNeeded(context)
+        dao(context).upsert(AiConfigEntity(key, value.toString()))
+    }
 
     // ── 全局启停 ──
-    fun isEnabled(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_ENABLED, false)
+    suspend fun isEnabled(context: Context): Boolean =
+        getBoolean(context, KEY_ENABLED, false)
 
-    fun setEnabled(context: Context, enabled: Boolean) {
-        prefs(context).edit { putBoolean(KEY_ENABLED, enabled) }
+    suspend fun setEnabled(context: Context, enabled: Boolean) {
+        setBoolean(context, KEY_ENABLED, enabled)
     }
 
     // ── 提示词设置 ──
-    fun getPromptTone(context: Context): String =
-        prefs(context).getString(KEY_PROMPT_TONE, "warm") ?: "warm"
+    suspend fun getPromptTone(context: Context): String =
+        getString(context, KEY_PROMPT_TONE, "warm")
 
-    fun getPromptLength(context: Context): String =
-        prefs(context).getString(KEY_PROMPT_LENGTH, "medium") ?: "medium"
+    suspend fun getPromptLength(context: Context): String =
+        getString(context, KEY_PROMPT_LENGTH, "medium")
 
-    fun getPromptCustom(context: Context): String =
-        prefs(context).getString(KEY_PROMPT_CUSTOM, "") ?: ""
+    suspend fun getPromptCustom(context: Context): String =
+        getString(context, KEY_PROMPT_CUSTOM, "")
 
-    fun getMaxTokens(context: Context): Int =
-        prefs(context).getInt(KEY_MAX_TOKENS, 500)
+    suspend fun getMaxTokens(context: Context): Int =
+        getInt(context, KEY_MAX_TOKENS, 500)
 
-    fun setMaxTokens(context: Context, tokens: Int) {
-        prefs(context).edit { putInt(KEY_MAX_TOKENS, tokens) }
+    suspend fun setMaxTokens(context: Context, tokens: Int) {
+        setInt(context, KEY_MAX_TOKENS, tokens)
     }
 
-    fun getRefreshIntervalMin(context: Context): Int =
-        prefs(context).getInt(KEY_REFRESH_INTERVAL, 0)
+    suspend fun getRefreshIntervalMin(context: Context): Int =
+        getInt(context, KEY_REFRESH_INTERVAL, 0)
 
-    fun setRefreshIntervalMin(context: Context, minutes: Int) {
-        prefs(context).edit { putInt(KEY_REFRESH_INTERVAL, minutes) }
+    suspend fun setRefreshIntervalMin(context: Context, minutes: Int) {
+        setInt(context, KEY_REFRESH_INTERVAL, minutes)
     }
 
-    fun getLastRefreshTime(context: Context): Long =
-        prefs(context).getLong(KEY_LAST_REFRESH, 0L)
+    suspend fun getLastRefreshTime(context: Context): Long =
+        getLong(context, KEY_LAST_REFRESH, 0L)
 
-    fun setLastRefreshTime(context: Context, time: Long) {
-        prefs(context).edit { putLong(KEY_LAST_REFRESH, time) }
+    suspend fun setLastRefreshTime(context: Context, time: Long) {
+        setLong(context, KEY_LAST_REFRESH, time)
     }
 
-    fun getLastAiText(context: Context): String? =
-        prefs(context).getString(KEY_LAST_AI_TEXT, null)
+    suspend fun getLastAiText(context: Context): String? {
+        migrateIfNeeded(context)
+        return dao(context).get(KEY_LAST_AI_TEXT)
+    }
 
-    fun getLastAiUsage(context: Context): AiUsage? {
-        val json = prefs(context).getString(KEY_LAST_AI_USAGE, null) ?: return null
+    suspend fun getLastAiUsage(context: Context): AiUsage? {
+        migrateIfNeeded(context)
+        val json = dao(context).get(KEY_LAST_AI_USAGE) ?: return null
         return try {
             gson.fromJson(json, AiUsage::class.java)
         } catch (_: Exception) {
@@ -114,11 +184,14 @@ object AiSettings {
         }
     }
 
-    fun saveLastAiResponse(context: Context, text: String, usage: AiUsage?) {
-        prefs(context).edit {
-            putString(KEY_LAST_AI_TEXT, text)
-            if (usage != null) putString(KEY_LAST_AI_USAGE, gson.toJson(usage))
-            else remove(KEY_LAST_AI_USAGE)
+    suspend fun saveLastAiResponse(context: Context, text: String, usage: AiUsage?) {
+        migrateIfNeeded(context)
+        val d = dao(context)
+        d.upsert(AiConfigEntity(KEY_LAST_AI_TEXT, text))
+        if (usage != null) {
+            d.upsert(AiConfigEntity(KEY_LAST_AI_USAGE, gson.toJson(usage)))
+        } else {
+            d.delete(KEY_LAST_AI_USAGE)
         }
     }
 
@@ -145,14 +218,11 @@ object AiSettings {
         }
     }
 
-    fun getDataOptions(context: Context): DataOptions {
-        val raw = try {
-            prefs(context).getString(KEY_DATA_OPTIONS, null)
-        } catch (_: ClassCastException) {
-            null
-        } ?: return DataOptions()
+    suspend fun getDataOptions(context: Context): DataOptions {
+        migrateIfNeeded(context)
+        val raw = dao(context).get(KEY_DATA_OPTIONS) ?: return DataOptions()
         return try {
-            val type = com.google.gson.reflect.TypeToken.getParameterized(
+            val type = TypeToken.getParameterized(
                 Set::class.java, String::class.java
             ).type
             val fields: Set<String> = gson.fromJson(raw, type) ?: emptySet()
@@ -162,35 +232,35 @@ object AiSettings {
         }
     }
 
-    fun setDataOptions(context: Context, opts: DataOptions) {
-        prefs(context).edit { putString(KEY_DATA_OPTIONS, gson.toJson(opts.fields)) }
+    suspend fun setDataOptions(context: Context, opts: DataOptions) {
+        setString(context, KEY_DATA_OPTIONS, gson.toJson(opts.fields))
     }
 
-    fun getAnalysisDays(context: Context): Int =
-        prefs(context).getInt(KEY_ANALYSIS_DAYS, 7)
+    suspend fun getAnalysisDays(context: Context): Int =
+        getInt(context, KEY_ANALYSIS_DAYS, 7)
 
-    fun setAnalysisDays(context: Context, days: Int) {
-        prefs(context).edit { putInt(KEY_ANALYSIS_DAYS, days) }
+    suspend fun setAnalysisDays(context: Context, days: Int) {
+        setInt(context, KEY_ANALYSIS_DAYS, days)
     }
 
-    fun savePrompt(
+    suspend fun savePrompt(
         context: Context,
         tone: String,
         length: String,
         custom: String
     ) {
-        prefs(context).edit {
-            putString(KEY_PROMPT_TONE, tone)
-            putString(KEY_PROMPT_LENGTH, length)
-            putString(KEY_PROMPT_CUSTOM, custom)
-        }
+        val d = dao(context)
+        d.upsert(AiConfigEntity(KEY_PROMPT_TONE, tone))
+        d.upsert(AiConfigEntity(KEY_PROMPT_LENGTH, length))
+        d.upsert(AiConfigEntity(KEY_PROMPT_CUSTOM, custom))
     }
 
     // ── 供应商列表 ──
-    fun getProviders(context: Context): List<AiProvider> {
-        val json = prefs(context).getString(KEY_PROVIDERS, null) ?: return emptyList()
+    suspend fun getProviders(context: Context): List<AiProvider> {
+        migrateIfNeeded(context)
+        val json = dao(context).get(KEY_PROVIDERS) ?: return emptyList()
         return try {
-            val type = com.google.gson.reflect.TypeToken.getParameterized(
+            val type = TypeToken.getParameterized(
                 List::class.java, AiProvider::class.java
             ).type
             gson.fromJson<List<AiProvider>>(json, type) ?: emptyList()
@@ -199,11 +269,11 @@ object AiSettings {
         }
     }
 
-    private fun saveProviders(context: Context, providers: List<AiProvider>) {
-        prefs(context).edit { putString(KEY_PROVIDERS, gson.toJson(providers)) }
+    private suspend fun saveProviders(context: Context, providers: List<AiProvider>) {
+        setString(context, KEY_PROVIDERS, gson.toJson(providers))
     }
 
-    fun saveProvider(context: Context, provider: AiProvider) {
+    suspend fun saveProvider(context: Context, provider: AiProvider) {
         val list = getProviders(context).toMutableList()
         val idx = list.indexOfFirst { it.id == provider.id }
         if (idx >= 0) list[idx] = provider else list += provider
@@ -213,7 +283,7 @@ object AiSettings {
         saveProviders(context, list)
     }
 
-    fun deleteProvider(context: Context, id: String) {
+    suspend fun deleteProvider(context: Context, id: String) {
         val list = getProviders(context).filter { it.id != id }.toMutableList()
         val hasActive = list.any { it.isActive }
         if (!hasActive && list.isNotEmpty()) {
@@ -222,16 +292,16 @@ object AiSettings {
         saveProviders(context, list)
     }
 
-    fun setActive(context: Context, id: String) {
+    suspend fun setActive(context: Context, id: String) {
         val list = getProviders(context).map {
             it.copy(isActive = it.id == id)
         }
         saveProviders(context, list)
     }
 
-    fun getActiveProvider(context: Context): AiProvider? =
+    suspend fun getActiveProvider(context: Context): AiProvider? =
         getProviders(context).firstOrNull { it.isActive }
 
-    fun isConfigured(context: Context): Boolean =
+    suspend fun isConfigured(context: Context): Boolean =
         getActiveProvider(context)?.isComplete == true
 }

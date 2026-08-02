@@ -9,7 +9,7 @@ object AiPromptBuilder {
 
     private const val SYSTEM_PROMPT = "你是健康生活顾问，用户记录的是手淫数据。你的建议需简短、自然、不评判。"
 
-    fun build(
+    suspend fun build(
         context: Context,
         sessions: List<Session>,
         rangeDays: Int
@@ -18,7 +18,7 @@ object AiPromptBuilder {
         return SYSTEM_PROMPT to buildUserPrompt(context, sessions, opts, rangeDays)
     }
 
-    private fun buildUserPrompt(
+    private suspend fun buildUserPrompt(
         context: Context,
         sessions: List<Session>,
         opts: AiSettings.DataOptions,

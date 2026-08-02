@@ -43,10 +43,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -64,16 +67,21 @@ import me.neko.nzhelper.feature.ai.components.ModelPickerDialog
 @Composable
 fun AiProviderListScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    var providers by remember { mutableStateOf(AiSettings.getProviders(context)) }
+    var providers by remember { mutableStateOf<List<AiProvider>>(emptyList()) }
     var editingProvider by remember { mutableStateOf<AiProvider?>(null) }
     var deleteTarget by remember { mutableStateOf<AiProvider?>(null) }
     var modelPickerProvider by remember { mutableStateOf<AiProvider?>(null) }
 
-    fun refresh() {
+    LaunchedEffect(Unit) {
         providers = AiSettings.getProviders(context)
+    }
+
+    fun refresh() {
+        scope.launch { providers = AiSettings.getProviders(context) }
     }
 
     Scaffold(
@@ -141,8 +149,10 @@ fun AiProviderListScreen(onBack: () -> Unit) {
                         onDelete = { deleteTarget = provider },
                         onPickModel = { modelPickerProvider = provider },
                         onActivate = {
-                            AiSettings.setActive(context, provider.id)
-                            refresh()
+                            scope.launch {
+                                AiSettings.setActive(context, provider.id)
+                                refresh()
+                            }
                         }
                     )
                 }
@@ -188,9 +198,11 @@ fun AiProviderListScreen(onBack: () -> Unit) {
             confirmButton = {
                 Button(
                     onClick = {
-                        AiSettings.deleteProvider(context, deleteTarget!!.id)
-                        deleteTarget = null
-                        refresh()
+                        scope.launch {
+                            AiSettings.deleteProvider(context, deleteTarget!!.id)
+                            deleteTarget = null
+                            refresh()
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
@@ -215,26 +227,30 @@ fun AiProviderListScreen(onBack: () -> Unit) {
             provider = modelPickerProvider!!,
             onDismiss = { modelPickerProvider = null },
             onConfirmed = { model, cached, manual ->
-                AiSettings.saveProvider(
-                    context,
-                    modelPickerProvider!!.copy(
-                        model = model,
-                        cachedModels = cached,
-                        manualModels = manual
+                scope.launch {
+                    AiSettings.saveProvider(
+                        context,
+                        modelPickerProvider!!.copy(
+                            model = model,
+                            cachedModels = cached,
+                            manualModels = manual
+                        )
                     )
-                )
-                modelPickerProvider = null
-                refresh()
+                    modelPickerProvider = null
+                    refresh()
+                }
             },
             onChanged = { cached, manual ->
-                AiSettings.saveProvider(
-                    context,
-                    modelPickerProvider!!.copy(
-                        cachedModels = cached,
-                        manualModels = manual
+                scope.launch {
+                    AiSettings.saveProvider(
+                        context,
+                        modelPickerProvider!!.copy(
+                            cachedModels = cached,
+                            manualModels = manual
+                        )
                     )
-                )
-                refresh()
+                    refresh()
+                }
             }
         )
     }

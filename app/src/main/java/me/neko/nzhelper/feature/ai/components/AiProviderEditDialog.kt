@@ -24,7 +24,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -42,6 +44,7 @@ fun AiProviderEditDialog(
     onSaved: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val isNew = provider.id.isEmpty()
 
     val presetKeys = PresetProvider.ALL.map { it.key }
@@ -131,8 +134,10 @@ fun AiProviderEditDialog(
                         cachedModels = provider.cachedModels,
                         manualModels = provider.manualModels
                     )
-                    AiSettings.saveProvider(context, p)
-                    onSaved()
+                    scope.launch {
+                        AiSettings.saveProvider(context, p)
+                        onSaved()
+                    }
                 },
                 enabled = saveEnabled
             ) { Text("保存") }

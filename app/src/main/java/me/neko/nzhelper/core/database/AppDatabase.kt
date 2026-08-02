@@ -6,10 +6,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import me.neko.nzhelper.core.database.dao.AiConfigDao
 import me.neko.nzhelper.core.database.dao.RecycleBinDao
 import me.neko.nzhelper.core.database.dao.SessionDao
 import me.neko.nzhelper.core.database.dao.TaxonomyDao
 import me.neko.nzhelper.core.database.dao.WebDavConfigDao
+import me.neko.nzhelper.core.database.entity.AiConfigEntity
 import me.neko.nzhelper.core.database.entity.RecycleBinEntity
 import me.neko.nzhelper.core.database.entity.SessionEntity
 import me.neko.nzhelper.core.database.entity.TaxonomyEntity
@@ -22,9 +24,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         SessionEntity::class,
         RecycleBinEntity::class,
         WebDavConfigEntity::class,
-        TaxonomyEntity::class
+        TaxonomyEntity::class,
+        AiConfigEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -33,6 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recycleBinDao(): RecycleBinDao
     abstract fun webDavConfigDao(): WebDavConfigDao
     abstract fun taxonomyDao(): TaxonomyDao
+    abstract fun aiConfigDao(): AiConfigDao
 
     companion object {
         private const val DB_NAME = "records.db"
@@ -56,7 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
                 DB_NAME
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
         }
@@ -79,6 +83,17 @@ abstract class AppDatabase : RoomDatabase() {
                             "`type` TEXT NOT NULL, " +
                             "`payloadJson` TEXT NOT NULL, " +
                             "PRIMARY KEY(`type`))"
+                )
+            }
+        }
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `ai_config` (" +
+                            "`key` TEXT NOT NULL, " +
+                            "`value` TEXT NOT NULL, " +
+                            "PRIMARY KEY(`key`))"
                 )
             }
         }

@@ -46,11 +46,14 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +62,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import me.neko.nzhelper.core.ai.AiProvider
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsDivider
@@ -96,17 +100,19 @@ fun AiConfigScreen(
     onProviders: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    var enabled by remember { mutableStateOf(AiSettings.isEnabled(context)) }
-    var tone by remember { mutableStateOf(AiSettings.getPromptTone(context)) }
-    var length by remember { mutableStateOf(AiSettings.getPromptLength(context)) }
-    var custom by remember { mutableStateOf(AiSettings.getPromptCustom(context)) }
-    var maxTokens by remember { mutableIntStateOf(AiSettings.getMaxTokens(context)) }
-    var refreshInterval by remember { mutableIntStateOf(AiSettings.getRefreshIntervalMin(context)) }
-    var dataOpts by remember { mutableStateOf(AiSettings.getDataOptions(context)) }
-    var analysisDays by remember { mutableIntStateOf(AiSettings.getAnalysisDays(context)) }
+    var enabled by remember { mutableStateOf(false) }
+    var tone by remember { mutableStateOf("warm") }
+    var length by remember { mutableStateOf("medium") }
+    var custom by remember { mutableStateOf("") }
+    var maxTokens by remember { mutableIntStateOf(500) }
+    var refreshInterval by remember { mutableIntStateOf(0) }
+    var dataOpts by remember { mutableStateOf(AiSettings.DataOptions()) }
+    var analysisDays by remember { mutableIntStateOf(7) }
+    var providers by remember { mutableStateOf<List<AiProvider>>(emptyList()) }
     var showDataDialog by remember { mutableStateOf(false) }
     var showAnalysisDaysDialog by remember { mutableStateOf(false) }
     var showToneDialog by remember { mutableStateOf(false) }
@@ -115,11 +121,22 @@ fun AiConfigScreen(
     var showMaxTokensDialog by remember { mutableStateOf(false) }
     var showRefreshDialog by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        enabled = AiSettings.isEnabled(context)
+        tone = AiSettings.getPromptTone(context)
+        length = AiSettings.getPromptLength(context)
+        custom = AiSettings.getPromptCustom(context)
+        maxTokens = AiSettings.getMaxTokens(context)
+        refreshInterval = AiSettings.getRefreshIntervalMin(context)
+        dataOpts = AiSettings.getDataOptions(context)
+        analysisDays = AiSettings.getAnalysisDays(context)
+        providers = AiSettings.getProviders(context)
+    }
+
     val toggleEnabled: (Boolean) -> Unit = { e ->
         enabled = e
-        AiSettings.setEnabled(context, e)
+        scope.launch { AiSettings.setEnabled(context, e) }
     }
-    val providers = remember { AiSettings.getProviders(context) }
     val active = providers.firstOrNull { it.isActive }
     val hasProvider = providers.isNotEmpty()
 
@@ -678,11 +695,13 @@ fun AiConfigScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            AiSettings.savePrompt(context, tone, length, custom)
-            AiSettings.setMaxTokens(context, maxTokens)
-            AiSettings.setRefreshIntervalMin(context, refreshInterval)
-            AiSettings.setDataOptions(context, dataOpts)
-            AiSettings.setAnalysisDays(context, analysisDays)
+            scope.launch {
+                AiSettings.savePrompt(context, tone, length, custom)
+                AiSettings.setMaxTokens(context, maxTokens)
+                AiSettings.setRefreshIntervalMin(context, refreshInterval)
+                AiSettings.setDataOptions(context, dataOpts)
+                AiSettings.setAnalysisDays(context, analysisDays)
+            }
         }
     }
 }
