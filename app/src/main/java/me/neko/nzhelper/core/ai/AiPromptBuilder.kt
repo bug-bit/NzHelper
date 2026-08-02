@@ -1,9 +1,12 @@
 package me.neko.nzhelper.core.ai
 
 import android.content.Context
+import com.google.gson.reflect.TypeToken
+import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.database.AppDatabase
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
-import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.TagDef
 
 object AiPromptBuilder {
 
@@ -71,7 +74,13 @@ object AiPromptBuilder {
             parts += "高潮${climaxCount}次"
         }
         if (opts.isEnabled(AiSettings.DataField.TAGS.key)) {
-            val allTags = TagSettings.getTags(context)
+            val tagsJson = AppDatabase.get(context).taxonomyDao().get("tags")
+            val allTags: List<TagDef> = if (tagsJson != null) {
+                try {
+                    val type = object : TypeToken<List<TagDef>>() {}.type
+                    NzApplication.gson.fromJson(tagsJson, type) ?: emptyList()
+                } catch (_: Exception) { emptyList() }
+            } else emptyList()
             val tagCounts = sessions.flatMap { it.tagIds }
                 .groupingBy { it }.eachCount()
                 .entries
