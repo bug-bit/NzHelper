@@ -9,10 +9,7 @@ on:
     branches:
       - main
       - master
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
 
 permissions:
   contents: read
