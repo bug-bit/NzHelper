@@ -34,9 +34,15 @@ object WebDavSettings {
     }
 
     private fun persist(context: Context, config: WebDavConfigEntity) {
+        val old = cache
         cache = config
         NzApplication.appScope.launch {
-            dao(context).upsert(config)
+            try {
+                dao(context).upsert(config)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                cache = old
+            }
         }
     }
 

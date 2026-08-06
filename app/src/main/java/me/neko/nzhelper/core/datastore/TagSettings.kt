@@ -122,9 +122,15 @@ object TagSettings {
     }
 
     private fun writeRaw(context: Context, key: String, value: String) {
+        val old = cache[key]
         cache[key] = value
         NzApplication.appScope.launch {
-            dao(context).upsert(TaxonomyEntity(key, value))
+            try {
+                dao(context).upsert(TaxonomyEntity(key, value))
+            } catch (e: Exception) {
+                e.printStackTrace()
+                cache[key] = old
+            }
         }
     }
 
@@ -137,16 +143,10 @@ object TagSettings {
         )
         for ((key, json) in defaultsJson) {
             if (cache[key] == null) {
-                cache[key] = json
-                NzApplication.appScope.launch {
-                    dao(context).upsert(TaxonomyEntity(key, json))
-                }
+                writeRaw(context, key, json)
             }
         }
-        cache[KEY_DEFAULTS_SEEDED] = "true"
-        NzApplication.appScope.launch {
-            dao(context).upsert(TaxonomyEntity(KEY_DEFAULTS_SEEDED, "true"))
-        }
+        writeRaw(context, KEY_DEFAULTS_SEEDED, "true")
     }
 
     fun getCategories(context: Context) =
