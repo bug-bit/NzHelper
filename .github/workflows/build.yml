@@ -98,11 +98,8 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-
           [ -s "$RUNNER_TEMP/release.keystore" ] || exit 1
-
           echo "enabled=true" >> "$GITHUB_OUTPUT"
 
       - name: Build Release APK
@@ -127,23 +124,18 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set -uo pipefail
-
           [ -n "${TELEGRAM_BOT_TOKEN}" ] || exit 1
           [ -n "${TELEGRAM_CHAT_ID}" ] || exit 1
-
           APK=$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)
           [ -f "${APK}" ] || exit 1
-
           esc() {
             sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
           }
-
           commit_sha="${GITHUB_SHA}"
           commit_subject=$(git log -1 --format=%s | esc)
           author="${GITHUB_ACTOR}"
           repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           commit_url="${repo_url}/commit/${commit_sha}"
-
           caption=$(cat <<EOF
           New push to GitHub!
 
@@ -153,7 +145,6 @@ jobs:
           <a href="${commit_url}">See commit detail here</a>
           EOF
           )
-
           response=$(curl -fsS \
             -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
             -F "chat_id=${TELEGRAM_CHAT_ID}" \
@@ -161,5 +152,4 @@ jobs:
             -F "caption=${caption}" \
             -F "parse_mode=HTML" \
             -F "disable_content_type_detection=true")
-
           echo "$response" | grep -q '"ok":true'
