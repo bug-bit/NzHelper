@@ -2,6 +2,7 @@ package me.neko.nzhelper.core.webdav
 
 import android.content.Context
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.database.AppDatabase
 import me.neko.nzhelper.core.database.entity.WebDavConfigEntity
@@ -26,12 +27,10 @@ object WebDavSettings {
 
     private fun current(context: Context): WebDavConfigEntity {
         cache?.let { return it }
-        val default = WebDavConfigEntity()
-        cache = default
-        NzApplication.appScope.launch {
-            cache = dao(context).get() ?: default
-        }
-        return default
+        val loaded = runBlocking { dao(context).get() }
+        val config = loaded ?: WebDavConfigEntity()
+        cache = config
+        return config
     }
 
     private fun persist(context: Context, config: WebDavConfigEntity) {

@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.database.AppDatabase
 import me.neko.nzhelper.core.database.entity.TaxonomyEntity
@@ -114,7 +115,10 @@ object TagSettings {
     }
 
     private fun readRaw(context: Context, key: String): String? {
-        return cache[key]
+        cache[key]?.let { return it }
+        val value = runBlocking { dao(context).get(key) }
+        if (value != null) cache[key] = value
+        return value
     }
 
     private fun writeRaw(context: Context, key: String, value: String) {

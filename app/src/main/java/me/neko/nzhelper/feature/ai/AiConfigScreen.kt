@@ -62,6 +62,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.ai.AiProvider
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.ui.component.setting.SettingsCard
@@ -695,7 +696,7 @@ fun AiConfigScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            scope.launch {
+            NzApplication.appScope.launch {
                 AiSettings.savePrompt(context, tone, length, custom)
                 AiSettings.setMaxTokens(context, maxTokens)
                 AiSettings.setRefreshIntervalMin(context, refreshInterval)
