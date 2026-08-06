@@ -3,6 +3,7 @@ package me.neko.nzhelper.core.datastore
 import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.neko.nzhelper.NzApplication
@@ -81,11 +82,8 @@ object TagSettings {
 
     private val cache = HashMap<String, String?>()
 
-    /**
-     * 预加载全部 taxonomy 数据到内存缓存，避免后续主线程 IO。
-     */
     fun preload(context: Context) {
-        NzApplication.appScope.launch {
+        runBlocking(Dispatchers.IO) {
             val dao = dao(context)
             val keys = listOf(KEY_CATEGORIES, KEY_GROUPS, KEY_TAGS, KEY_DEFAULTS_SEEDED)
             for (key in keys) {
@@ -115,10 +113,7 @@ object TagSettings {
     }
 
     private fun readRaw(context: Context, key: String): String? {
-        cache[key]?.let { return it }
-        val value = runBlocking { dao(context).get(key) }
-        if (value != null) cache[key] = value
-        return value
+        return cache[key]
     }
 
     private fun writeRaw(context: Context, key: String, value: String) {

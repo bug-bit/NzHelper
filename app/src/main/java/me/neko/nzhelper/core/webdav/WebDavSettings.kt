@@ -1,6 +1,7 @@
 package me.neko.nzhelper.core.webdav
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.neko.nzhelper.NzApplication
@@ -20,15 +21,12 @@ object WebDavSettings {
      * 预加载 WebDAV 配置到内存缓存，避免主线程 IO。
      */
     fun preload(context: Context) {
-        NzApplication.appScope.launch {
-            cache = dao(context).get() ?: WebDavConfigEntity()
-        }
+        cache = runBlocking(Dispatchers.IO) { dao(context).get() } ?: WebDavConfigEntity()
     }
 
     private fun current(context: Context): WebDavConfigEntity {
         cache?.let { return it }
-        val loaded = runBlocking { dao(context).get() }
-        val config = loaded ?: WebDavConfigEntity()
+        val config = WebDavConfigEntity()
         cache = config
         return config
     }
