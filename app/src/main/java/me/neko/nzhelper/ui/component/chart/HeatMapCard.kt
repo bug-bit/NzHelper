@@ -57,38 +57,13 @@ fun HeatMapCard(
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.DateRange,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "活动热力图",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "最近 ${heatmapData.weekCount} 周",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            ChartCardHeader(
+                icon = Icons.Outlined.DateRange,
+                title = "活动热力图",
+                subtitle = "最近 ${heatmapData.weekCount} 周",
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
 
             Spacer(Modifier.height(20.dp))
 
@@ -173,7 +148,7 @@ private fun HeatMapGrid(
         primary
     )
 
-    val animatedProgress = remember(data) { Animatable(0f) }
+    val animatedProgress = remember { Animatable(0f) }
     LaunchedEffect(data) {
         animatedProgress.snapTo(0f)
         animatedProgress.animateTo(

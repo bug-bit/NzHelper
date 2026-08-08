@@ -1,15 +1,18 @@
 package me.neko.nzhelper.feature.statistics.model
 
+import androidx.compose.runtime.Immutable
 import java.time.LocalDate
 
 enum class PeriodType { WEEK, MONTH, YEAR }
 
+@Immutable
 data class PeriodData(
     val totalDurationSeconds: Int,
     val avgDurationMinutes: Float,
     val chartData: List<Pair<String, Float>>
 )
 
+@Immutable
 data class TotalStats(
     val totalCount: Int,
     val totalSeconds: Int,
@@ -19,6 +22,7 @@ data class TotalStats(
     val yearCount: Int
 )
 
+@Immutable
 data class LatestSessionInfo(
     val displayDate: String,
     val time: String,
@@ -28,6 +32,7 @@ data class LatestSessionInfo(
     val isErrorState: Boolean
 )
 
+@Immutable
 data class TagStat(
     val id: String,
     val name: String,
@@ -36,6 +41,7 @@ data class TagStat(
     val count: Int
 )
 
+@Immutable
 data class PeriodOverview(
     val periodLabel: String,
     val count: Int,
@@ -55,6 +61,7 @@ data class PeriodOverview(
     val topTagsComparison: String = ""
 )
 
+@Immutable
 data class HeatmapData(
     val weeks: List<HeatmapWeek>,
     val monthLabels: List<Pair<Int, String>>,
@@ -64,10 +71,12 @@ data class HeatmapData(
     val totalDays: Int
 )
 
+@Immutable
 data class HeatmapWeek(
     val days: List<HeatmapDay>
 )
 
+@Immutable
 data class HeatmapDay(
     val date: LocalDate,
     val count: Int,
@@ -75,6 +84,7 @@ data class HeatmapDay(
     val isFuture: Boolean
 )
 
+@Immutable
 data class ActivityTimeData(
     val weekdayCounts: List<Int>,
     val weekdayMax: Int,
@@ -84,6 +94,7 @@ data class ActivityTimeData(
     val mostActiveHour: Int
 )
 
+@Immutable
 data class MonthlyTrendItem(
     val label: String,
     val year: Int,
@@ -92,6 +103,7 @@ data class MonthlyTrendItem(
     val isCurrent: Boolean
 )
 
+@Immutable
 data class MonthlyTrendData(
     val items: List<MonthlyTrendItem>,
     val predictedCount: Int,
@@ -101,6 +113,7 @@ data class MonthlyTrendData(
     val last3MonthsAvg: Float
 )
 
+@Immutable
 data class TagTrendItem(
     val id: String,
     val name: String,
@@ -114,11 +127,13 @@ data class TagTrendItem(
 
 enum class TagTrendDirection { UP, DOWN, FLAT }
 
+@Immutable
 data class TagTrendData(
     val items: List<TagTrendItem>,
     val windowDays: Int = 30
 )
 
+@Immutable
 data class PeriodDashboard(
     val type: PeriodType,
     val label: String,

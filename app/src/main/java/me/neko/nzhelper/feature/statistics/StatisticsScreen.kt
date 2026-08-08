@@ -37,13 +37,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.database.StatisticsRepository
+import me.neko.nzhelper.core.datastore.ChartVisibilitySettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.statistics.components.EmptyStateView
 import me.neko.nzhelper.feature.statistics.components.PeriodDashboardCard
 import me.neko.nzhelper.feature.statistics.components.PeriodOverviewDialog
 import me.neko.nzhelper.feature.statistics.components.TotalStatCard
+import me.neko.nzhelper.feature.statistics.model.PeriodData
 import me.neko.nzhelper.feature.statistics.model.PeriodOverview
 import me.neko.nzhelper.feature.statistics.model.PeriodType
+import me.neko.nzhelper.feature.statistics.model.TotalStats
 import me.neko.nzhelper.ui.component.chart.ActivityTimeHeatmapCard
 import me.neko.nzhelper.ui.component.chart.DonutChartCard
 import me.neko.nzhelper.ui.component.chart.HeatMapCard
@@ -71,29 +74,41 @@ fun StatisticsScreen(isActive: Boolean = false) {
         }
     }
 
-    val currentTime = LocalDateTime.now()
+    val currentTime = remember { LocalDateTime.now() }
 
-    val weekData by remember(sessions, currentTime) {
+    val weekData by remember(sessions) {
         derivedStateOf {
             StatisticsRepository.calculatePeriodData(sessions, currentTime, PeriodType.WEEK)
         }
     }
-    val monthData by remember(sessions, currentTime) {
+    val monthData by remember(sessions) {
         derivedStateOf {
             StatisticsRepository.calculatePeriodData(sessions, currentTime, PeriodType.MONTH)
         }
     }
-    val yearData by remember(sessions, currentTime) {
+    val yearData by remember(sessions) {
         derivedStateOf {
             StatisticsRepository.calculatePeriodData(sessions, currentTime, PeriodType.YEAR)
         }
     }
 
-    val totalStats by remember(sessions, currentTime) {
+    val totalStats by remember(sessions) {
         derivedStateOf { StatisticsRepository.calculateTotalStats(sessions, currentTime) }
     }
 
     var selectedOverview by remember { mutableStateOf<PeriodOverview?>(null) }
+
+    // 读取可见性与排序
+    val orderedCharts = remember {
+        ChartVisibilitySettings.getOrderedCharts(context)
+    }
+    val visibility by remember {
+        derivedStateOf {
+            ChartVisibilitySettings.Chart.entries.associateWith { chart ->
+                ChartVisibilitySettings.isVisible(context, chart)
+            }
+        }
+    }
 
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -133,90 +148,29 @@ fun StatisticsScreen(isActive: Boolean = false) {
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    item {
-                        TotalStatCard(
-                            stats = totalStats,
-                            sessions = sessions,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    orderedCharts.forEach { chart ->
+                        if (visibility[chart] != true) return@forEach
+                        item(key = chart.key) {
+                            ChartContent(
+                                chart = chart,
+                                sessions = sessions,
+                                currentTime = currentTime,
+                                totalStats = totalStats,
+                                weekData = weekData,
+                                monthData = monthData,
+                                yearData = yearData,
+                                onPeriodClick = { type, label ->
+                                    selectedOverview = StatisticsRepository.calculatePeriodOverview(
+                                        sessions, context, currentTime, type, label
+                                    )
+                                }
+                            )
+                        }
                     }
-                    item {
-                        PeriodDashboardCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            onPeriodClick = { type, label ->
-                                selectedOverview = StatisticsRepository.calculatePeriodOverview(
-                                    sessions, context, currentTime, type, label
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+
+                    item(key = "bottom_spacer") {
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
-                    item {
-                        PeriodChartCard(
-                            weekData = weekData,
-                            monthData = monthData,
-                            yearData = yearData,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        HeatMapCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        TrendChartCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        ActivityTimeHeatmapCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        MonthlyTrendCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        DonutChartCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        TagBarChartCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        TagComboCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        TagTrendCard(
-                            sessions = sessions,
-                            currentTime = currentTime,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
             }
         }
@@ -226,6 +180,69 @@ fun StatisticsScreen(isActive: Boolean = false) {
         PeriodOverviewDialog(
             overview = overview,
             onDismiss = { selectedOverview = null }
+        )
+    }
+}
+
+/**
+ * 根据图表枚举分发到具体卡片组件。
+ */
+@Composable
+private fun ChartContent(
+    chart: ChartVisibilitySettings.Chart,
+    sessions: List<Session>,
+    currentTime: LocalDateTime,
+    totalStats: TotalStats,
+    weekData: PeriodData,
+    monthData: PeriodData,
+    yearData: PeriodData,
+    onPeriodClick: (PeriodType, String) -> Unit
+) {
+    when (chart) {
+        ChartVisibilitySettings.Chart.TOTAL_STAT -> TotalStatCard(
+            stats = totalStats, sessions = sessions, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.PERIOD_DASHBOARD -> PeriodDashboardCard(
+            sessions = sessions, currentTime = currentTime,
+            onPeriodClick = onPeriodClick, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.HEATMAP -> HeatMapCard(
+            sessions = sessions, currentTime = currentTime, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.TREND -> TrendChartCard(
+            sessions = sessions, currentTime = currentTime, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.DONUT -> DonutChartCard(
+            sessions = sessions, currentTime = currentTime, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.PERIOD_CHART -> PeriodChartCard(
+            weekData = weekData, monthData = monthData, yearData = yearData,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.ACTIVITY_TIME_HEATMAP -> ActivityTimeHeatmapCard(
+            sessions = sessions, currentTime = currentTime, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.MONTHLY_TREND -> MonthlyTrendCard(
+            sessions = sessions, currentTime = currentTime, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.TAG_BAR_CHART -> TagBarChartCard(
+            sessions = sessions, currentTime = currentTime, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.TAG_COMBO -> TagComboCard(
+            sessions = sessions, currentTime = currentTime, modifier = Modifier.fillMaxWidth()
+        )
+
+        ChartVisibilitySettings.Chart.TAG_TREND -> TagTrendCard(
+            sessions = sessions, currentTime = currentTime, modifier = Modifier.fillMaxWidth()
         )
     }
 }

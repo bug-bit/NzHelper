@@ -1,7 +1,9 @@
 package me.neko.nzhelper.core.model
 
+import androidx.compose.runtime.Immutable
 import java.time.LocalDateTime
 
+@Immutable
 data class SessionFormState(
     val remark: String = "",
     val categoryId: String = Session.DEFAULT_CATEGORY_ID,

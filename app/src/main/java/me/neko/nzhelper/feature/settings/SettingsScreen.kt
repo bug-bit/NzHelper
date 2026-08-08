@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ViewQuilt
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Cake
@@ -328,6 +329,13 @@ fun SettingsScreen(
                         title = "备份与恢复",
                         subtitle = "导出 / 导入 / WebDAV 云备份",
                         onClick = { rootNavController.navigate("backup") }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.AutoMirrored.Outlined.ViewQuilt,
+                        title = "统计卡片管理",
+                        subtitle = "自定义统计页展示哪些图表卡片",
+                        onClick = { rootNavController.navigate("chart_manage") }
                     )
                     SettingsDivider()
                     SettingsItem(

@@ -45,7 +45,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,7 +82,6 @@ import me.neko.nzhelper.feature.home.components.analyzeHealthTip
 import me.neko.nzhelper.ui.component.dialog.DetailsDialog
 import java.time.LocalDate
 import java.time.LocalDateTime
-import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class,
@@ -179,18 +177,11 @@ fun HomeScreen(
         }
     }
 
-    var nowTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(60_000L.milliseconds)
-            nowTick = System.currentTimeMillis()
-        }
-    }
-    val latestInfo by remember(sessions, nowTick) {
+    val latestInfo by remember(sessions) {
         derivedStateOf { StatisticsRepository.calculateLatestInfo(sessions) }
     }
 
-    val healthTip by remember(sessions, nowTick) {
+    val healthTip by remember(sessions) {
         derivedStateOf { analyzeHealthTip(sessions) }
     }
 

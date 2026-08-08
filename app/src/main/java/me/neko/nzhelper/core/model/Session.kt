@@ -1,8 +1,10 @@
 package me.neko.nzhelper.core.model
 
+import androidx.compose.runtime.Immutable
 import com.google.gson.annotations.SerializedName
 import java.time.LocalDateTime
 
+@Immutable
 data class Session(
     @SerializedName("timestamp") val timestamp: LocalDateTime,
     @SerializedName("duration") val duration: Int,
@@ -23,11 +25,13 @@ data class Session(
     }
 }
 
+@Immutable
 data class RecycleBinItem(
     @SerializedName("session") val session: Session,
     @SerializedName("deletedTimestamp") val deletedTimestamp: Long = System.currentTimeMillis()
 )
 
+@Immutable
 data class WebDavBackupPayload(
     @SerializedName("version") val version: Int = 2,
     @SerializedName("exportedAt") val exportedAt: Long,
@@ -39,6 +43,7 @@ data class WebDavBackupPayload(
     @SerializedName("aiConfig") val aiConfig: Map<String, String>? = null
 )
 
+@Immutable
 data class BackupModules(
     val sessions: Boolean = true,
     val recycleBin: Boolean = true,

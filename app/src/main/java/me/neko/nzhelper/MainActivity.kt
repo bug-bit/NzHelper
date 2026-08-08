@@ -19,6 +19,7 @@ import me.neko.nzhelper.feature.crash.CrashLogScreen
 import me.neko.nzhelper.feature.lock.GestureLockSetupScreen
 import me.neko.nzhelper.feature.recyclebin.RecycleBinScreen
 import me.neko.nzhelper.feature.recyclebin.RecycleBinSettingsScreen
+import me.neko.nzhelper.feature.settings.ChartManageScreen
 import me.neko.nzhelper.feature.settings.ThemeSettingsScreen
 import me.neko.nzhelper.feature.tagmanage.TagManageScreen
 import me.neko.nzhelper.navigation.MainScreen
@@ -92,6 +93,9 @@ class MainActivity : AppCompatActivity() {
                         }
                         composable("theme_settings") {
                             ThemeSettingsScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("chart_manage") {
+                            ChartManageScreen(onBack = { navController.popBackStack() })
                         }
                     }
             }

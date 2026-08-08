@@ -70,38 +70,13 @@ fun TrendChartCard(
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ShowChart,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "趋势分析",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "最近 12 周时长变化",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            ChartCardHeader(
+                icon = Icons.AutoMirrored.Outlined.ShowChart,
+                title = "趋势分析",
+                subtitle = "最近 12 周时长变化",
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            )
 
             Spacer(Modifier.height(20.dp))
 
@@ -177,7 +152,7 @@ private fun LineChart(
     val onPrimary = MaterialTheme.colorScheme.onPrimary
     val labelStyle = MaterialTheme.typography.labelSmall
 
-    val animatedProgress = remember(data) { Animatable(0f) }
+    val animatedProgress = remember { Animatable(0f) }
     LaunchedEffect(data) {
         animatedProgress.snapTo(0f)
         animatedProgress.animateTo(

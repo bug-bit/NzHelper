@@ -93,6 +93,7 @@ import me.neko.nzhelper.core.model.TagDef
 import me.neko.nzhelper.core.model.TagGroupDef
 import me.neko.nzhelper.feature.tagmanage.components.ColorPickerRow
 import me.neko.nzhelper.feature.tagmanage.components.IconPickerRow
+import me.neko.nzhelper.ui.component.ReorderableColumn
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.ui.component.tag.TagChip
 import me.neko.nzhelper.ui.theme.TagColors
@@ -913,109 +914,6 @@ private fun TagEditorDialog(
                             else -> onConfirm(trimmed, color, icon, groupId)
                         }
                     }) { Text("保存") }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun <T> ReorderableColumn(
-    items: List<T>,
-    keyOf: (T) -> String,
-    onReorder: (List<T>) -> Unit,
-    onCommit: () -> Unit,
-    modifier: Modifier = Modifier,
-    gap: Dp = 10.dp,
-    itemContent: @Composable (item: T, dragHandle: Modifier, isDragging: Boolean) -> Unit
-) {
-    val gapPx = with(LocalDensity.current) { gap.toPx() }
-    val latestItems = rememberUpdatedState(items)
-    val latestOnReorder = rememberUpdatedState(onReorder)
-    val latestOnCommit = rememberUpdatedState(onCommit)
-    val itemHeights = remember { hashMapOf<String, Int>() }
-    var draggingKey by remember { mutableStateOf<String?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    val hapticFeedback = LocalHapticFeedback.current
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(gap)
-    ) {
-        items.forEach { item ->
-            val itemKey = keyOf(item)
-            val isDragging = draggingKey == itemKey
-            val dragHandle = Modifier.pointerInput(itemKey) {
-                detectDragGestures(
-                    onDragStart = {
-                        draggingKey = itemKey
-                        dragOffset = 0f
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                    },
-                    onDragEnd = {
-                        latestOnCommit.value()
-                        draggingKey = null
-                        dragOffset = 0f
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                    },
-                    onDragCancel = {
-                        draggingKey = null
-                        dragOffset = 0f
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        dragOffset += dragAmount.y
-                        val cur = latestItems.value
-                        val curIndex = cur.indexOfFirst { keyOf(it) == itemKey }
-                        if (curIndex < 0) return@detectDragGestures
-                        val dH = (itemHeights[itemKey] ?: 0).toFloat()
-                        if (dH <= 0f) return@detectDragGestures
-                        var newIndex = curIndex
-                        while (newIndex < cur.lastIndex) {
-                            val nH = (itemHeights[keyOf(cur[newIndex + 1])] ?: 0).toFloat()
-                            if (nH <= 0f) break
-                            if (dragOffset > (dH + nH) / 2f + gapPx) {
-                                newIndex++
-                                dragOffset -= (nH + gapPx)
-                            } else break
-                        }
-                        while (newIndex > 0) {
-                            val pH = (itemHeights[keyOf(cur[newIndex - 1])] ?: 0).toFloat()
-                            if (pH <= 0f) break
-                            if (dragOffset < -((dH + pH) / 2f + gapPx)) {
-                                newIndex--
-                                dragOffset += (pH + gapPx)
-                            } else break
-                        }
-                        if (newIndex != curIndex) {
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            val mutable = cur.toMutableList()
-                            val moved = mutable.removeAt(curIndex)
-                            mutable.add(newIndex, moved)
-                            latestOnReorder.value(mutable)
-                        }
-                    }
-                )
-            }
-            key(itemKey) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onGloballyPositioned { itemHeights[itemKey] = it.size.height }
-                        .then(
-                            if (isDragging) Modifier
-                                .offset { IntOffset(0, dragOffset.roundToInt()) }
-                                .zIndex(1f)
-                                .shadow(12.dp, MaterialTheme.shapes.medium)
-                                .graphicsLayer {
-                                    scaleX = 1.03f
-                                    scaleY = 1.03f
-                                }
-                            else Modifier
-                        )
-                ) {
-                    itemContent(item, dragHandle, isDragging)
                 }
             }
         }

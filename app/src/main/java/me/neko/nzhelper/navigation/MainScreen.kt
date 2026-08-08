@@ -219,7 +219,7 @@ fun MainScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                beyondViewportPageCount = BottomNavItem.items.size - 1
+                beyondViewportPageCount = 1
             ) { page ->
                 val isCurrentPage = pagerState.currentPage == page
 

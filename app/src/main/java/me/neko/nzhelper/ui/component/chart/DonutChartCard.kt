@@ -127,31 +127,12 @@ fun DonutChartCard(
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.tertiaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.DonutLarge,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Text(
-                    text = "分布统计",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
+            ChartCardHeader(
+                icon = Icons.Outlined.DonutLarge,
+                title = "分布统计",
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            )
 
             Spacer(Modifier.height(16.dp))
 
@@ -274,7 +255,7 @@ private fun DonutChart(
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val resolvedColors = data.map { sliceColor(it.colorName) }
 
-    val animatedProgress = remember(data) { Animatable(0f) }
+    val animatedProgress = remember { Animatable(0f) }
     LaunchedEffect(data) {
         animatedProgress.snapTo(0f)
         animatedProgress.animateTo(
