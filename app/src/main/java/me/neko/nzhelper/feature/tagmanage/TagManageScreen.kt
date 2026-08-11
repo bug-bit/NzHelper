@@ -34,7 +34,9 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Sell
+import androidx.compose.material.icons.outlined.Workspaces
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
@@ -45,10 +47,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -152,22 +155,77 @@ fun TagManageScreen(onBack: () -> Unit) {
                 .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
         ) {
-            PrimaryTabRow(
-                selectedTabIndex = pagerState.currentPage,
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            val tabs = listOf(
+                Triple("分类", Icons.Outlined.Category, categories.size),
+                Triple("分组", Icons.Outlined.Workspaces, groups.size),
+                Triple("标签", Icons.Outlined.Sell, tags.size)
+            )
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
             ) {
-                listOf("分类", "分组", "标签").forEachIndexed { i, title ->
-                    Tab(
-                        selected = pagerState.currentPage == i,
+                tabs.forEachIndexed { index, (title, icon, count) ->
+                    SegmentedButton(
+                        selected = pagerState.currentPage == index,
                         onClick = {
                             scope.launch {
-                                pagerState.animateScrollToPage(i)
+                                pagerState.animateScrollToPage(index)
                             }
                         },
-                        text = { Text(title) }
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = tabs.size
+                        ),
+                        icon = {
+                            if (pagerState.currentPage == index) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = title,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        },
+                        label = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (pagerState.currentPage == index)
+                                        FontWeight.SemiBold
+                                    else
+                                        FontWeight.Normal
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = if (pagerState.currentPage == index)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.surfaceContainerHighest
+                                ) {
+                                    Text(
+                                        text = count.toString(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (pagerState.currentPage == index)
+                                            MaterialTheme.colorScheme.onPrimary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(
+                                            horizontal = 7.dp,
+                                            vertical = 2.dp
+                                        )
+                                    )
+                                }
+                            }
+                        }
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.padding(top = 4.dp))
 
             HorizontalPager(
                 state = pagerState,
@@ -339,7 +397,6 @@ private fun CategoryTabContent(
     onEdit: (CategoryDef) -> Unit,
     onDelete: (CategoryDef) -> Unit
 ) {
-    TabHeader(title = "分类", count = categories.size)
     if (categories.isEmpty()) {
         EmptyState(icon = Icons.Outlined.Sell, text = "暂无分类，点击右下角新增")
         return
@@ -365,7 +422,6 @@ private fun GroupTabContent(
     onReorder: (List<TagGroupDef>) -> Unit,
     onCommit: () -> Unit
 ) {
-    TabHeader(title = "分组", count = groups.size)
     if (groups.isEmpty()) {
         EmptyState(icon = Icons.Outlined.Sell, text = "暂无分组，点击右下角新增")
         return
@@ -397,8 +453,6 @@ private fun TagTabContent(
     onReorderTags: (groupId: String, reordered: List<TagDef>) -> Unit,
     onCommitTags: (groupId: String) -> Unit
 ) {
-    TabHeader(title = "标签", count = tags.size)
-
     var query by remember { mutableStateOf("") }
 
     val visibleGroups = remember(groups, tags) {
@@ -530,31 +584,6 @@ private fun GroupSelectorBar(
                     selectedLabelColor = groupColor,
                     selectedLeadingIconColor = groupColor
                 )
-            )
-        }
-    }
-}
-
-@Composable
-private fun TabHeader(title: String, count: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium
-        )
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondaryContainer
-        ) {
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
             )
         }
     }
