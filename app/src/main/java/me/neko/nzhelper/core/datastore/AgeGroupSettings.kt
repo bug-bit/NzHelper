@@ -53,6 +53,11 @@ object AgeGroupSettings {
         return LocalDate.now().minusYears(legacyAge.toLong())
     }
 
+    fun isBirthDateSet(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.contains(KEY_BIRTH_DATE)
+    }
+
     fun setBirthDate(context: Context, date: LocalDate) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit {

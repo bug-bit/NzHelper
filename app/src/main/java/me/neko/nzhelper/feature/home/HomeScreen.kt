@@ -200,6 +200,7 @@ fun HomeScreen(
 
     val birthdayGreeting = remember {
         try {
+            if (!AgeGroupSettings.isBirthDateSet(context)) return@remember null
             val birth = AgeGroupSettings.getBirthDate(context)
             val today = LocalDate.now()
             if (birth.month == today.month && birth.dayOfMonth == today.dayOfMonth)

@@ -84,12 +84,19 @@ fun SettingsScreen(
     var unreadCrashCount by remember { mutableIntStateOf(CrashLogManager.unreadCount(context)) }
     var tagCount by remember { mutableIntStateOf(TagSettings.getTags(context).size) }
     var birthDate by remember {
-        mutableStateOf(AgeGroupSettings.getBirthDate(context))
+        mutableStateOf(
+            if (AgeGroupSettings.isBirthDateSet(context))
+                AgeGroupSettings.getBirthDate(context)
+            else null
+        )
     }
     val age = remember(birthDate) {
-        Period.between(birthDate, LocalDate.now()).years
-            .coerceIn(AgeGroupSettings.MIN_AGE, AgeGroupSettings.MAX_AGE)
+        birthDate?.let {
+            Period.between(it, LocalDate.now()).years
+                .coerceIn(AgeGroupSettings.MIN_AGE, AgeGroupSettings.MAX_AGE)
+        }
     }
+    val ageDisplay = if (age != null) "当前：$age 岁" else "未设置"
     var showAgeDialog by remember { mutableStateOf(false) }
 
     var lockEnabled by remember { mutableStateOf(AppLockManager.isLockEnabled(context)) }
@@ -272,7 +279,7 @@ fun SettingsScreen(
                     SettingsItem(
                         icon = Icons.Outlined.Cake,
                         title = "年龄",
-                        subtitle = "当前：$age 岁",
+                        subtitle = ageDisplay,
                         onClick = { showAgeDialog = true }
                     )
                 }
@@ -377,7 +384,8 @@ fun SettingsScreen(
 
     if (showAgeDialog) {
         AgePickerBottomSheet(
-            currentBirthDate = birthDate,
+            currentBirthDate = birthDate
+                ?: LocalDate.now().minusYears(AgeGroupSettings.DEFAULT_AGE.toLong()),
             onConfirm = { selectedBirth ->
                 AgeGroupSettings.setBirthDate(context, selectedBirth)
                 birthDate = selectedBirth
