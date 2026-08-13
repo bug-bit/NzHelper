@@ -59,7 +59,7 @@ fun SessionDetailDialog(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             modifier = Modifier
-                .fillMaxWidth(0.95f)
+                .fillMaxWidth(1f)
                 .wrapContentHeight()
         ) {
             Column(
