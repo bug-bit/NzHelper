@@ -23,6 +23,10 @@ import me.neko.nzhelper.feature.settings.ChartManageScreen
 import me.neko.nzhelper.feature.settings.ThemeSettingsScreen
 import me.neko.nzhelper.feature.tagmanage.TagManageScreen
 import me.neko.nzhelper.navigation.MainScreen
+import me.neko.nzhelper.navigation.screenEnter
+import me.neko.nzhelper.navigation.screenExit
+import me.neko.nzhelper.navigation.screenPopEnter
+import me.neko.nzhelper.navigation.screenPopExit
 import me.neko.nzhelper.ui.theme.NzHelperTheme
 
 class MainActivity : AppCompatActivity() {
@@ -35,7 +39,14 @@ class MainActivity : AppCompatActivity() {
         setContent {
             NzHelperTheme {
                 val navController = rememberNavController()
-                NavHost(navController = navController, startDestination = "main") {
+                NavHost(
+                    navController = navController,
+                    startDestination = "main",
+                    enterTransition = { screenEnter() },
+                    exitTransition = { screenExit() },
+                    popEnterTransition = { screenPopEnter() },
+                    popExitTransition = { screenPopExit() }
+                ) {
                         composable("main") {
                             MainScreen(
                                 rootNavController = navController,
@@ -44,14 +55,28 @@ class MainActivity : AppCompatActivity() {
                         }
                         composable("about") {
                             val aboutNav = rememberNavController()
-                            NavHost(aboutNav, startDestination = "about") {
+                            NavHost(
+                                navController = aboutNav,
+                                startDestination = "about",
+                                enterTransition = { screenEnter() },
+                                exitTransition = { screenExit() },
+                                popEnterTransition = { screenPopEnter() },
+                                popExitTransition = { screenPopExit() }
+                            ) {
                                 composable("about") { AboutScreen(aboutNav) }
                                 composable("open_source") { OpenSourceScreen(aboutNav) }
                             }
                         }
                         composable("ai_config") {
                             val aiNav = rememberNavController()
-                            NavHost(aiNav, startDestination = "config") {
+                            NavHost(
+                                navController = aiNav,
+                                startDestination = "config",
+                                enterTransition = { screenEnter() },
+                                exitTransition = { screenExit() },
+                                popEnterTransition = { screenPopEnter() },
+                                popExitTransition = { screenPopExit() }
+                            ) {
                                 composable("config") {
                                     AiConfigScreen(
                                         onBack = { navController.popBackStack() },
