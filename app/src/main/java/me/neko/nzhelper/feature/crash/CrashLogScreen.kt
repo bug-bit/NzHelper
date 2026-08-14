@@ -70,7 +70,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import me.neko.nzhelper.BuildConfig
-import me.neko.nzhelper.MainActivity
 import me.neko.nzhelper.core.crash.CrashLog
 import me.neko.nzhelper.core.crash.CrashLogManager
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
@@ -183,13 +182,9 @@ fun CrashLogScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(innerPadding)
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    top = innerPadding.calculateTopPadding() + 16.dp,
-                    end = 16.dp,
-                    bottom = innerPadding.calculateBottomPadding() + 16.dp
-                ),
+                contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(logs, key = { it.name }) { log ->
