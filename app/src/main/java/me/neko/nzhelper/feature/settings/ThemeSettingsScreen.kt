@@ -1,20 +1,37 @@
 package me.neko.nzhelper.feature.settings
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image as BitmapImage
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.BlurOn
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.Opacity
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.Window
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -24,17 +41,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.neko.nzhelper.core.datastore.ThemeSettings
+import me.neko.nzhelper.core.util.BackgroundImageManager
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.SettingsItem
@@ -56,6 +87,33 @@ fun ThemeSettingsScreen(
         ThemeSettings.ThemeMode.LIGHT -> false
         ThemeSettings.ThemeMode.DARK -> true
         ThemeSettings.ThemeMode.SYSTEM -> systemIsDark
+    }
+
+    val scope = rememberCoroutineScope()
+    val hasBackground = themeState.backgroundImagePath != null
+
+    val pickBackgroundLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                val savedPath = BackgroundImageManager.saveImage(context, uri)
+                withContext(Dispatchers.Main) {
+                    if (savedPath != null) {
+                        themeState.backgroundImagePath = savedPath
+                        ThemeSettings.setBackgroundImagePath(context, savedPath)
+                    } else {
+                        Toast.makeText(context, "设置背景图片失败", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
+
+    val removeBackground: () -> Unit = {
+        themeState.backgroundImagePath = null
+        ThemeSettings.setBackgroundImagePath(context, null)
+        scope.launch(Dispatchers.IO) { BackgroundImageManager.removeImage(context) }
     }
 
     Scaffold(
@@ -85,13 +143,9 @@ fun ThemeSettingsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = innerPadding.calculateTopPadding() + 16.dp,
-                bottom = innerPadding.calculateBottomPadding() + 16.dp
-            ),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -176,6 +230,114 @@ fun ThemeSettingsScreen(
                     )
                 }
             }
+
+            item {
+                SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Outlined.Image,
+                        title = "自定义背景图片",
+                        subtitle = if (hasBackground) "点击更换图片" else "从相册选择图片作为全局背景",
+                        onClick = {
+                            pickBackgroundLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        trailingContent = {
+                            BackgroundThumbnail(imagePath = themeState.backgroundImagePath)
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Outlined.Opacity,
+                        title = "背景不透明度",
+                        subtitle = "${(themeState.backgroundOpacity * 100).roundToInt()}%",
+                        enabled = hasBackground,
+                        onClick = {},
+                        trailingContent = {
+                            Slider(
+                                value = themeState.backgroundOpacity,
+                                onValueChange = { opacity ->
+                                    themeState.backgroundOpacity = opacity
+                                    ThemeSettings.setBackgroundOpacity(context, opacity)
+                                },
+                                modifier = Modifier.width(160.dp),
+                                enabled = hasBackground
+                            )
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Outlined.BlurOn,
+                        title = "背景模糊度",
+                        subtitle = if (themeState.backgroundBlur < 0.5f) {
+                            "无"
+                        } else {
+                            "${themeState.backgroundBlur.roundToInt()} dp"
+                        },
+                        enabled = hasBackground,
+                        onClick = {},
+                        trailingContent = {
+                            Slider(
+                                value = themeState.backgroundBlur,
+                                onValueChange = { blur ->
+                                    themeState.backgroundBlur = blur
+                                    ThemeSettings.setBackgroundBlur(context, blur)
+                                },
+                                valueRange = 0f..25f,
+                                modifier = Modifier.width(160.dp),
+                                enabled = hasBackground
+                            )
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Outlined.Dashboard,
+                        title = "卡片不透明度",
+                        subtitle = "${(themeState.cardOpacity * 100).roundToInt()}%",
+                        enabled = hasBackground,
+                        onClick = {},
+                        trailingContent = {
+                            Slider(
+                                value = themeState.cardOpacity,
+                                onValueChange = { opacity ->
+                                    themeState.cardOpacity = opacity
+                                    ThemeSettings.setCardOpacity(context, opacity)
+                                },
+                                modifier = Modifier.width(160.dp),
+                                enabled = hasBackground
+                            )
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Outlined.Window,
+                        title = "弹窗不透明度",
+                        subtitle = "${(themeState.dialogOpacity * 100).roundToInt()}%",
+                        enabled = hasBackground,
+                        onClick = {},
+                        trailingContent = {
+                            Slider(
+                                value = themeState.dialogOpacity,
+                                onValueChange = { opacity ->
+                                    themeState.dialogOpacity = opacity
+                                    ThemeSettings.setDialogOpacity(context, opacity)
+                                },
+                                modifier = Modifier.width(160.dp),
+                                enabled = hasBackground
+                            )
+                        }
+                    )
+                    if (hasBackground) {
+                        SettingsDivider()
+                        SettingsItem(
+                            icon = Icons.Outlined.DeleteOutline,
+                            title = "移除背景图片",
+                            subtitle = "恢复纯色背景",
+                            onClick = removeBackground
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -203,4 +365,37 @@ private fun ModeOption(
             )
         }
     )
+}
+
+@Composable
+private fun BackgroundThumbnail(imagePath: String?) {
+    val thumbnail by produceState<ImageBitmap?>(initialValue = null, imagePath) {
+        if (imagePath != null) {
+            value = withContext(Dispatchers.IO) {
+                BackgroundImageManager.loadImageBitmap(imagePath, maxDimension = 256)
+                    ?.asImageBitmap()
+            }
+        }
+    }
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+        contentAlignment = Alignment.Center
+    ) {
+        thumbnail?.let { bitmap ->
+            BitmapImage(
+                bitmap = bitmap,
+                contentDescription = "背景预览",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } ?: Icon(
+            imageVector = Icons.Outlined.Image,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+    }
 }
