@@ -138,7 +138,7 @@ private fun KpiCard(overview: PeriodOverview) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = Color.Transparent
     ) {
         Box(modifier = Modifier.background(gradient)) {
