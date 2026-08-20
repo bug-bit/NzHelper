@@ -10,47 +10,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import me.neko.nzhelper.core.datastore.AgeGroupSettings
-import me.neko.nzhelper.core.model.Session
+import androidx.compose.ui.unit.sp
 import me.neko.nzhelper.feature.statistics.model.TotalStats
-import me.neko.nzhelper.feature.statistics.util.buildTotalStatStatus
-import me.neko.nzhelper.feature.statistics.util.formatDuration
 
 @Composable
 fun TotalStatCard(
     stats: TotalStats,
-    sessions: List<Session>,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val ageGroup = remember(context) {
-        AgeGroupSettings.getAgeGroup(context)
-    }
-    val age = remember(context) {
-        AgeGroupSettings.getAge(context)
-    }
-    val statusText = buildTotalStatStatus(sessions, ageGroup, age)
-
     Card(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
@@ -84,48 +70,13 @@ fun TotalStatCard(
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = "累计活动概览",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
             Spacer(Modifier.height(20.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "共 ${stats.totalCount} 次",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .size(3.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-                )
-                val avgText = if (stats.totalCount > 0)
-                    "平均 %.1f 分钟/次".format(stats.avgMinutes) else "暂无平均"
-                Text(
-                    text = avgText,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(Modifier.height(6.dp))
-
             Text(
-                text = formatDuration(stats.totalSeconds),
+                text = buildDurationText(stats.totalSeconds, stats.totalCount),
                 style = MaterialTheme.typography.displaySmall.copy(
                     fontWeight = FontWeight.SemiBold,
                     fontFeatureSettings = "tnum"
@@ -133,50 +84,88 @@ fun TotalStatCard(
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
+                textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            if (statusText.isNotEmpty()) {
-                val isWarning = statusText.contains("透支") || statusText.contains("偏多") ||
-                        statusText.contains("扛不住") || statusText.contains("辞职") ||
-                        statusText.contains("挑战") || statusText.contains("歇歇") ||
-                        statusText.contains("认真")
-                val tipContainer = if (isWarning)
-                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)
-                else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+            Spacer(Modifier.height(8.dp))
 
-                Spacer(Modifier.height(16.dp))
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = tipContainer,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(
-                            8.dp,
-                            Alignment.CenterHorizontally
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp),
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = statusText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
+            Text(
+                text = buildAvgText(stats.totalCount, stats.avgMinutes),
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontFeatureSettings = "tnum"
+                ),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun buildDurationText(totalSeconds: Int, totalCount: Int): AnnotatedString {
+    val unitColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val durationNumberSize = MaterialTheme.typography.headlineMedium.fontSize
+    return buildAnnotatedString {
+        fun appendUnit(unit: String) {
+            withStyle(
+                SpanStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = unitColor
+                )
+            ) {
+                append(unit)
             }
+        }
+
+        fun appendDurationNumber(number: Int) {
+            withStyle(SpanStyle(fontSize = durationNumberSize)) {
+                append("$number")
+            }
+        }
+
+        appendUnit("共 ")
+        append("$totalCount")
+        appendUnit(" 次 · ")
+
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        if (hours > 0) {
+            appendDurationNumber(hours)
+            appendUnit(" 小时 ")
+        }
+        appendDurationNumber(minutes)
+        appendUnit(if (hours > 0) " 分" else " 分钟")
+    }
+}
+
+@Composable
+private fun buildAvgText(totalCount: Int, avgMinutes: Float): AnnotatedString {
+    val unitColor = MaterialTheme.colorScheme.onSurfaceVariant
+    return buildAnnotatedString {
+        fun appendSmall(text: String) {
+            withStyle(
+                SpanStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = unitColor
+                )
+            ) {
+                append(text)
+            }
+        }
+
+        if (totalCount == 0) {
+            appendSmall("暂无平均")
+        } else {
+            appendSmall("平均 ")
+            append("%.1f".format(avgMinutes))
+            appendSmall(" 分钟/次")
         }
     }
 }

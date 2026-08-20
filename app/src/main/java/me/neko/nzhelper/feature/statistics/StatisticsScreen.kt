@@ -200,7 +200,7 @@ private fun ChartContent(
 ) {
     when (chart) {
         ChartVisibilitySettings.Chart.TOTAL_STAT -> TotalStatCard(
-            stats = totalStats, sessions = sessions, modifier = Modifier.fillMaxWidth()
+            stats = totalStats, modifier = Modifier.fillMaxWidth()
         )
 
         ChartVisibilitySettings.Chart.PERIOD_DASHBOARD -> PeriodDashboardCard(

@@ -2,7 +2,6 @@ package me.neko.nzhelper.feature.statistics.util
 
 import android.annotation.SuppressLint
 import android.content.Context
-import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.statistics.model.ActivityTimeData
@@ -506,60 +505,6 @@ fun formatDuration(totalSeconds: Int): String {
         "${hours}小时${minutes}分"
     } else {
         "${minutes}分钟"
-    }
-}
-
-fun buildTotalStatStatus(
-    sessions: List<Session>,
-    ageGroup: AgeGroupSettings.AgeGroup = AgeGroupSettings.AgeGroup.AGE_26_30,
-    age: Int = 22
-): String {
-    if (sessions.isEmpty()) return ""
-    if (sessions.size < 2) return "刚开始记录，继续加油～"
-
-    if (age >= 90) {
-        val eggs = listOf(
-            "90 多岁了还这么有活力？老当益壮啊 🫡",
-            "老不死的还撸呢？注意身体！",
-            "这把年纪还有这兴致，宝刀未老！",
-            "90+ 高玩，向您的毅力致敬 👴"
-        )
-        return eggs.random()
-    }
-    if (age >= 80) {
-        val eggs = listOf(
-            "80 多岁了还这么拼，老骥伏枥啊",
-            "这年纪还坚持记录，是真硬核玩家",
-            "宝刀未老，但也请量力而行 🧓"
-        )
-        return eggs.random()
-    }
-
-    val today = LocalDate.now()
-    val yesterday = today.minusDays(1)
-    val weekAgo = today.minusDays(6) // 含今天共 7 天
-
-    // 单日次数（今天 / 昨天）
-    val todayCount = sessions.count { it.timestamp.toLocalDate() == today }
-    val yesterdayCount = sessions.count { it.timestamp.toLocalDate() == yesterday }
-    val recentCount = sessions.count { it.timestamp.toLocalDate() in weekAgo..today }
-
-    // 按年龄段的阈值判断
-    val moderateMax = ageGroup.moderateMax
-    val highMax = ageGroup.highMax
-    val dailyLimit = ageGroup.dailyLimit
-
-    val maxDayCount = maxOf(todayCount, yesterdayCount)
-    val maxDayLabel = if (todayCount >= yesterdayCount) "今天" else "昨天"
-    val overDaily = maxDayCount >= dailyLimit + 2
-    val dailyHigh = maxDayCount >= dailyLimit
-    return when {
-        overDaily -> "$maxDayLabel $maxDayCount 次，这个年龄段的身体扛不住这么造的 🚑"
-        dailyHigh -> "$maxDayLabel $maxDayCount 次，已超 ${ageGroup.range} 岁建议上限，该歇歇了"
-        recentCount > highMax -> "最近一周 $recentCount 次，对 ${ageGroup.range} 岁来说偏多了，注意身体"
-        recentCount > moderateMax -> "最近一周 $recentCount 次，略高于 ${ageGroup.range} 岁建议频率，留意节奏"
-        recentCount in 1..moderateMax -> "最近一周 $recentCount 次，对 ${ageGroup.range} 岁来说频率适度，继续保持 👍"
-        else -> "最近一周很克制，精力充沛，值得表扬 👍"
     }
 }
 
