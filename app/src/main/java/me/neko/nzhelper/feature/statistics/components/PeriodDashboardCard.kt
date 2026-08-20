@@ -22,9 +22,12 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +48,7 @@ import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.util.calculatePeriodDashboard
 import java.time.LocalDateTime
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeriodDashboardCard(
     sessions: List<Session>,
@@ -101,20 +105,30 @@ fun PeriodDashboardCard(
 
             Spacer(Modifier.height(14.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                PeriodType.entries.forEach { type ->
+                PeriodType.entries.forEachIndexed { index, type ->
                     val label = when (type) {
                         PeriodType.WEEK -> "本周"
                         PeriodType.MONTH -> "本月"
                         PeriodType.YEAR -> "今年"
                     }
-                    FilterChip(
+                    SegmentedButton(
                         selected = selectedType == type,
                         onClick = { selectedType = type },
-                        label = { Text(label) }
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = PeriodType.entries.size
+                        ),
+                        label = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (selectedType == type) FontWeight.SemiBold
+                                else FontWeight.Normal
+                            )
+                        }
                     )
                 }
             }
