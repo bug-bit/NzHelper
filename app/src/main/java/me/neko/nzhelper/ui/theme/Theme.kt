@@ -49,6 +49,7 @@ class ThemeState(
     initialMode: ThemeSettings.ThemeMode,
     initialAmoledDark: Boolean,
     initialDynamicColor: Boolean,
+    initialThemeColorIndex: Int,
     initialBackgroundImagePath: String?,
     initialBackgroundOpacity: Float,
     initialBackgroundBlur: Float,
@@ -58,6 +59,7 @@ class ThemeState(
     var themeMode by mutableStateOf(initialMode)
     var amoledDark by mutableStateOf(initialAmoledDark)
     var dynamicColor by mutableStateOf(initialDynamicColor)
+    var themeColorIndex by mutableStateOf(initialThemeColorIndex)
     var backgroundImagePath by mutableStateOf(initialBackgroundImagePath)
     var backgroundOpacity by mutableStateOf(initialBackgroundOpacity)
     var backgroundBlur by mutableStateOf(initialBackgroundBlur)
@@ -77,6 +79,7 @@ fun NzHelperTheme(
             initialMode = ThemeSettings.getThemeMode(context),
             initialAmoledDark = ThemeSettings.isAmoledDark(context),
             initialDynamicColor = ThemeSettings.isDynamicColor(context),
+            initialThemeColorIndex = ThemeSettings.getThemeColorIndex(context),
             initialBackgroundImagePath = ThemeSettings.getBackgroundImagePath(context),
             initialBackgroundOpacity = ThemeSettings.getBackgroundOpacity(context),
             initialBackgroundBlur = ThemeSettings.getBackgroundBlur(context),
@@ -105,8 +108,12 @@ fun NzHelperTheme(
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        else -> {
+            val option = ThemeColorOptions.getOrElse(themeState.themeColorIndex) {
+                ThemeColorOptions.first()
+            }
+            if (darkTheme) option.darkScheme else option.lightScheme
+        }
     }
 
     val hasBackgroundImage = themeState.backgroundImagePath != null

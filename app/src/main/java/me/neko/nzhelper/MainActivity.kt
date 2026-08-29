@@ -27,6 +27,8 @@ import me.neko.nzhelper.navigation.screenEnter
 import me.neko.nzhelper.navigation.screenExit
 import me.neko.nzhelper.navigation.screenPopEnter
 import me.neko.nzhelper.navigation.screenPopExit
+import me.neko.nzhelper.navigation.screenPredictivePopEnter
+import me.neko.nzhelper.navigation.screenPredictivePopExit
 import me.neko.nzhelper.ui.theme.NzHelperTheme
 
 class MainActivity : AppCompatActivity() {
@@ -45,84 +47,102 @@ class MainActivity : AppCompatActivity() {
                     enterTransition = { screenEnter() },
                     exitTransition = { screenExit() },
                     popEnterTransition = { screenPopEnter() },
-                    popExitTransition = { screenPopExit() }
+                    popExitTransition = { screenPopExit() },
+                    predictivePopEnterTransition = { swipeEdge ->
+                        screenPredictivePopEnter(swipeEdge)
+                    },
+                    predictivePopExitTransition = { swipeEdge ->
+                        screenPredictivePopExit(swipeEdge)
+                    }
                 ) {
-                        composable("main") {
-                            MainScreen(
-                                rootNavController = navController,
-                                stopRequest = stopRequest
-                            )
-                        }
-                        composable("about") {
-                            val aboutNav = rememberNavController()
-                            NavHost(
-                                navController = aboutNav,
-                                startDestination = "about",
-                                enterTransition = { screenEnter() },
-                                exitTransition = { screenExit() },
-                                popEnterTransition = { screenPopEnter() },
-                                popExitTransition = { screenPopExit() }
-                            ) {
-                                composable("about") { AboutScreen(aboutNav) }
-                                composable("open_source") { OpenSourceScreen(aboutNav) }
+                    composable("main") {
+                        MainScreen(
+                            rootNavController = navController,
+                            stopRequest = stopRequest
+                        )
+                    }
+                    composable("about") {
+                        val aboutNav = rememberNavController()
+                        NavHost(
+                            navController = aboutNav,
+                            startDestination = "about",
+                            enterTransition = { screenEnter() },
+                            exitTransition = { screenExit() },
+                            popEnterTransition = { screenPopEnter() },
+                            popExitTransition = { screenPopExit() },
+                            predictivePopEnterTransition = { swipeEdge ->
+                                screenPredictivePopEnter(swipeEdge)
+                            },
+                            predictivePopExitTransition = { swipeEdge ->
+                                screenPredictivePopExit(swipeEdge)
                             }
-                        }
-                        composable("ai_config") {
-                            val aiNav = rememberNavController()
-                            NavHost(
-                                navController = aiNav,
-                                startDestination = "config",
-                                enterTransition = { screenEnter() },
-                                exitTransition = { screenExit() },
-                                popEnterTransition = { screenPopEnter() },
-                                popExitTransition = { screenPopExit() }
-                            ) {
-                                composable("config") {
-                                    AiConfigScreen(
-                                        onBack = { navController.popBackStack() },
-                                        onProviders = { aiNav.navigate("providers") }
-                                    )
-                                }
-                                composable("providers") {
-                                    AiProviderListScreen(onBack = { aiNav.popBackStack() })
-                                }
-                            }
-                        }
-                        composable("backup") {
-                            BackupScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("recycle_bin") {
-                            RecycleBinScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("recycle_bin_settings") {
-                            RecycleBinSettingsScreen(
-                                onBack = { navController.popBackStack() },
-                                onNavigateToRecycleBin = { navController.navigate("recycle_bin") }
-                            )
-                        }
-                        composable("gesture_lock") {
-                            GestureLockSetupScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("tag_manage") {
-                            TagManageScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("crash_logs") {
-                            CrashLogScreen(
-                                onClose = { navController.popBackStack() },
-                                onRestart = {
-                                    navController.navigate("main") {
-                                        popUpTo(0) { inclusive = true }
-                                    }
-                                }
-                            )
-                        }
-                        composable("theme_settings") {
-                            ThemeSettingsScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("chart_manage") {
-                            ChartManageScreen(onBack = { navController.popBackStack() })
+                        ) {
+                            composable("about") { AboutScreen(aboutNav) }
+                            composable("open_source") { OpenSourceScreen(aboutNav) }
                         }
                     }
+                    composable("ai_config") {
+                        val aiNav = rememberNavController()
+                        NavHost(
+                            navController = aiNav,
+                            startDestination = "config",
+                            enterTransition = { screenEnter() },
+                            exitTransition = { screenExit() },
+                            popEnterTransition = { screenPopEnter() },
+                            popExitTransition = { screenPopExit() },
+                            predictivePopEnterTransition = { swipeEdge ->
+                                screenPredictivePopEnter(swipeEdge)
+                            },
+                            predictivePopExitTransition = { swipeEdge ->
+                                screenPredictivePopExit(swipeEdge)
+                            }
+                        ) {
+                            composable("config") {
+                                AiConfigScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onProviders = { aiNav.navigate("providers") }
+                                )
+                            }
+                            composable("providers") {
+                                AiProviderListScreen(onBack = { aiNav.popBackStack() })
+                            }
+                        }
+                    }
+                    composable("backup") {
+                        BackupScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable("recycle_bin") {
+                        RecycleBinScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable("recycle_bin_settings") {
+                        RecycleBinSettingsScreen(
+                            onBack = { navController.popBackStack() },
+                            onNavigateToRecycleBin = { navController.navigate("recycle_bin") }
+                        )
+                    }
+                    composable("gesture_lock") {
+                        GestureLockSetupScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable("tag_manage") {
+                        TagManageScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable("crash_logs") {
+                        CrashLogScreen(
+                            onClose = { navController.popBackStack() },
+                            onRestart = {
+                                navController.navigate("main") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    composable("theme_settings") {
+                        ThemeSettingsScreen(onBack = { navController.popBackStack() })
+                    }
+                    composable("chart_manage") {
+                        ChartManageScreen(onBack = { navController.popBackStack() })
+                    }
+                }
             }
         }
     }

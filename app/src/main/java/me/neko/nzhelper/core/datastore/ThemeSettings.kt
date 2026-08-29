@@ -9,6 +9,7 @@ object ThemeSettings {
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_AMOLED_DARK = "amoled_dark"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color"
+    private const val KEY_THEME_COLOR_INDEX = "theme_color_index"
     private const val KEY_BACKGROUND_IMAGE = "background_image"
     private const val KEY_BACKGROUND_OPACITY = "background_opacity"
     private const val KEY_BACKGROUND_BLUR = "background_blur"
@@ -19,6 +20,7 @@ object ThemeSettings {
     const val DEFAULT_BACKGROUND_BLUR = 0f
     const val DEFAULT_CARD_OPACITY = 1f
     const val DEFAULT_DIALOG_OPACITY = 1f
+    const val DEFAULT_THEME_COLOR_INDEX = 0
 
     enum class ThemeMode(val label: String) {
         SYSTEM("跟随系统"),
@@ -53,6 +55,13 @@ object ThemeSettings {
 
     fun setDynamicColor(context: Context, enabled: Boolean) {
         prefs(context).edit { putBoolean(KEY_DYNAMIC_COLOR, enabled) }
+    }
+
+    fun getThemeColorIndex(context: Context): Int =
+        prefs(context).getInt(KEY_THEME_COLOR_INDEX, DEFAULT_THEME_COLOR_INDEX)
+
+    fun setThemeColorIndex(context: Context, index: Int) {
+        prefs(context).edit { putInt(KEY_THEME_COLOR_INDEX, index) }
     }
 
     fun getBackgroundImagePath(context: Context): String? =

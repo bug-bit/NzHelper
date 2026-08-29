@@ -33,3 +33,19 @@ fun AnimatedContentTransitionScope<NavBackStackEntry>.screenPopExit(): ExitTrans
         AnimatedContentTransitionScope.SlideDirection.Right,
         animationSpec = tween(SCREEN_TRANSITION_DURATION)
     ) + fadeOut(animationSpec = tween(SCREEN_TRANSITION_DURATION))
+
+fun AnimatedContentTransitionScope<NavBackStackEntry>.screenPredictivePopEnter(
+    @Suppress("UNUSED_PARAMETER") swipeEdge: Int
+): EnterTransition =
+    slideIntoContainer(
+        AnimatedContentTransitionScope.SlideDirection.Right,
+        animationSpec = tween(SCREEN_TRANSITION_DURATION)
+    ) + fadeIn(animationSpec = tween(SCREEN_TRANSITION_DURATION))
+
+fun AnimatedContentTransitionScope<NavBackStackEntry>.screenPredictivePopExit(
+    @Suppress("UNUSED_PARAMETER") swipeEdge: Int
+): ExitTransition =
+    slideOutOfContainer(
+        AnimatedContentTransitionScope.SlideDirection.Right,
+        animationSpec = tween(SCREEN_TRANSITION_DURATION)
+    ) + fadeOut(animationSpec = tween(SCREEN_TRANSITION_DURATION))
