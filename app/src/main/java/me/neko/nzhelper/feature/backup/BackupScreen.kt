@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Key
@@ -75,6 +76,7 @@ import me.neko.nzhelper.core.database.BackupRepository
 import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.export.DocumentExporter
 import me.neko.nzhelper.core.model.BackupModules
 import me.neko.nzhelper.core.security.BackupCipher
 import me.neko.nzhelper.core.webdav.WebDavSettings
@@ -120,6 +122,43 @@ fun BackupScreen(
             }
         }
     }
+
+    var showDocExportDialog by remember { mutableStateOf(false) }
+    var pendingDocModules by remember { mutableStateOf<BackupModules?>(null) }
+    var docExporting by remember { mutableStateOf(false) }
+
+    fun writeDocument(uri: Uri?, format: DocumentExporter.Format) {
+        val modules = pendingDocModules
+        pendingDocModules = null
+        if (uri == null || modules == null) return
+        scope.launch {
+            docExporting = true
+            try {
+                val bytes = DocumentExporter.export(context, format, modules)
+                context.contentResolver.openOutputStream(uri)?.use { os ->
+                    os.write(bytes)
+                } ?: throw IllegalStateException("无法写入文件")
+                Toast.makeText(context, "导出成功", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(
+                    context,
+                    "导出失败: ${e.message ?: "未知错误"}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } finally {
+                docExporting = false
+            }
+        }
+    }
+
+    val pdfExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri: Uri? -> writeDocument(uri, DocumentExporter.Format.PDF) }
+
+    val docxExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(DocumentExporter.Format.DOCX.mimeType)
+    ) { uri: Uri? -> writeDocument(uri, DocumentExporter.Format.DOCX) }
 
     suspend fun loadLocalCounts(): ModuleCounts {
         val sessions = SessionRepository.loadSessions(context).size
@@ -242,6 +281,29 @@ fun BackupScreen(
                     )
                     SettingsDivider()
                     SettingsItem(
+                        icon = Icons.Outlined.Description,
+                        title = "导出文档",
+                        subtitle = "导出为 PDF / Word 报告，适合查看、打印或存档",
+                        onClick = {
+                            scope.launch {
+                                exportCounts = loadLocalCounts()
+                                showDocExportDialog = true
+                            }
+                        },
+                        enabled = !docExporting,
+                        trailingContent = {
+                            if (docExporting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                TrailingArrowIcon()
+                            }
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
                         icon = Icons.Outlined.Download,
                         title = "导入数据",
                         subtitle = "从备份文件选择要恢复的内容",
@@ -359,6 +421,31 @@ fun BackupScreen(
                 },
                 onDismiss = {
                     pendingExportModules = null
+                    exportCounts = null
+                }
+            )
+        }
+    }
+
+    if (showDocExportDialog) {
+        val counts = exportCounts
+        if (counts != null) {
+            DocumentExportDialog(
+                sessionCount = counts.sessions,
+                recycleCount = counts.recycleBin,
+                taxonomyCount = counts.taxonomy,
+                onConfirm = { format, modules ->
+                    showDocExportDialog = false
+                    exportCounts = null
+                    pendingDocModules = modules
+                    val fileName = format.fileName()
+                    when (format) {
+                        DocumentExporter.Format.PDF -> pdfExportLauncher.launch(fileName)
+                        DocumentExporter.Format.DOCX -> docxExportLauncher.launch(fileName)
+                    }
+                },
+                onDismiss = {
+                    showDocExportDialog = false
                     exportCounts = null
                 }
             )
