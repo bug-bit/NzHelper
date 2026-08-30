@@ -18,9 +18,15 @@ internal object Mappers {
         duration = s.duration,
         remark = s.remark,
         rating = s.rating,
-        climax = s.climax,
+        climax = false,
         categoryId = s.categoryId,
         tagIdsJson = gson.toJson(s.tagIds, tagIdsType),
+        mode = s.mode,
+        climaxCount = s.climaxCount,
+        partnerClimaxCount = s.partnerClimaxCount,
+        partnerGender = s.partnerGender,
+        partnerName = s.partnerName,
+        contraception = s.contraception,
         location = s.location,
         watchedMovie = s.watchedMovie,
         mood = s.mood,
@@ -35,11 +41,17 @@ internal object Mappers {
         climax = e.climax,
         categoryId = e.categoryId,
         tagIds = gson.fromJson<List<String>>(e.tagIdsJson, tagIdsType) ?: emptyList(),
+        mode = e.mode,
+        climaxCount = e.climaxCount,
+        partnerClimaxCount = e.partnerClimaxCount,
+        partnerGender = e.partnerGender,
+        partnerName = e.partnerName,
+        contraception = e.contraception,
         location = e.location,
         watchedMovie = e.watchedMovie,
         mood = e.mood,
         props = e.props
-    )
+    ).normalized()
 
     fun itemToEntity(item: RecycleBinItem, gson: Gson): RecycleBinEntity = RecycleBinEntity(
         deletedTimestamp = item.deletedTimestamp,

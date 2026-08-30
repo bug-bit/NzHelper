@@ -34,7 +34,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.model.Contraception
+import me.neko.nzhelper.core.model.PartnerGender
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.core.util.formatTime
 import me.neko.nzhelper.ui.component.tag.TagChip
 import java.time.format.DateTimeFormatter
@@ -87,9 +91,22 @@ fun SessionDetailDialog(
                         session.timestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
                     )
                     DetailRow("时长", formatTime(session.duration))
+                    DetailRow("模式", session.sessionMode().label)
                     DetailRow("分类", categoryName.ifEmpty { "未分类" })
                     DetailRow("评分", "%.1f".format(session.rating))
-                    DetailRow("高潮", if (session.climax) "是" else "否")
+                    if (session.sessionMode() == SessionMode.PAIR) {
+                        DetailRow("我的高潮", "${session.climaxCount} 次")
+                        DetailRow("对方高潮", "${session.partnerClimaxCount} 次")
+                        PartnerGender.fromKey(session.partnerGender)?.let {
+                            DetailRow("对方性别", it.label)
+                        }
+                        if (session.partnerName.isNotBlank()) {
+                            DetailRow("对方昵称", session.partnerName)
+                        }
+                        DetailRow("避孕措施", Contraception.fromKey(session.contraception).label)
+                    } else {
+                        DetailRow("高潮", "${session.climaxCount} 次")
+                    }
                 }
 
                 if (resolvedTags.isNotEmpty()) {

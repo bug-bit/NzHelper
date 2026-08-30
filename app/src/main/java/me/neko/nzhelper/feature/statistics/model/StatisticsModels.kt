@@ -19,7 +19,10 @@ data class TotalStats(
     val avgMinutes: Float,
     val weekCount: Int,
     val monthCount: Int,
-    val yearCount: Int
+    val yearCount: Int,
+    val soloMaleCount: Int = 0,
+    val soloFemaleCount: Int = 0,
+    val pairCount: Int = 0
 )
 
 @Immutable
@@ -58,7 +61,10 @@ data class PeriodOverview(
     val avgDurationComparison: String = "",
     val avgRatingComparison: String = "",
     val climaxComparison: String = "",
-    val topTagsComparison: String = ""
+    val topTagsComparison: String = "",
+    val climaxSessionCount: Int = 0,
+    val partnerClimaxCount: Int = 0,
+    val pairCount: Int = 0
 )
 
 @Immutable
@@ -144,5 +150,7 @@ data class PeriodDashboard(
     val totalDurationSeconds: Int,
     val climaxRate: Int,
     val climaxCount: Int,
-    val streakDays: Int
+    val streakDays: Int,
+    val partnerClimaxCount: Int = 0,
+    val pairCount: Int = 0
 )

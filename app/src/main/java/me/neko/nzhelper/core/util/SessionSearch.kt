@@ -2,7 +2,10 @@ package me.neko.nzhelper.core.util
 
 import android.content.Context
 import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.model.Contraception
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.sessionMode
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -60,10 +63,31 @@ object SessionSearch {
         // 时长文本
         if (matchDuration(session.duration, kw)) return true
 
-        // 高潮标记
+        // 高潮标记（按次数）
         when (kw) {
-            "高潮", "有高潮", "climax" -> if (session.climax) return true
-            "无高潮", "没高潮", "未高潮" -> if (!session.climax) return true
+            "高潮", "有高潮", "climax" -> if (session.climaxCount > 0) return true
+            "无高潮", "没高潮", "未高潮" -> if (session.climaxCount == 0) return true
+        }
+
+        // 记录模式
+        when (kw) {
+            "双人", "伴侣", "pa", "pair" ->
+                if (session.sessionMode() == SessionMode.PAIR) return true
+            "男单", "男性", "单人男", "solo_male" ->
+                if (session.sessionMode() == SessionMode.SOLO_MALE) return true
+            "女单", "女性", "单人女", "solo_female" ->
+                if (session.sessionMode() == SessionMode.SOLO_FEMALE) return true
+        }
+
+        // 对方昵称
+        if (session.partnerName.isNotBlank() &&
+            session.partnerName.lowercase(Locale.getDefault()).contains(kw)
+        ) return true
+
+        // 避孕措施
+        if (session.sessionMode() == SessionMode.PAIR) {
+            val label = Contraception.fromKey(session.contraception).label
+            if (label.lowercase(Locale.getDefault()).contains(kw)) return true
         }
 
         return false

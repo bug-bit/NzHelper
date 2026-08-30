@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.feature.statistics.model.ActivityTimeData
 import me.neko.nzhelper.feature.statistics.model.HeatmapData
 import me.neko.nzhelper.feature.statistics.model.HeatmapDay
@@ -234,7 +236,7 @@ fun calculateLatestInfo(sessions: List<Session>): LatestSessionInfo? {
         false
     }
 
-    val detailText = getRandomComment(daysAgo, isErrorState)
+    val detailText = getRandomComment(daysAgo, isErrorState, latest.sessionMode())
 
     return LatestSessionInfo(displayDate, time, durationText, daysAgo, detailText, isErrorState)
 }
@@ -252,7 +254,130 @@ private fun formatPeriod(dateTime: LocalDateTime): String {
     }
 }
 
-private fun getRandomComment(days: Long, isError: Boolean): String {
+private fun getRandomComment(days: Long, isError: Boolean, mode: SessionMode): String {
+    return when (mode) {
+        SessionMode.SOLO_FEMALE -> getFemaleComment(days, isError)
+        SessionMode.PAIR -> getPairComment(days, isError)
+        SessionMode.SOLO_MALE -> getMaleComment(days, isError)
+    }
+}
+
+private fun getFemaleComment(days: Long, isError: Boolean): String {
+    return if (isError) {
+        when (days) {
+            0L -> listOf(
+                "今天已经尽兴了，记得多喝水、早点休息 🌙",
+                "开心最重要，身体感受放在第一位～",
+                "连续作战辛苦了，给身体留点恢复时间吧",
+                "尽兴之余别忘了卫生护理哦"
+            ).random()
+
+            1L -> listOf(
+                "这两天状态很好呀，也别太累着自己",
+                "尽兴很重要，休息同样重要～",
+                "身体是最诚实的，听听它的节奏"
+            ).random()
+
+            else -> listOf(
+                "最近频率不低，注意身体感受和休息",
+                "适度放松，别忘了好好照顾自己",
+                "给身体放个假，恢复一下状态吧"
+            ).random()
+        }
+    } else {
+        when (days) {
+            0L -> listOf(
+                "适度放松，取悦自己～",
+                "身心舒畅，继续保持好状态",
+                "今天也要好好爱自己 💕",
+                "状态在线，享受当下"
+            ).random()
+
+            1L -> listOf(
+                "隔天一次，节奏刚刚好",
+                "张弛有度，身体状态很棒",
+                "保持这个节奏就很舒服"
+            ).random()
+
+            2L, 3L -> listOf(
+                "休息了几天，状态满格 ⚡",
+                "身体充电完毕，随时出发",
+                "休整得不错，精神饱满"
+            ).random()
+
+            in 4L..6L -> listOf(
+                "好几天没记录了，顺其自然就好 🧘",
+                "清心寡欲也是种修行",
+                "跟随自己的节奏，不必强求"
+            ).random()
+
+            else -> listOf(
+                "久违了！想放松的时候随时来 🔋",
+                "尘封已久，记得定期关爱自己",
+                "一切随缘，开心最重要"
+            ).random()
+        }
+    }
+}
+
+private fun getPairComment(days: Long, isError: Boolean): String {
+    return if (isError) {
+        when (days) {
+            0L -> listOf(
+                "今天已经甜蜜满格，给彼此一点休息时间吧 💞",
+                "热情似火也要注意休息，来日方长",
+                "亲密无间，也别透支体力哦"
+            ).random()
+
+            1L -> listOf(
+                "连续两天甜蜜加倍，注意保存体力～",
+                "感情升温很快嘛，休息也不能落下",
+                "甜度超标，适当缓缓"
+            ).random()
+
+            else -> listOf(
+                "最近亲密频繁，记得互相照顾、适当休息",
+                "爱意满满，身体也要跟得上",
+                "适度亲密，细水长流"
+            ).random()
+        }
+    } else {
+        when (days) {
+            0L -> listOf(
+                "亲密愉快，感情又升温啦 💕",
+                "享受彼此，默契满分",
+                "今天的甜蜜值已达标",
+                "双向奔赴的感觉真好"
+            ).random()
+
+            1L -> listOf(
+                "隔天一约，节奏舒适",
+                "亲密有度，感情更长久",
+                "保持这个频率刚刚好"
+            ).random()
+
+            2L, 3L -> listOf(
+                "小别胜新婚，蓄势待发 ⚡",
+                "休息几天，期待值拉满",
+                "养精蓄锐，下次更尽兴"
+            ).random()
+
+            in 4L..6L -> listOf(
+                "好几天没亲密了，来点小浪漫？🧘",
+                "平淡日子里也别忘了亲密感",
+                "顺其自然，感情照样升温"
+            ).random()
+
+            else -> listOf(
+                "久违的二人世界，安排一下？🔋",
+                "尘封已久的亲密时光，值得重启",
+                "感情需要经营，亲密也需要"
+            ).random()
+        }
+    }
+}
+
+private fun getMaleComment(days: Long, isError: Boolean): String {
     return if (isError) {
         when (days) {
             0L -> listOf(
@@ -461,11 +586,14 @@ fun calculatePeriodOverview(
         }
     }
 
-    val climaxCount = filtered.count { it.climax }
+    val climaxCount = filtered.sumOf { it.climaxCount }
+    val climaxSessionCount = filtered.count { it.climaxCount > 0 }
+    val partnerClimaxCount = filtered.sumOf { it.partnerClimaxCount }
+    val pairCount = filtered.count { it.sessionMode() == SessionMode.PAIR }
     val climaxComparison = if (prevCount == 0) {
         "${prevLabel}无记录"
     } else {
-        val prevClimaxCount = prevSessions.count { it.climax }
+        val prevClimaxCount = prevSessions.sumOf { it.climaxCount }
         val diff = climaxCount - prevClimaxCount
         when {
             diff > 0 -> "较${prevLabel}多 ${diff}次"
@@ -494,7 +622,10 @@ fun calculatePeriodOverview(
         avgDurationComparison = avgDurationComparison,
         avgRatingComparison = avgRatingComparison,
         climaxComparison = climaxComparison,
-        topTagsComparison = topTagsComparison
+        topTagsComparison = topTagsComparison,
+        climaxSessionCount = climaxSessionCount,
+        partnerClimaxCount = partnerClimaxCount,
+        pairCount = pairCount
     )
 }
 
@@ -716,8 +847,13 @@ fun calculatePeriodDashboard(
 
     val totalDuration = current.sumOf { it.duration }
     val avgDuration = if (count > 0) totalDuration / count else 0
-    val climaxCount = current.count { it.climax }
-    val climaxRate = if (count > 0) (climaxCount * 100 / count) else 0
+    val climaxCount = current.sumOf { it.climaxCount }
+    val partnerClimaxCount = current.sumOf { it.partnerClimaxCount }
+    val pairCount = current.count { it.sessionMode() == SessionMode.PAIR }
+    val climaxSessionCount = current.count {
+        it.climaxCount > 0 || it.partnerClimaxCount > 0
+    }
+    val climaxRate = if (count > 0) (climaxSessionCount * 100 / count) else 0
     val streak = calculateStreakDays(sessions, now.toLocalDate())
 
     return PeriodDashboard(
@@ -730,7 +866,9 @@ fun calculatePeriodDashboard(
         totalDurationSeconds = totalDuration,
         climaxRate = climaxRate,
         climaxCount = climaxCount,
-        streakDays = streak
+        streakDays = streak,
+        partnerClimaxCount = partnerClimaxCount,
+        pairCount = pairCount
     )
 }
 

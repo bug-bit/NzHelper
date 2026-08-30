@@ -102,8 +102,30 @@ fun TotalStatCard(
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            if (stats.totalCount > 0) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ModeCountText("男单", stats.soloMaleCount)
+                    ModeCountText("女单", stats.soloFemaleCount)
+                    ModeCountText("双人", stats.pairCount)
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun ModeCountText(label: String, count: Int) {
+    Text(
+        text = "$label $count 次",
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 @Composable

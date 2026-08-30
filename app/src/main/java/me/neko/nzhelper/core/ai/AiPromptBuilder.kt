@@ -5,12 +5,13 @@ import com.google.gson.reflect.TypeToken
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.database.AppDatabase
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
+import me.neko.nzhelper.core.model.Contraception
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.model.TagDef
+import me.neko.nzhelper.core.model.sessionMode
 
 object AiPromptBuilder {
-
-    private const val SYSTEM_PROMPT = "你是健康生活顾问，用户记录的是手淫数据。你的建议需简短、自然、不评判。"
 
     suspend fun build(
         context: Context,
@@ -18,21 +19,55 @@ object AiPromptBuilder {
         rangeDays: Int
     ): Pair<String, String> {
         val opts = AiSettings.getDataOptions(context)
-        return SYSTEM_PROMPT to buildUserPrompt(context, sessions, opts, rangeDays)
+        val dominant = resolveMode(context, sessions)
+        // 只分析该模式的记录，其他模式的记录不参与统计
+        val filtered = sessions.filter { it.sessionMode() == dominant }
+        return systemPromptFor(dominant) to
+                buildUserPrompt(context, filtered, opts, rangeDays, dominant)
+    }
+
+    /** 用户在设置里指定了倾向时优先使用，否则按记录中最常出现的模式推断。 */
+    private suspend fun resolveMode(context: Context, sessions: List<Session>): SessionMode {
+        val configured = AiSettings.getAiMode(context)
+        if (configured != "auto") return SessionMode.fromKey(configured)
+        return dominantMode(sessions)
+    }
+
+    /** 取记录中最常出现的模式作为建议基调，无记录时按男性单人处理。 */
+    private fun dominantMode(sessions: List<Session>): SessionMode {
+        if (sessions.isEmpty()) return SessionMode.SOLO_MALE
+        val counts = sessions.groupingBy { it.sessionMode() }.eachCount()
+        return counts.maxByOrNull { it.value }?.key ?: SessionMode.SOLO_MALE
+    }
+
+    private fun systemPromptFor(mode: SessionMode): String = when (mode) {
+        SessionMode.SOLO_MALE ->
+            "你是健康生活顾问，用户记录的是男性自慰数据。" +
+                    "你的建议需简短、自然、不评判，从男性生理与精力管理的角度出发。"
+
+        SessionMode.SOLO_FEMALE ->
+            "你是健康生活顾问，用户记录的是女性自慰数据。" +
+                    "你的建议需简短、自然、不评判，从女性体验、节奏与卫生护理的角度出发，" +
+                    "避免频率审判式的措辞。"
+
+        SessionMode.PAIR ->
+            "你是健康生活顾问，用户记录的是双人性生活数据。" +
+                    "你的建议需简短、自然、不评判，从双方体验、沟通与安全（避孕）的角度出发。"
     }
 
     private suspend fun buildUserPrompt(
         context: Context,
         sessions: List<Session>,
         opts: AiSettings.DataOptions,
-        rangeDays: Int
+        rangeDays: Int,
+        dominant: SessionMode
     ): String {
         val parts = mutableListOf<String>()
 
-        if (opts.isEnabled(AiSettings.DataField.COUNT.key)) {
+        if (opts.isEnabled(AiSettings.DataField.COUNT.key) && sessions.isNotEmpty()) {
             parts += "共${sessions.size}次"
         }
-        if (opts.isEnabled(AiSettings.DataField.DAYS.key)) {
+        if (opts.isEnabled(AiSettings.DataField.DAYS.key) && sessions.isNotEmpty()) {
             val days = sessions.map { it.timestamp.toLocalDate() }.distinct().size
             parts += "分${days}天"
         }
@@ -59,7 +94,8 @@ object AiPromptBuilder {
             if (maxGap >= 2) parts += "最长间隔${maxGap}天"
         }
         if (opts.isEnabled(AiSettings.DataField.AVG_DURATION.key)) {
-            val avgSec = if (sessions.isNotEmpty()) sessions.map { it.duration }.average().toInt() else 0
+            val avgSec =
+                if (sessions.isNotEmpty()) sessions.map { it.duration }.average().toInt() else 0
             if (avgSec > 0) parts += "平均时长${avgSec / 60}分钟"
         }
         if (opts.isEnabled(AiSettings.DataField.RATING.key)) {
@@ -69,9 +105,25 @@ object AiPromptBuilder {
                 parts += "平均评分${"%.1f".format(avg)}"
             }
         }
-        if (opts.isEnabled(AiSettings.DataField.CLIMAX.key)) {
-            val climaxCount = sessions.count { it.climax }
-            parts += "高潮${climaxCount}次"
+        if (opts.isEnabled(AiSettings.DataField.CLIMAX.key) && sessions.isNotEmpty()) {
+            val climaxTotal = sessions.sumOf { it.climaxCount }
+            parts += "我的高潮共${climaxTotal}次"
+        }
+        if (opts.isEnabled(AiSettings.DataField.PARTNER.key)) {
+            val pairSessions = sessions.filter { it.sessionMode() == SessionMode.PAIR }
+            if (pairSessions.isNotEmpty()) {
+                val partnerTotal = pairSessions.sumOf { it.partnerClimaxCount }
+                parts += "对方高潮共${partnerTotal}次"
+                val names = pairSessions.map { it.partnerName }
+                    .filter { it.isNotBlank() }.distinct()
+                if (names.isNotEmpty()) parts += "伴侣昵称：${names.joinToString("、")}"
+                val condomCount =
+                    pairSessions.count { it.contraception == Contraception.CONDOM.key }
+                val pillCount = pairSessions.count { it.contraception == Contraception.PILL.key }
+                val otherCount = pairSessions.count { it.contraception == Contraception.OTHER.key }
+                val noneCount = pairSessions.size - condomCount - pillCount - otherCount
+                parts += "避孕措施：无${noneCount}次，避孕套${condomCount}次，避孕药${pillCount}次，其他${otherCount}次"
+            }
         }
         if (opts.isEnabled(AiSettings.DataField.TAGS.key)) {
             val tagsJson = AppDatabase.get(context).taxonomyDao().get("tags")
@@ -79,7 +131,9 @@ object AiPromptBuilder {
                 try {
                     val type = object : TypeToken<List<TagDef>>() {}.type
                     NzApplication.gson.fromJson(tagsJson, type) ?: emptyList()
-                } catch (_: Exception) { emptyList() }
+                } catch (_: Exception) {
+                    emptyList()
+                }
             } else emptyList()
             val tagCounts = sessions.flatMap { it.tagIds }
                 .groupingBy { it }.eachCount()
@@ -104,10 +158,10 @@ object AiPromptBuilder {
             rangeDays >= 365 -> "最近1年"
             else -> "最近${rangeDays}天"
         }
-        val dataSection = if (parts.isNotEmpty()) {
-            "${rangeLabel}${parts.joinToString("，")}。"
-        } else {
-            "${rangeLabel}有记录。"
+        val dataSection = when {
+            sessions.isEmpty() -> "${rangeLabel}没有该模式的记录。"
+            parts.isNotEmpty() -> "${rangeLabel}${parts.joinToString("，")}。"
+            else -> "${rangeLabel}有记录。"
         }
 
         val tone = when (AiSettings.getPromptTone(context)) {
@@ -130,6 +184,11 @@ object AiPromptBuilder {
             .takeIf { it.isNotBlank() }?.let { "。额外要求：$it" } ?: ""
         val lenPart = if (len != null) "。$len" else ""
         val toneText = "。${tone}${lenPart}${extra}。只输出建议不要推理。"
-        return "这是手淫记录：${dataSection}${toneText}"
+        val recordLabel = when (dominant) {
+            SessionMode.SOLO_MALE -> "这是男性自慰记录"
+            SessionMode.SOLO_FEMALE -> "这是女性自慰记录"
+            SessionMode.PAIR -> "这是双人性生活记录"
+        }
+        return "${recordLabel}：${dataSection}${toneText}"
     }
 }

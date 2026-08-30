@@ -45,6 +45,8 @@ import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionFormState
+import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.core.util.SessionSearch
 import me.neko.nzhelper.feature.history.components.HistoryEmptyState
 import me.neko.nzhelper.feature.history.components.HistoryQuickFilter
@@ -94,8 +96,14 @@ fun HistoryScreen(isActive: Boolean = false) {
             val byText = SessionSearch.filter(context, sessions, searchQuery)
             when (activeFilter) {
                 HistoryQuickFilter.ALL -> byText
-                HistoryQuickFilter.CLIMAX -> byText.filter { it.climax }
-                HistoryQuickFilter.NO_CLIMAX -> byText.filter { !it.climax }
+                HistoryQuickFilter.CLIMAX -> byText.filter { it.climaxCount > 0 }
+                HistoryQuickFilter.NO_CLIMAX -> byText.filter { it.climaxCount == 0 }
+                HistoryQuickFilter.MODE_SOLO_MALE ->
+                    byText.filter { it.sessionMode() == SessionMode.SOLO_MALE }
+                HistoryQuickFilter.MODE_SOLO_FEMALE ->
+                    byText.filter { it.sessionMode() == SessionMode.SOLO_FEMALE }
+                HistoryQuickFilter.MODE_PAIR ->
+                    byText.filter { it.sessionMode() == SessionMode.PAIR }
             }
         }
     }
@@ -188,12 +196,18 @@ fun HistoryScreen(isActive: Boolean = false) {
             onEditClick = {
                 isViewingDetails = false
                 isEditing = true
+                val target = selectedSession!!
                 editFormState = SessionFormState(
-                    remark = selectedSession!!.remark,
-                    categoryId = selectedSession!!.categoryId,
-                    tagIds = selectedSession!!.tagIds.toSet(),
-                    climax = selectedSession!!.climax,
-                    rating = selectedSession!!.rating
+                    remark = target.remark,
+                    categoryId = target.categoryId,
+                    tagIds = target.tagIds.toSet(),
+                    mode = target.mode,
+                    climaxCount = target.climaxCount,
+                    partnerClimaxCount = target.partnerClimaxCount,
+                    partnerGender = target.partnerGender,
+                    partnerName = target.partnerName,
+                    contraception = target.contraception,
+                    rating = target.rating
                 )
             }
         )
@@ -207,16 +221,22 @@ fun HistoryScreen(isActive: Boolean = false) {
             val original = selectedSession ?: return@DetailsDialog
             val index = sessions.indexOf(original)
             if (index != -1) {
+                val isPair = SessionMode.fromKey(editFormState.mode).isPair
                 val updated = original.copy(
                     remark = editFormState.remark,
-                    climax = editFormState.climax,
                     rating = editFormState.rating,
                     categoryId = editFormState.categoryId.ifBlank {
                         TagSettings.defaultCategory(
                             context
                         ).id
                     },
-                    tagIds = editFormState.tagIds.toList()
+                    tagIds = editFormState.tagIds.toList(),
+                    mode = editFormState.mode,
+                    climaxCount = editFormState.climaxCount,
+                    partnerClimaxCount = if (isPair) editFormState.partnerClimaxCount else 0,
+                    partnerGender = if (isPair) editFormState.partnerGender else "",
+                    partnerName = if (isPair) editFormState.partnerName else "",
+                    contraception = if (isPair) editFormState.contraception else ""
                 )
                 sessions[index] = updated
                 scope.launch { SessionRepository.saveSessions(context, sessions) }

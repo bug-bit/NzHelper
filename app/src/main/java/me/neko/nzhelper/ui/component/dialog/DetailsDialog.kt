@@ -4,7 +4,6 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +30,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -42,12 +43,15 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,7 +73,10 @@ import androidx.compose.ui.window.DialogProperties
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.CategoryDef
+import me.neko.nzhelper.core.model.Contraception
+import me.neko.nzhelper.core.model.PartnerGender
 import me.neko.nzhelper.core.model.SessionFormState
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.util.formatTime
 import me.neko.nzhelper.ui.component.tag.TagPicker
 import me.neko.nzhelper.ui.theme.TagColors
@@ -165,6 +172,13 @@ fun DetailsDialog(
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        SectionCard {
+                            ModeSection(
+                                formState = formState,
+                                onFormStateChange = onFormStateChange
+                            )
+                        }
+
                         if (showDurationField) {
                             SectionCard {
                                 DurationInputSection(
@@ -276,12 +290,19 @@ fun DetailsDialog(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
 
-                            ClimaxRow(
-                                climax = formState.climax,
-                                onClimaxChange = {
-                                    onFormStateChange(formState.copy(climax = it))
-                                }
+                            ClimaxCountSection(
+                                formState = formState,
+                                onFormStateChange = onFormStateChange
                             )
+                        }
+
+                        if (SessionMode.fromKey(formState.mode).isPair) {
+                            SectionCard {
+                                PartnerSection(
+                                    formState = formState,
+                                    onFormStateChange = onFormStateChange
+                                )
+                            }
                         }
 
                         SectionCard {
@@ -454,28 +475,182 @@ private fun TagSectionHeader(
 }
 
 @Composable
-private fun ClimaxRow(
-    climax: Boolean,
-    onClimaxChange: (Boolean) -> Unit
+private fun ModeSection(
+    formState: SessionFormState,
+    onFormStateChange: (SessionFormState) -> Unit
+) {
+    val context = LocalContext.current
+    val modes = SessionMode.entries.toTypedArray()
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionLabel("模式")
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            modes.forEachIndexed { index, mode ->
+                SegmentedButton(
+                    selected = formState.mode == mode.key,
+                    onClick = {
+                        onFormStateChange(
+                            formState.copy(
+                                mode = mode.key,
+                                categoryId = TagSettings.defaultCategoryFor(context, mode).id
+                            )
+                        )
+                    },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = modes.size
+                    )
+                ) {
+                    Text(mode.label, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClimaxCountSection(
+    formState: SessionFormState,
+    onFormStateChange: (SessionFormState) -> Unit
+) {
+    val isPair = SessionMode.fromKey(formState.mode).isPair
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (isPair) {
+            ClimaxStepperRow(
+                label = "我的高潮",
+                value = formState.climaxCount,
+                onChange = { onFormStateChange(formState.copy(climaxCount = it)) }
+            )
+            ClimaxStepperRow(
+                label = "对方高潮",
+                value = formState.partnerClimaxCount,
+                onChange = { onFormStateChange(formState.copy(partnerClimaxCount = it)) }
+            )
+        } else {
+            ClimaxStepperRow(
+                label = "高潮次数",
+                value = formState.climaxCount,
+                onChange = { onFormStateChange(formState.copy(climaxCount = it)) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClimaxStepperRow(
+    label: String,
+    value: Int,
+    onChange: (Int) -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .clickable { onClimaxChange(!climax) }
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "高潮",
+            text = label,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Switch(
-            checked = climax,
-            onCheckedChange = onClimaxChange
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = { onChange((value - 1).coerceAtLeast(0)) },
+                enabled = value > 0,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.Remove,
+                    contentDescription = "减少",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Text(
+                text = "$value 次",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(56.dp)
+            )
+            IconButton(
+                onClick = { onChange((value + 1).coerceAtMost(20)) },
+                enabled = value < 20,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.Add,
+                    contentDescription = "增加",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PartnerSection(
+    formState: SessionFormState,
+    onFormStateChange: (SessionFormState) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionLabel("对方信息")
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "对方性别",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PartnerGender.entries.forEach { gender ->
+                    val selected = formState.partnerGender == gender.key
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            onFormStateChange(
+                                formState.copy(
+                                    partnerGender = if (selected) "" else gender.key
+                                )
+                            )
+                        },
+                        label = { Text(gender.label) }
+                    )
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = formState.partnerName,
+            onValueChange = {
+                onFormStateChange(formState.copy(partnerName = it.take(20)))
+            },
+            label = { Text("对方昵称（可选）") },
+            placeholder = { Text("伴侣的名字或昵称") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "避孕措施",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Contraception.entries.forEach { option ->
+                    FilterChip(
+                        selected = formState.contraception == option.key,
+                        onClick = {
+                            onFormStateChange(formState.copy(contraception = option.key))
+                        },
+                        label = { Text(option.label) }
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -178,7 +178,12 @@ fun PeriodDashboardCard(
                             icon = Icons.Outlined.Bolt,
                             label = "高潮率",
                             value = "${db.climaxRate}%",
-                            sub = if (db.count > 0) "${db.climaxCount}/${db.count} 次" else "暂无记录",
+                            sub = when {
+                                db.count == 0 -> "暂无记录"
+                                db.pairCount > 0 ->
+                                    "共${db.climaxCount}次 · 双人${db.pairCount}场"
+                                else -> "共${db.climaxCount}次"
+                            },
                             accentContainer = MaterialTheme.colorScheme.surfaceContainerHighest.copy(
                                 alpha = 0.3f
                             ),

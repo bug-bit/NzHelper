@@ -14,6 +14,14 @@ data class Session(
     @SerializedName("categoryId") val categoryId: String = DEFAULT_CATEGORY_ID,
     @SerializedName("tagIds") val tagIds: List<String> = emptyList(),
 
+    // ── 记录模式（男性单人 / 女性单人 / 双人）──
+    @SerializedName("mode") val mode: String = SessionMode.SOLO_MALE.key,
+    @SerializedName("climaxCount") val climaxCount: Int = 0,
+    @SerializedName("partnerClimaxCount") val partnerClimaxCount: Int = 0,
+    @SerializedName("partnerGender") val partnerGender: String = "",
+    @SerializedName("partnerName") val partnerName: String = "",
+    @SerializedName("contraception") val contraception: String = "",
+
     // ── legacy（仅兼容旧数据 / 迁移用）──
     @SerializedName("location") val location: String = "",
     @SerializedName("watchedMovie") val watchedMovie: Boolean = false,
@@ -23,7 +31,12 @@ data class Session(
     companion object {
         const val DEFAULT_CATEGORY_ID: String = "cat_self"
     }
+
+    fun normalized(): Session =
+        if (climaxCount > 0 || !climax) this else copy(climaxCount = 1)
 }
+
+fun Session.sessionMode(): SessionMode = SessionMode.fromKey(mode)
 
 @Immutable
 data class RecycleBinItem(
@@ -33,7 +46,7 @@ data class RecycleBinItem(
 
 @Immutable
 data class WebDavBackupPayload(
-    @SerializedName("version") val version: Int = 2,
+    @SerializedName("version") val version: Int = 3,
     @SerializedName("exportedAt") val exportedAt: Long,
     @SerializedName("sessions") val sessions: List<Session> = emptyList(),
     @SerializedName("recycleBin") val recycleBin: List<RecycleBinItem> = emptyList(),

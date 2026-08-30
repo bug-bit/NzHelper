@@ -27,7 +27,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         TaxonomyEntity::class,
         AiConfigEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,7 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
                 DB_NAME
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
         }
@@ -94,6 +94,32 @@ abstract class AppDatabase : RoomDatabase() {
                             "`key` TEXT NOT NULL, " +
                             "`value` TEXT NOT NULL, " +
                             "PRIMARY KEY(`key`))"
+                )
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `mode` TEXT NOT NULL DEFAULT 'SOLO_MALE'"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `climaxCount` INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `partnerClimaxCount` INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `partnerGender` TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `partnerName` TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `contraception` TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "UPDATE `sessions` SET `climaxCount` = CASE WHEN `climax` = 1 THEN 1 ELSE 0 END"
                 )
             }
         }

@@ -39,6 +39,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.core.util.formatTime
 import me.neko.nzhelper.ui.component.tag.TagChip
 import java.time.LocalDate
@@ -271,13 +273,29 @@ fun TimelineItem(
                         )
                     }
                 }
-                if (session.climax) {
+                if (session.climaxCount > 0) {
                     TagChip(
-                        name = "高潮",
+                        name = "高潮×${session.climaxCount}",
                         color = "rose",
                         icon = null,
                         small = true
                     )
+                }
+                if (session.sessionMode() == SessionMode.PAIR) {
+                    TagChip(
+                        name = "双人",
+                        color = "pink",
+                        icon = null,
+                        small = true
+                    )
+                    if (session.partnerClimaxCount > 0) {
+                        TagChip(
+                            name = "对方×${session.partnerClimaxCount}",
+                            color = "violet",
+                            icon = null,
+                            small = true
+                        )
+                    }
                 }
             }
 

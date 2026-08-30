@@ -70,9 +70,11 @@ import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
+import me.neko.nzhelper.core.datastore.RecordModeSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionFormState
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.service.TimerService
 import me.neko.nzhelper.feature.home.components.ConfirmResetDialog
 import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
@@ -317,8 +319,10 @@ fun HomeScreen(
                         onClick = {
                             val nowTime = LocalDateTime.now()
                             val suggested = AutoTagRules.suggest(context, nowTime)
+                            val defaultMode = RecordModeSettings.getDefaultMode(context)
                             formState = SessionFormState(
-                                categoryId = TagSettings.defaultCategory(context).id,
+                                mode = defaultMode.key,
+                                categoryId = TagSettings.defaultCategoryFor(context, defaultMode).id,
                                 tagIds = suggested,
                                 autoTagIds = suggested,
                                 manualYear = nowTime.year,
@@ -405,7 +409,10 @@ fun HomeScreen(
                 showConfirmDialog = false
                 val nowTime = LocalDateTime.now()
                 val suggested = AutoTagRules.suggest(context, nowTime)
+                val defaultMode = RecordModeSettings.getDefaultMode(context)
                 formState = formState.copy(
+                    mode = defaultMode.key,
+                    categoryId = TagSettings.defaultCategoryFor(context, defaultMode).id,
                     tagIds = suggested,
                     autoTagIds = suggested
                 )
@@ -440,12 +447,10 @@ fun HomeScreen(
                 val (merged, added) = AutoTagRules.merge(formState.tagIds, suggested)
                 merged to (formState.autoTagIds + added)
             }
-            val session = Session(
+            val session = buildSession(
                 timestamp = nowTime,
                 duration = elapsedSeconds,
-                remark = formState.remark,
-                rating = formState.rating,
-                climax = formState.climax,
+                formState = formState,
                 categoryId = formState.categoryId.ifBlank { TagSettings.defaultCategory(context).id },
                 tagIds = finalTags.first.toList()
             )
@@ -481,12 +486,10 @@ fun HomeScreen(
                     .show()
                 return@DetailsDialog
             }
-            val session = Session(
+            val session = buildSession(
                 timestamp = timestamp,
                 duration = duration,
-                remark = formState.remark,
-                rating = formState.rating,
-                climax = formState.climax,
+                formState = formState,
                 categoryId = formState.categoryId.ifBlank { TagSettings.defaultCategory(context).id },
                 tagIds = formState.tagIds.toList()
             )
@@ -497,6 +500,31 @@ fun HomeScreen(
             showManualAddDialog = false
         },
         onDismiss = { showManualAddDialog = false }
+    )
+}
+
+private fun buildSession(
+    timestamp: LocalDateTime,
+    duration: Int,
+    formState: SessionFormState,
+    categoryId: String,
+    tagIds: List<String>
+): Session {
+    val isPair = SessionMode.fromKey(formState.mode).isPair
+    return Session(
+        timestamp = timestamp,
+        duration = duration,
+        remark = formState.remark,
+        rating = formState.rating,
+        climax = false,
+        categoryId = categoryId,
+        tagIds = tagIds,
+        mode = formState.mode,
+        climaxCount = formState.climaxCount,
+        partnerClimaxCount = if (isPair) formState.partnerClimaxCount else 0,
+        partnerGender = if (isPair) formState.partnerGender else "",
+        partnerName = if (isPair) formState.partnerName else "",
+        contraception = if (isPair) formState.contraception else ""
     )
 }
 

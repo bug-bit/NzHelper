@@ -2,6 +2,8 @@ package me.neko.nzhelper.core.database
 
 import android.content.Context
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.feature.statistics.model.LatestSessionInfo
 import me.neko.nzhelper.feature.statistics.model.PeriodData
 import me.neko.nzhelper.feature.statistics.model.PeriodOverview
@@ -63,7 +65,10 @@ object StatisticsRepository {
             },
             yearCount = sessions.count {
                 calcIsWithinPeriod(it.timestamp, now, PeriodType.YEAR)
-            }
+            },
+            soloMaleCount = sessions.count { it.sessionMode() == SessionMode.SOLO_MALE },
+            soloFemaleCount = sessions.count { it.sessionMode() == SessionMode.SOLO_FEMALE },
+            pairCount = sessions.count { it.sessionMode() == SessionMode.PAIR }
         )
     }
 }

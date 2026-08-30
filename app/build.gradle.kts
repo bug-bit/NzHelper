@@ -28,7 +28,7 @@ fun getGitShortHash(): String {
 
 val commitCount = getGitCommitCount()
 val gitHash = getGitShortHash()
-val versionNameStr = "1.0.4-alpha.r$commitCount.$gitHash"
+val versionNameStr = "1.0.5-alpha.r$commitCount.$gitHash"
 
 val releaseKeystoreFile: String? = providers.environmentVariable("NZH_KEYSTORE_FILE").orNull
 val releaseKeystorePassword: String? = providers.environmentVariable("NZH_KEYSTORE_PASSWORD").orNull

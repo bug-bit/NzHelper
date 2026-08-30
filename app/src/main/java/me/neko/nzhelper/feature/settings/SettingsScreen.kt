@@ -19,9 +19,11 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Male
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.SmartToy
@@ -60,10 +62,12 @@ import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.crash.CrashLogManager
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
+import me.neko.nzhelper.core.datastore.RecordModeSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.settings.components.AgePickerBottomSheet
+import me.neko.nzhelper.feature.settings.components.RecordModePickerBottomSheet
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.SettingsItem
@@ -99,6 +103,11 @@ fun SettingsScreen(
     }
     val ageDisplay = if (age != null) "当前：$age 岁" else "未设置"
     var showAgeDialog by remember { mutableStateOf(false) }
+
+    var defaultMode by remember {
+        mutableStateOf(RecordModeSettings.getDefaultMode(context))
+    }
+    var showModeDialog by remember { mutableStateOf(false) }
 
     var lockEnabled by remember { mutableStateOf(AppLockManager.isLockEnabled(context)) }
     var hasGesturePassword by remember {
@@ -279,6 +288,13 @@ fun SettingsScreen(
                         subtitle = ageDisplay,
                         onClick = { showAgeDialog = true }
                     )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Outlined.Male,
+                        title = "记录模式",
+                        subtitle = "默认：${defaultMode.label}",
+                        onClick = { showModeDialog = true }
+                    )
                 }
             }
 
@@ -370,6 +386,13 @@ fun SettingsScreen(
             item {
                 SettingsCard {
                     SettingsItem(
+                        icon = Icons.Outlined.Favorite,
+                        title = "引导模式",
+                        subtitle = "回顾初次使用时的偏好设置流程",
+                        onClick = { rootNavController.navigate("onboarding") }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
                         icon = Icons.Outlined.Info,
                         title = "关于",
                         onClick = { rootNavController.navigate("about") }
@@ -389,6 +412,18 @@ fun SettingsScreen(
                 showAgeDialog = false
             },
             onDismiss = { showAgeDialog = false }
+        )
+    }
+
+    if (showModeDialog) {
+        RecordModePickerBottomSheet(
+            currentMode = defaultMode,
+            onConfirm = { selected ->
+                RecordModeSettings.setDefaultMode(context, selected)
+                defaultMode = selected
+                showModeDialog = false
+            },
+            onDismiss = { showModeDialog = false }
         )
     }
 }

@@ -45,12 +45,14 @@ class DocumentRendererInstrumentedTest {
     }
 
     private fun sampleDoc(): ReportDocument {
+        val modes = listOf("男性单人", "女性单人", "双人")
         val rows = (1..120).map { i ->
             listOf(
                 "2026-%02d-%02d 1%d:30".format(i % 12 + 1, i % 28 + 1, i % 10),
+                modes[i % 3],
                 if (i % 5 == 0) "1小时23分" else "${i % 30 + 1}分钟",
                 "%.1f".format(i % 6 + 0.5f),
-                if (i % 2 == 0) "是" else "否",
+                if (i % 3 == 2) "${i % 3 + 1}/2" else "${i % 2}",
                 "分类${i % 3 + 1}",
                 "标签一、标签二、标签三",
                 if (i % 7 == 0) "一条相当长的备注内容，用来验证单元格内文本自动换行之后行高是否正确扩展，以及跨页时是否正常分页。第 $i 条。"
@@ -69,7 +71,8 @@ class DocumentRendererInstrumentedTest {
                         listOf("时间范围", "2026-01-01 00:00 ~ 2026-08-30 12:00"),
                         listOf("总时长", "50小时20分"),
                         listOf("平均时长", "25 分钟"),
-                        listOf("平均评分", "3.5")
+                        listOf("平均评分", "3.5"),
+                        listOf("模式分布", "男性单人 40 · 女性单人 40 · 双人 40")
                     ),
                     weights = listOf(1f, 2.2f)
                 ),
@@ -85,9 +88,9 @@ class DocumentRendererInstrumentedTest {
                 ),
                 ReportBlock.Heading("记录明细"),
                 ReportBlock.Table(
-                    headers = listOf("日期", "时长", "评分", "高潮", "分类", "标签", "备注"),
+                    headers = listOf("日期", "模式", "时长", "评分", "高潮", "分类", "标签", "备注"),
                     rows = rows,
-                    weights = listOf(86f, 44f, 34f, 32f, 46f, 98f, 116f)
+                    weights = listOf(80f, 42f, 40f, 30f, 40f, 42f, 86f, 96f)
                 )
             )
         )

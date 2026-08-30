@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Token
+import androidx.compose.material.icons.outlined.Transgender
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material3.AlertDialog
@@ -53,7 +54,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,9 +62,11 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.ai.AiProvider
 import me.neko.nzhelper.core.ai.AiSettings
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.SettingsItem
@@ -93,6 +95,12 @@ private val ANALYSIS_RANGES = listOf(
     365 to "最近 1 年",
     0 to "全部记录"
 )
+private val AI_MODES = listOf(
+    "auto" to "自动（按记录判断）",
+    SessionMode.SOLO_MALE.key to "男性",
+    SessionMode.SOLO_FEMALE.key to "女性",
+    SessionMode.PAIR.key to "双人"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +117,7 @@ fun AiConfigScreen(
     var tone by remember { mutableStateOf("warm") }
     var length by remember { mutableStateOf("medium") }
     var custom by remember { mutableStateOf("") }
+    var aiMode by remember { mutableStateOf("auto") }
     var maxTokens by remember { mutableIntStateOf(500) }
     var refreshInterval by remember { mutableIntStateOf(0) }
     var dataOpts by remember { mutableStateOf(AiSettings.DataOptions()) }
@@ -119,6 +128,7 @@ fun AiConfigScreen(
     var showToneDialog by remember { mutableStateOf(false) }
     var showLengthDialog by remember { mutableStateOf(false) }
     var showCustomDialog by remember { mutableStateOf(false) }
+    var showAiModeDialog by remember { mutableStateOf(false) }
     var showMaxTokensDialog by remember { mutableStateOf(false) }
     var showRefreshDialog by remember { mutableStateOf(false) }
 
@@ -127,6 +137,7 @@ fun AiConfigScreen(
         tone = AiSettings.getPromptTone(context)
         length = AiSettings.getPromptLength(context)
         custom = AiSettings.getPromptCustom(context)
+        aiMode = AiSettings.getAiMode(context)
         maxTokens = AiSettings.getMaxTokens(context)
         refreshInterval = AiSettings.getRefreshIntervalMin(context)
         dataOpts = AiSettings.getDataOptions(context)
@@ -207,6 +218,14 @@ fun AiConfigScreen(
                         }",
                         enabled = hasProvider,
                         onClick = { showRefreshDialog = true }
+                    )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Outlined.Transgender,
+                        title = "AI 建议倾向",
+                        subtitle = AI_MODES.firstOrNull { it.first == aiMode }?.second ?: aiMode,
+                        enabled = hasProvider,
+                        onClick = { showAiModeDialog = true }
                     )
                     SettingsDivider()
                     SettingsItem(
@@ -461,6 +480,63 @@ fun AiConfigScreen(
         )
     }
 
+    // 建议倾向选择
+    if (showAiModeDialog) {
+        AlertDialog(
+            onDismissRequest = { showAiModeDialog = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            title = {
+                Text("建议倾向", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    AI_MODES.forEach { (v, label) ->
+                        val selected = aiMode == v
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (selected) MaterialTheme.colorScheme.primaryContainer.copy(
+                                        alpha = 0.4f
+                                    )
+                                    else Color.Transparent
+                                )
+                                .clickable { aiMode = v }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selected,
+                                onClick = null,
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                        alpha = 0.5f
+                                    )
+                                )
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showAiModeDialog = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large
+                ) { Text("确定") }
+            }
+        )
+    }
+
     // Max Tokens 滑块
     if (showMaxTokensDialog) {
         AlertDialog(
@@ -695,6 +771,7 @@ fun AiConfigScreen(
         onDispose {
             NzApplication.appScope.launch {
                 AiSettings.savePrompt(context, tone, length, custom)
+                AiSettings.setAiMode(context, aiMode)
                 AiSettings.setMaxTokens(context, maxTokens)
                 AiSettings.setRefreshIntervalMin(context, refreshInterval)
                 AiSettings.setDataOptions(context, dataOpts)

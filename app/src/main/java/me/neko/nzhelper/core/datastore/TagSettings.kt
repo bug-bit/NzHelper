@@ -11,6 +11,7 @@ import me.neko.nzhelper.core.database.AppDatabase
 import me.neko.nzhelper.core.database.entity.TaxonomyEntity
 import me.neko.nzhelper.core.model.CategoryDef
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.model.TagDef
 import me.neko.nzhelper.core.model.TagGroupDef
 import java.util.UUID
@@ -18,6 +19,8 @@ import java.util.UUID
 object TagSettings {
 
     const val DEFAULT_CATEGORY_ID: String = Session.DEFAULT_CATEGORY_ID
+    const val CAT_F_SELF_ID: String = "cat_f_self"
+    const val CAT_PAIR_ID: String = "cat_pair"
 
     private const val KEY_CATEGORIES = "categories"
     private const val KEY_GROUPS = "groups"
@@ -27,7 +30,9 @@ object TagSettings {
     private val gson: Gson get() = NzApplication.gson
 
     private val DEFAULT_CATEGORIES = listOf(
-        CategoryDef("cat_self", "手冲", "hand", "rose", 0)
+        CategoryDef("cat_self", "手冲", "hand", "rose", 0),
+        CategoryDef(CAT_F_SELF_ID, "自慰", "smile", "pink", 1),
+        CategoryDef(CAT_PAIR_ID, "双人", "heart-pulse", "rose", 2)
     )
 
     private val DEFAULT_GROUPS = listOf(
@@ -130,18 +135,36 @@ object TagSettings {
     }
 
     fun ensureDefaults(context: Context) {
-        if (readRaw(context, KEY_DEFAULTS_SEEDED) == "true") return
-        val defaultsJson = mapOf(
-            KEY_CATEGORIES to gson.toJson(DEFAULT_CATEGORIES),
-            KEY_GROUPS to gson.toJson(DEFAULT_GROUPS),
-            KEY_TAGS to gson.toJson(DEFAULT_TAGS)
-        )
-        for ((key, json) in defaultsJson) {
-            if (cache[key] == null) {
-                writeRaw(context, key, json)
+        if (readRaw(context, KEY_DEFAULTS_SEEDED) != "true") {
+            val defaultsJson = mapOf(
+                KEY_CATEGORIES to gson.toJson(DEFAULT_CATEGORIES),
+                KEY_GROUPS to gson.toJson(DEFAULT_GROUPS),
+                KEY_TAGS to gson.toJson(DEFAULT_TAGS)
+            )
+            for ((key, json) in defaultsJson) {
+                if (cache[key] == null) {
+                    writeRaw(context, key, json)
+                }
             }
+            writeRaw(context, KEY_DEFAULTS_SEEDED, "true")
         }
-        writeRaw(context, KEY_DEFAULTS_SEEDED, "true")
+        ensureModeDefaults(context)
+    }
+
+    private fun ensureModeDefaults(context: Context) {
+        val list = getCategories(context).toMutableList()
+        var changed = false
+        if (list.none { it.id == CAT_F_SELF_ID }) {
+            list += CategoryDef(CAT_F_SELF_ID, "自慰", "sparkles", "pink", list.size)
+            changed = true
+        }
+        if (list.none { it.id == CAT_PAIR_ID }) {
+            list += CategoryDef(CAT_PAIR_ID, "双人", "heart-pulse", "rose", list.size)
+            changed = true
+        }
+        if (changed) {
+            writeList(context, KEY_CATEGORIES, list.sortedBy { it.sortOrder })
+        }
     }
 
     fun getCategories(context: Context) =
@@ -173,10 +196,19 @@ object TagSettings {
     fun findTagByName(context: Context, name: String): TagDef? =
         getTags(context).firstOrNull { it.name == name }
 
-    fun defaultCategory(context: Context): CategoryDef {
+    fun defaultCategory(context: Context): CategoryDef =
+        defaultCategoryFor(context, SessionMode.SOLO_MALE)
+
+    /** 按记录模式返回推荐默认分类（找不到时回退到第一个分类）。 */
+    fun defaultCategoryFor(context: Context, mode: SessionMode): CategoryDef {
         ensureDefaults(context)
         val list = getCategories(context)
-        return list.firstOrNull { it.id == DEFAULT_CATEGORY_ID }
+        val preferred = when (mode) {
+            SessionMode.SOLO_MALE -> DEFAULT_CATEGORY_ID
+            SessionMode.SOLO_FEMALE -> CAT_F_SELF_ID
+            SessionMode.PAIR -> CAT_PAIR_ID
+        }
+        return list.firstOrNull { it.id == preferred }
             ?: list.firstOrNull()
             ?: DEFAULT_CATEGORIES.first()
     }
@@ -355,14 +387,33 @@ object TagSettings {
         }
     }
 
-    fun migrateLegacySession(context: Context, s: Session): Session {
-        val existingTagIds: List<String> = s.tagIds.orEmpty()
-        val catRaw: String = s.categoryId.orEmpty()
+    fun migrateLegacySession(context: Context, original: Session): Session {
+        val s = Session(
+            timestamp = original.timestamp,
+            duration = original.duration,
+            remark = original.remark.orEmpty(),
+            rating = original.rating,
+            climax = original.climax,
+            categoryId = original.categoryId.orEmpty(),
+            tagIds = original.tagIds.orEmpty(),
+            mode = original.mode.orEmpty().ifBlank { SessionMode.SOLO_MALE.key },
+            climaxCount = original.climaxCount,
+            partnerClimaxCount = original.partnerClimaxCount,
+            partnerGender = original.partnerGender.orEmpty(),
+            partnerName = original.partnerName.orEmpty(),
+            contraception = original.contraception.orEmpty(),
+            location = original.location.orEmpty(),
+            watchedMovie = original.watchedMovie,
+            mood = original.mood.orEmpty(),
+            props = original.props.orEmpty()
+        )
+        val existingTagIds: List<String> = s.tagIds
+        val catRaw: String = s.categoryId
         val existingCategoryId: String? = catRaw.takeIf { it.isNotBlank() }
-        val loc: String = s.location.orEmpty()
-        val mood: String = s.mood.orEmpty()
-        val props: String = s.props.orEmpty()
-        val remark: String = s.remark.orEmpty()
+        val loc: String = s.location
+        val mood: String = s.mood
+        val props: String = s.props
+        val remark: String = s.remark
         val watched: Boolean = s.watchedMovie
 
         if (existingTagIds.isNotEmpty()) {
@@ -373,7 +424,7 @@ object TagSettings {
                 mood = mood,
                 props = props,
                 remark = remark
-            )
+            ).normalized()
         }
         ensureDefaults(context)
         val ids = mutableListOf<String>()
@@ -396,7 +447,7 @@ object TagSettings {
             mood = mood,
             props = props,
             remark = remark
-        )
+        ).normalized()
     }
 
     private inline fun <reified T> readList(

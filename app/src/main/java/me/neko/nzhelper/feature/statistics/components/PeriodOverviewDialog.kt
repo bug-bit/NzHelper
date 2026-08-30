@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.StarRate
 import androidx.compose.material3.Button
@@ -361,16 +362,34 @@ private fun MetricsCard(overview: PeriodOverview) {
                 unit = "/ 5.0",
                 comparison = overview.avgRatingComparison
             )
-            val rate = if (overview.count > 0) overview.climaxCount * 100f / overview.count else 0f
+            val rate = if (overview.count > 0) {
+                overview.climaxSessionCount * 100f / overview.count
+            } else 0f
+            val unit = if (overview.pairCount > 0) {
+                "(我${overview.climaxCount}次 · 对方${overview.partnerClimaxCount}次)"
+            } else {
+                "(共${overview.climaxCount}次/${overview.count}场)"
+            }
             MetricRow(
                 icon = Icons.Outlined.Bolt,
                 iconBg = MaterialTheme.colorScheme.errorContainer,
                 iconFg = MaterialTheme.colorScheme.onErrorContainer,
                 label = "高潮率",
                 value = "%.0f%%".format(rate),
-                unit = "(${overview.climaxCount}/${overview.count})",
+                unit = unit,
                 comparison = overview.climaxComparison
             )
+            if (overview.pairCount > 0) {
+                MetricRow(
+                    icon = Icons.Outlined.Favorite,
+                    iconBg = MaterialTheme.colorScheme.primaryContainer,
+                    iconFg = MaterialTheme.colorScheme.onPrimaryContainer,
+                    label = "双人记录",
+                    value = "${overview.pairCount} 次",
+                    unit = "",
+                    comparison = ""
+                )
+            }
             MetricRow(
                 icon = Icons.Outlined.Schedule,
                 iconBg = MaterialTheme.colorScheme.secondaryContainer,

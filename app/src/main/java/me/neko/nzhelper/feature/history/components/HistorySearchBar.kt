@@ -1,5 +1,6 @@
 package me.neko.nzhelper.feature.history.components
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -7,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
@@ -29,7 +32,10 @@ import androidx.compose.ui.unit.dp
 enum class HistoryQuickFilter(val label: String) {
     ALL("全部"),
     CLIMAX("高潮"),
-    NO_CLIMAX("未高潮")
+    NO_CLIMAX("未高潮"),
+    MODE_SOLO_MALE("男"),
+    MODE_SOLO_FEMALE("女"),
+    MODE_PAIR("双人")
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -85,18 +91,24 @@ fun HistorySearchBar(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            HistoryQuickFilter.entries.forEach { filter ->
-                FilterChip(
-                    selected = activeFilter == filter,
-                    onClick = { onFilterChange(filter) },
-                    label = { Text(filter.label) }
-                )
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                HistoryQuickFilter.entries.forEach { filter ->
+                    FilterChip(
+                        selected = activeFilter == filter,
+                        onClick = { onFilterChange(filter) },
+                        label = { Text(filter.label) }
+                    )
+                }
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
 
             val countText = if (query.isEmpty() && activeFilter == HistoryQuickFilter.ALL) {
                 "共 $totalCount 条"

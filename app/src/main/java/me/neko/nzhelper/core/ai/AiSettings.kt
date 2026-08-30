@@ -62,6 +62,7 @@ object AiSettings {
     private const val KEY_LAST_AI_USAGE = "last_ai_usage"
     private const val KEY_DATA_OPTIONS = "ai_data_options"
     private const val KEY_ANALYSIS_DAYS = "analysis_days"
+    private const val KEY_AI_MODE = "ai_advice_mode"
 
     private val gson = NzApplication.gson
 
@@ -148,6 +149,14 @@ object AiSettings {
     suspend fun getPromptCustom(context: Context): String =
         getString(context, KEY_PROMPT_CUSTOM, "")
 
+    /** 建议倾向："auto" 或 SessionMode.key 之一。 */
+    suspend fun getAiMode(context: Context): String =
+        getString(context, KEY_AI_MODE, "auto")
+
+    suspend fun setAiMode(context: Context, mode: String) {
+        setString(context, KEY_AI_MODE, mode)
+    }
+
     suspend fun getMaxTokens(context: Context): Int =
         getInt(context, KEY_MAX_TOKENS, 500)
 
@@ -208,7 +217,8 @@ object AiSettings {
         MAX_GAP("max_gap", "间隔天数", "基础"),
         AVG_DURATION("avg_duration", "平均时长", "详情"),
         RATING("rating", "评分", "详情"),
-        CLIMAX("climax", "高潮", "详情"),
+        CLIMAX("climax", "高潮次数", "详情"),
+        PARTNER("partner", "双人详情", "详情"),
         TAGS("tags", "标签统计", "标签"),
         AGE("age", "年龄", "个人");
 
