@@ -2,6 +2,7 @@ package me.neko.nzhelper.navigation
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -43,6 +44,9 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
+import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.feature.addrecord.AddRecordFlow
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 import me.neko.nzhelper.feature.history.HistoryScreen
 import me.neko.nzhelper.feature.home.HomeScreen
@@ -198,6 +202,15 @@ fun MainScreen(
         }
     }
 
+    fun openAddRecord(flow: AddRecordFlow, elapsedSeconds: Int, session: Session?) {
+        val editArg = session?.let {
+            "&editSession=${Uri.encode(NzApplication.gson.toJson(it))}"
+        } ?: ""
+        rootNavController.navigate(
+            "add_record?flow=${flow.key}&elapsed=$elapsedSeconds$editArg"
+        )
+    }
+
     // ── UI ──
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -226,10 +239,18 @@ fun MainScreen(
                 when (BottomNavItem.items[page].route) {
                     BottomNavItem.Home.route -> HomeScreen(
                         isActive = isCurrentPage,
-                        stopRequestId = if (isLocked) 0 else stopRequestId
+                        stopRequestId = if (isLocked) 0 else stopRequestId,
+                        onOpenAddRecord = { flow, elapsed ->
+                            openAddRecord(flow, elapsed, null)
+                        }
                     )
                     BottomNavItem.Statistics.route -> StatisticsScreen(isActive = isCurrentPage)
-                    BottomNavItem.History.route -> HistoryScreen(isActive = isCurrentPage)
+                    BottomNavItem.History.route -> HistoryScreen(
+                        isActive = isCurrentPage,
+                        onEditRecord = { session ->
+                            openAddRecord(AddRecordFlow.EDIT, 0, session)
+                        }
+                    )
                     BottomNavItem.Settings.route -> SettingsScreen(
                         rootNavController = rootNavController
                     )

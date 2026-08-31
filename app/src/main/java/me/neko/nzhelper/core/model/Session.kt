@@ -22,6 +22,15 @@ data class Session(
     @SerializedName("partnerName") val partnerName: String = "",
     @SerializedName("contraception") val contraception: String = "",
 
+    // ── 双人记录扩展 ──
+    @SerializedName("partners") val partners: List<String> = emptyList(),
+    @SerializedName("initiator") val initiator: String = "",
+    @SerializedName("moods") val moods: List<String> = emptyList(),
+    @SerializedName("positions") val positions: List<String> = emptyList(),
+    @SerializedName("toys") val toys: List<String> = emptyList(),
+    @SerializedName("ejaculation") val ejaculation: String = "",
+    @SerializedName("locations") val locations: List<String> = emptyList(),
+
     // ── legacy（仅兼容旧数据 / 迁移用）──
     @SerializedName("location") val location: String = "",
     @SerializedName("watchedMovie") val watchedMovie: Boolean = false,
@@ -37,6 +46,41 @@ data class Session(
 }
 
 fun Session.sessionMode(): SessionMode = SessionMode.fromKey(mode)
+
+fun Session.allTagIds(): List<String> =
+    (tagIds + locations + moods + positions + toys +
+        listOfNotNull(ejaculation.takeIf { it.isNotBlank() })).distinct()
+
+fun SessionFormState.toSession(
+    timestamp: LocalDateTime,
+    duration: Int,
+    categoryId: String,
+    tagIds: List<String>
+): Session {
+    val isPair = SessionMode.fromKey(mode).isPair
+    return Session(
+        timestamp = timestamp,
+        duration = duration,
+        remark = remark,
+        rating = rating,
+        climax = false,
+        categoryId = categoryId,
+        tagIds = tagIds,
+        mode = mode,
+        climaxCount = climaxCount,
+        partnerClimaxCount = if (isPair) partnerClimaxCount else 0,
+        partnerGender = if (isPair) partnerGender else "",
+        partnerName = if (isPair) partnerName else "",
+        contraception = if (isPair) contraception else "",
+        partners = if (isPair) partners.toList() else emptyList(),
+        initiator = if (isPair) initiator else "",
+        locations = locations.toList(),
+        moods = moods.toList(),
+        positions = if (isPair) positions.toList() else emptyList(),
+        toys = if (isPair) toys.toList() else emptyList(),
+        ejaculation = if (isPair) ejaculation else ""
+    )
+}
 
 @Immutable
 data class RecycleBinItem(

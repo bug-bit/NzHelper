@@ -7,10 +7,13 @@ import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.BackupModules
+import me.neko.nzhelper.core.model.Contraception
+import me.neko.nzhelper.core.model.PartnerGender
 import me.neko.nzhelper.core.model.RecycleBinItem
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.model.TagDef
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.feature.statistics.util.formatDuration
 import java.text.SimpleDateFormat
@@ -234,9 +237,9 @@ object DocumentExporter {
                 sessionRow(s, categoryNames, tagNames)
             }
         return ReportBlock.Table(
-            headers = listOf("日期", "模式", "时长", "评分", "高潮", "分类", "标签", "备注"),
+            headers = listOf("日期", "模式", "时长", "评分", "高潮", "对方", "分类", "标签", "备注"),
             rows = rows,
-            weights = listOf(80f, 42f, 40f, 30f, 40f, 42f, 86f, 96f)
+            weights = listOf(80f, 42f, 40f, 30f, 40f, 96f, 42f, 86f, 96f)
         )
     }
 
@@ -252,9 +255,11 @@ object DocumentExporter {
                         sessionRow(item.session, categoryNames, tagNames)
             }
         return ReportBlock.Table(
-            headers = listOf("删除时间", "日期", "模式", "时长", "评分", "高潮", "分类", "标签", "备注"),
+            headers = listOf(
+                "删除时间", "日期", "模式", "时长", "评分", "高潮", "对方", "分类", "标签", "备注"
+            ),
             rows = rows,
-            weights = listOf(84f, 84f, 38f, 36f, 30f, 34f, 36f, 74f, 84f)
+            weights = listOf(84f, 84f, 38f, 36f, 30f, 34f, 86f, 36f, 74f, 84f)
         )
     }
 
@@ -272,8 +277,20 @@ object DocumentExporter {
         } else {
             "${s.climaxCount}"
         },
+        pairDetails(s, tagNames) ?: "—",
         categoryNames[s.categoryId]?.takeIf { it.isNotBlank() } ?: "未分类",
-        s.tagIds.mapNotNull { tagNames[it] }.joinToString("、").ifEmpty { "—" },
+        s.allTagIds().mapNotNull { tagNames[it] }.joinToString("、").ifEmpty { "—" },
         s.remark.trim().ifEmpty { "—" }
     )
+
+    private fun pairDetails(s: Session, tagNames: Map<String, String>): String? {
+        if (s.sessionMode() != SessionMode.PAIR) return null
+        val parts = mutableListOf<String>()
+        val partners = s.partners.mapNotNull { tagNames[it] }.joinToString("、")
+        if (partners.isNotEmpty()) parts += "伴侣：$partners"
+        if (s.initiator.isNotBlank()) parts += "发起者：${s.initiator}"
+        PartnerGender.fromKey(s.partnerGender)?.let { parts += "对方性别：${it.label}" }
+        parts += "避孕：${Contraception.fromKey(s.contraception).label}"
+        return parts.joinToString("｜")
+    }
 }

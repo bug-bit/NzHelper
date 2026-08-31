@@ -42,9 +42,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.database.SessionRepository
-import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
-import me.neko.nzhelper.core.model.SessionFormState
 import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.core.util.SessionSearch
@@ -55,11 +53,13 @@ import me.neko.nzhelper.feature.history.components.HistorySearchEmptyState
 import me.neko.nzhelper.feature.history.components.SessionDetailDialog
 import me.neko.nzhelper.feature.history.components.TimelineItem
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
-import me.neko.nzhelper.ui.component.dialog.DetailsDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun HistoryScreen(isActive: Boolean = false) {
+fun HistoryScreen(
+    isActive: Boolean = false,
+    onEditRecord: (Session) -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -77,9 +77,6 @@ fun HistoryScreen(isActive: Boolean = false) {
 
     var selectedSession by remember { mutableStateOf<Session?>(null) }
     var isViewingDetails by remember { mutableStateOf(false) }
-    var isEditing by remember { mutableStateOf(false) }
-
-    var editFormState by remember { mutableStateOf(SessionFormState()) }
 
     LaunchedEffect(isActive) {
         if (isActive) {
@@ -194,57 +191,13 @@ fun HistoryScreen(isActive: Boolean = false) {
             session = selectedSession!!,
             onDismiss = { isViewingDetails = false; selectedSession = null },
             onEditClick = {
+                val target = selectedSession
                 isViewingDetails = false
-                isEditing = true
-                val target = selectedSession!!
-                editFormState = SessionFormState(
-                    remark = target.remark,
-                    categoryId = target.categoryId,
-                    tagIds = target.tagIds.toSet(),
-                    mode = target.mode,
-                    climaxCount = target.climaxCount,
-                    partnerClimaxCount = target.partnerClimaxCount,
-                    partnerGender = target.partnerGender,
-                    partnerName = target.partnerName,
-                    contraception = target.contraception,
-                    rating = target.rating
-                )
+                selectedSession = null
+                if (target != null) onEditRecord(target)
             }
         )
     }
-
-    DetailsDialog(
-        show = isEditing,
-        formState = editFormState,
-        onFormStateChange = { editFormState = it },
-        onConfirm = {
-            val original = selectedSession ?: return@DetailsDialog
-            val index = sessions.indexOf(original)
-            if (index != -1) {
-                val isPair = SessionMode.fromKey(editFormState.mode).isPair
-                val updated = original.copy(
-                    remark = editFormState.remark,
-                    rating = editFormState.rating,
-                    categoryId = editFormState.categoryId.ifBlank {
-                        TagSettings.defaultCategory(
-                            context
-                        ).id
-                    },
-                    tagIds = editFormState.tagIds.toList(),
-                    mode = editFormState.mode,
-                    climaxCount = editFormState.climaxCount,
-                    partnerClimaxCount = if (isPair) editFormState.partnerClimaxCount else 0,
-                    partnerGender = if (isPair) editFormState.partnerGender else "",
-                    partnerName = if (isPair) editFormState.partnerName else "",
-                    contraception = if (isPair) editFormState.contraception else ""
-                )
-                sessions[index] = updated
-                scope.launch { SessionRepository.saveSessions(context, sessions) }
-            }
-            isEditing = false; selectedSession = null
-        },
-        onDismiss = { isEditing = false; selectedSession = null }
-    )
 
     if (showDeleteConfirmDialog && sessionToDelete != null) {
         ConfirmDialog(

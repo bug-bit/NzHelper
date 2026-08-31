@@ -15,14 +15,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import me.neko.nzhelper.core.datastore.OnboardingSettings
+import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.about.AboutScreen
 import me.neko.nzhelper.feature.about.OpenSourceScreen
+import me.neko.nzhelper.feature.addrecord.AddRecordFlow
+import me.neko.nzhelper.feature.addrecord.AddRecordScreen
 import me.neko.nzhelper.feature.ai.AiConfigScreen
 import me.neko.nzhelper.feature.ai.AiProviderListScreen
 import me.neko.nzhelper.feature.backup.BackupScreen
@@ -104,6 +109,46 @@ class MainActivity : AppCompatActivity() {
                             MainScreen(
                                 rootNavController = navController,
                                 stopRequest = stopRequest
+                            )
+                        }
+                        composable(
+                            route = "add_record?flow={flow}&elapsed={elapsed}&editSession={editSession}",
+                            arguments = listOf(
+                                navArgument("flow") {
+                                    type = NavType.StringType
+                                    defaultValue = AddRecordFlow.MANUAL.key
+                                },
+                                navArgument("elapsed") {
+                                    type = NavType.IntType
+                                    defaultValue = 0
+                                },
+                                navArgument("editSession") {
+                                    type = NavType.StringType
+                                    defaultValue = ""
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val editJson =
+                                backStackEntry.arguments?.getString("editSession").orEmpty()
+                            val editSession = remember(editJson) {
+                                if (editJson.isBlank()) {
+                                    null
+                                } else {
+                                    try {
+                                        NzApplication.gson.fromJson(editJson, Session::class.java)
+                                    } catch (_: Exception) {
+                                        null
+                                    }
+                                }
+                            }
+                            AddRecordScreen(
+                                flow = AddRecordFlow.fromKey(
+                                    backStackEntry.arguments?.getString("flow")
+                                ),
+                                elapsedSeconds =
+                                    backStackEntry.arguments?.getInt("elapsed") ?: 0,
+                                editSession = editSession,
+                                onClose = { navController.popBackStack() }
                             )
                         }
                         composable("about") {

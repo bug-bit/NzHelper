@@ -38,6 +38,7 @@ import me.neko.nzhelper.core.model.Contraception
 import me.neko.nzhelper.core.model.PartnerGender
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.core.util.formatTime
 import me.neko.nzhelper.ui.component.tag.TagChip
@@ -54,8 +55,17 @@ fun SessionDetailDialog(
     val categoryName = remember(session.categoryId) {
         TagSettings.getCategory(context, session.categoryId)?.name ?: ""
     }
-    val resolvedTags = remember(session.tagIds) {
-        session.tagIds.mapNotNull { TagSettings.getTag(context, it) }
+    val resolvedTags = remember(
+        session.tagIds, session.locations, session.moods, session.positions, session.toys,
+        session.ejaculation
+    ) {
+        session.allTagIds().mapNotNull { TagSettings.getTag(context, it) }
+    }
+    val partnerNames = remember(session.partners) {
+        session.partners.mapNotNull { TagSettings.getTag(context, it)?.name }.joinToString("、")
+    }
+    val ejaculationName = remember(session.ejaculation) {
+        session.ejaculation.takeIf { it.isNotBlank() }?.let { TagSettings.getTag(context, it)?.name }
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -97,6 +107,12 @@ fun SessionDetailDialog(
                     if (session.sessionMode() == SessionMode.PAIR) {
                         DetailRow("我的高潮", "${session.climaxCount} 次")
                         DetailRow("对方高潮", "${session.partnerClimaxCount} 次")
+                        if (partnerNames.isNotEmpty()) {
+                            DetailRow("伴侣", partnerNames)
+                        }
+                        if (session.initiator.isNotBlank()) {
+                            DetailRow("发起者", session.initiator)
+                        }
                         PartnerGender.fromKey(session.partnerGender)?.let {
                             DetailRow("对方性别", it.label)
                         }
@@ -104,6 +120,9 @@ fun SessionDetailDialog(
                             DetailRow("对方昵称", session.partnerName)
                         }
                         DetailRow("避孕措施", Contraception.fromKey(session.contraception).label)
+                        ejaculationName?.let {
+                            DetailRow("射精方式", it)
+                        }
                     } else {
                         DetailRow("高潮", "${session.climaxCount} 次")
                     }

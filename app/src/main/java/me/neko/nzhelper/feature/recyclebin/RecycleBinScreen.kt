@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.model.RecycleBinItem
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 import me.neko.nzhelper.core.datastore.RecycleBinSettings
@@ -227,8 +228,15 @@ private fun RecycleBinSessionCard(
     val categoryName = remember(item.session.categoryId) {
         TagSettings.getCategory(context, item.session.categoryId)?.name ?: ""
     }
-    val tagNames = remember(item.session.tagIds) {
-        item.session.tagIds.mapNotNull { TagSettings.getTag(context, it)?.name }
+    val tagNames = remember(
+        item.session.tagIds,
+        item.session.locations,
+        item.session.moods,
+        item.session.positions,
+        item.session.toys,
+        item.session.ejaculation
+    ) {
+        item.session.allTagIds().mapNotNull { TagSettings.getTag(context, it)?.name }
     }
 
     var currentTime by remember { mutableLongStateOf(System.currentTimeMillis()) }

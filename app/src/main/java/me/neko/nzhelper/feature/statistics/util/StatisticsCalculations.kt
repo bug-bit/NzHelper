@@ -5,6 +5,7 @@ import android.content.Context
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.feature.statistics.model.ActivityTimeData
 import me.neko.nzhelper.feature.statistics.model.HeatmapData
@@ -521,7 +522,7 @@ fun calculatePeriodOverview(
 
     val tagCountsCurrent = mutableMapOf<String, Int>()
     for (s in filtered) {
-        for (id in s.tagIds) {
+        for (id in s.allTagIds()) {
             tagCountsCurrent[id] = (tagCountsCurrent[id] ?: 0) + 1
         }
     }
@@ -545,7 +546,7 @@ fun calculatePeriodOverview(
     } else {
         val prevTagCounts = mutableMapOf<String, Int>()
         for (s in prevSessions) {
-            for (id in s.tagIds) {
+            for (id in s.allTagIds()) {
                 prevTagCounts[id] = (prevTagCounts[id] ?: 0) + 1
             }
         }
@@ -768,7 +769,7 @@ fun calculateTagTrendData(
 
     for (s in sessions) {
         val ts = s.timestamp
-        for (id in s.tagIds) {
+        for (id in s.allTagIds()) {
             if (ts >= recentCutoff) {
                 recent[id] = (recent[id] ?: 0) + 1
             } else if (ts >= previousCutoff) {

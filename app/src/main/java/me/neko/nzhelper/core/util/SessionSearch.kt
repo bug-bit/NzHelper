@@ -5,6 +5,7 @@ import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Contraception
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionMode
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.core.model.sessionMode
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -49,8 +50,8 @@ object SessionSearch {
         // 备注
         if (session.remark.lowercase(Locale.getDefault()).contains(kw)) return true
 
-        // 标签名
-        val tagNames = session.tagIds.mapNotNull { TagSettings.getTag(context, it)?.name }
+        // 标签名（含地点、情绪、体位、情趣玩具）
+        val tagNames = session.allTagIds().mapNotNull { TagSettings.getTag(context, it)?.name }
         if (tagNames.any { it.lowercase(Locale.getDefault()).contains(kw) }) return true
 
         // 分类名

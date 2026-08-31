@@ -13,14 +13,18 @@ data class CategoryDef(
 )
 
 @Immutable
-/// 标签分组 环境 / 时间 / 状态 / 行为 / 道具等
 data class TagGroupDef(
     val id: String,
     val name: String,
     val icon: String = "folder",
     val color: String = "slate",
-    val sortOrder: Int = 0
-)
+    val sortOrder: Int = 0,
+    val modeKeys: List<String> = emptyList()
+) {
+    /** 该分组是否适用于指定记录模式。 */
+    fun appliesTo(mode: SessionMode): Boolean =
+        modeKeys.isEmpty() || mode.key in modeKeys
+}
 
 @Immutable
 /// 单个标签 | 归属于某个分组 | name 全局唯一
@@ -31,5 +35,10 @@ data class TagDef(
     val icon: String = "hash",
     val color: String = "slate",
     val groupId: String,
-    val sortOrder: Int = 0
-)
+    val sortOrder: Int = 0,
+    val modeKeys: List<String> = emptyList()
+) {
+    /** 该标签是否适用于指定记录模式。 */
+    fun appliesTo(mode: SessionMode): Boolean =
+        modeKeys.isEmpty() || mode.key in modeKeys
+}

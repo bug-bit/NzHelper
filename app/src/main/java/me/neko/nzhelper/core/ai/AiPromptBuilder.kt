@@ -9,6 +9,7 @@ import me.neko.nzhelper.core.model.Contraception
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.model.TagDef
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.core.model.sessionMode
 
 object AiPromptBuilder {
@@ -135,7 +136,7 @@ object AiPromptBuilder {
                     emptyList()
                 }
             } else emptyList()
-            val tagCounts = sessions.flatMap { it.tagIds }
+            val tagCounts = sessions.flatMap { it.allTagIds() }
                 .groupingBy { it }.eachCount()
                 .entries
                 .sortedByDescending { it.value }

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.model.TagStat
 import me.neko.nzhelper.feature.statistics.util.isWithinPeriod
@@ -68,7 +69,7 @@ fun TagBarChartCard(
             }
             val counts = mutableMapOf<String, Int>()
             for (s in filtered) {
-                for (id in s.tagIds) {
+                for (id in s.allTagIds()) {
                     counts[id] = (counts[id] ?: 0) + 1
                 }
             }

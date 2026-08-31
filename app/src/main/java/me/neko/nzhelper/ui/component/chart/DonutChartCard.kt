@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.util.isWithinPeriod
 import me.neko.nzhelper.ui.theme.TagColors
@@ -84,7 +85,7 @@ fun DonutChartCard(
                 0 -> {
                     val counts = mutableMapOf<String, Int>()
                     for (s in filtered) {
-                        for (id in s.tagIds) {
+                        for (id in s.allTagIds()) {
                             counts[id] = (counts[id] ?: 0) + 1
                         }
                     }
@@ -99,7 +100,7 @@ fun DonutChartCard(
                 1 -> {
                     val groupCounts = mutableMapOf<String, Int>()
                     for (s in filtered) {
-                        for (id in s.tagIds) {
+                        for (id in s.allTagIds()) {
                             val tag = TagSettings.getTag(context, id) ?: continue
                             groupCounts[tag.groupId] = (groupCounts[tag.groupId] ?: 0) + 1
                         }

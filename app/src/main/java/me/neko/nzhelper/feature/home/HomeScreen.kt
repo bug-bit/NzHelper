@@ -48,7 +48,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,24 +65,18 @@ import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.ai.AiAnalyzer
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.core.ai.AiUsage
-import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
-import me.neko.nzhelper.core.datastore.RecordModeSettings
-import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
-import me.neko.nzhelper.core.model.SessionFormState
-import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.service.TimerService
+import me.neko.nzhelper.feature.addrecord.AddRecordFlow
 import me.neko.nzhelper.feature.home.components.ConfirmResetDialog
 import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
 import me.neko.nzhelper.feature.home.components.HealthTipCard
 import me.neko.nzhelper.feature.home.components.TimerCard
 import me.neko.nzhelper.feature.home.components.analyzeHealthTip
-import me.neko.nzhelper.ui.component.dialog.DetailsDialog
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class,
@@ -92,10 +85,10 @@ import java.time.LocalDateTime
 @Composable
 fun HomeScreen(
     isActive: Boolean = false,
-    stopRequestId: Int = 0
+    stopRequestId: Int = 0,
+    onOpenAddRecord: (AddRecordFlow, Int) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
@@ -137,10 +130,7 @@ fun HomeScreen(
         ?: remember { mutableStateOf(false) }
 
     var showConfirmDialog by remember { mutableStateOf(false) }
-    var showDetailsDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
-    var showManualAddDialog by remember { mutableStateOf(false) }
-    var formState by remember { mutableStateOf(SessionFormState()) }
     val sessions = remember { mutableStateListOf<Session>() }
     var isLoading by remember { mutableStateOf(true) }
     var handledStopRequestId by remember { mutableIntStateOf(0) }
@@ -262,7 +252,7 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text(text = "牛子小助手") },
+                title = { Text(text = "首页") },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -317,21 +307,7 @@ fun HomeScreen(
                 item {
                     OutlinedButton(
                         onClick = {
-                            val nowTime = LocalDateTime.now()
-                            val suggested = AutoTagRules.suggest(context, nowTime)
-                            val defaultMode = RecordModeSettings.getDefaultMode(context)
-                            formState = SessionFormState(
-                                mode = defaultMode.key,
-                                categoryId = TagSettings.defaultCategoryFor(context, defaultMode).id,
-                                tagIds = suggested,
-                                autoTagIds = suggested,
-                                manualYear = nowTime.year,
-                                manualMonth = nowTime.monthValue,
-                                manualDay = nowTime.dayOfMonth,
-                                manualHour = nowTime.hour,
-                                manualMinute = nowTime.minute
-                            )
-                            showManualAddDialog = true
+                            onOpenAddRecord(AddRecordFlow.MANUAL, 0)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -407,19 +383,10 @@ fun HomeScreen(
             onDismiss = { showConfirmDialog = false },
             onConfirm = {
                 showConfirmDialog = false
-                val nowTime = LocalDateTime.now()
-                val suggested = AutoTagRules.suggest(context, nowTime)
-                val defaultMode = RecordModeSettings.getDefaultMode(context)
-                formState = formState.copy(
-                    mode = defaultMode.key,
-                    categoryId = TagSettings.defaultCategoryFor(context, defaultMode).id,
-                    tagIds = suggested,
-                    autoTagIds = suggested
-                )
-                showDetailsDialog = true
                 context.startService(serviceIntent.apply {
                     action = TimerService.ACTION_PAUSE
                 })
+                onOpenAddRecord(AddRecordFlow.TIMER, elapsedSeconds)
             }
         )
     }
@@ -435,97 +402,6 @@ fun HomeScreen(
             }
         )
     }
-
-    DetailsDialog(
-        show = showDetailsDialog,
-        formState = formState,
-        onFormStateChange = { formState = it },
-        onConfirm = {
-            val nowTime = LocalDateTime.now()
-            val finalTags = run {
-                val suggested = AutoTagRules.suggest(context, nowTime)
-                val (merged, added) = AutoTagRules.merge(formState.tagIds, suggested)
-                merged to (formState.autoTagIds + added)
-            }
-            val session = buildSession(
-                timestamp = nowTime,
-                duration = elapsedSeconds,
-                formState = formState,
-                categoryId = formState.categoryId.ifBlank { TagSettings.defaultCategory(context).id },
-                tagIds = finalTags.first.toList()
-            )
-            sessions.add(0, session)
-            scope.launch { SessionRepository.saveSessions(context, sessions) }
-
-            formState = SessionFormState()
-            showDetailsDialog = false
-            context.startService(serviceIntent.apply { action = TimerService.ACTION_STOP })
-        },
-        onDismiss = {
-            showDetailsDialog = false
-            context.startService(serviceIntent.apply { action = TimerService.ACTION_START })
-        }
-    )
-
-    DetailsDialog(
-        show = showManualAddDialog,
-        formState = formState,
-        onFormStateChange = { formState = it },
-        showDurationField = true,
-        title = "手动添加记录",
-        onConfirm = {
-            val duration = formState.manualDurationSeconds
-            if (duration <= 0) {
-                Toast.makeText(context, "请输入时长", Toast.LENGTH_SHORT).show()
-                return@DetailsDialog
-            }
-            val timestamp = try {
-                formState.toLocalDateTime()
-            } catch (_: Exception) {
-                Toast.makeText(context, "日期时间无效，请重新选择", Toast.LENGTH_SHORT)
-                    .show()
-                return@DetailsDialog
-            }
-            val session = buildSession(
-                timestamp = timestamp,
-                duration = duration,
-                formState = formState,
-                categoryId = formState.categoryId.ifBlank { TagSettings.defaultCategory(context).id },
-                tagIds = formState.tagIds.toList()
-            )
-            sessions.add(0, session)
-            scope.launch { SessionRepository.saveSessions(context, sessions) }
-
-            formState = SessionFormState()
-            showManualAddDialog = false
-        },
-        onDismiss = { showManualAddDialog = false }
-    )
-}
-
-private fun buildSession(
-    timestamp: LocalDateTime,
-    duration: Int,
-    formState: SessionFormState,
-    categoryId: String,
-    tagIds: List<String>
-): Session {
-    val isPair = SessionMode.fromKey(formState.mode).isPair
-    return Session(
-        timestamp = timestamp,
-        duration = duration,
-        remark = formState.remark,
-        rating = formState.rating,
-        climax = false,
-        categoryId = categoryId,
-        tagIds = tagIds,
-        mode = formState.mode,
-        climaxCount = formState.climaxCount,
-        partnerClimaxCount = if (isPair) formState.partnerClimaxCount else 0,
-        partnerGender = if (isPair) formState.partnerGender else "",
-        partnerName = if (isPair) formState.partnerName else "",
-        contraception = if (isPair) formState.contraception else ""
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

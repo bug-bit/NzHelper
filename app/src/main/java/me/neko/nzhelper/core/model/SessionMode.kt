@@ -29,9 +29,15 @@ enum class PartnerGender(val key: String, val label: String) {
 
 @Immutable
 enum class Contraception(val key: String, val label: String) {
-    NONE("none", "无"),
+    NONE("none", "不避孕"),
     CONDOM("condom", "避孕套"),
-    PILL("pill", "避孕药品"),
+    PILL("pill", "避孕药"),
+    IUD("iud", "避孕环"),
+    IMPLANT("implant", "皮下埋植"),
+    INJECTION("injection", "避孕针"),
+    PATCH("patch", "避孕贴"),
+    SAFE_PERIOD("safe_period", "安全期"),
+    WITHDRAWAL("withdrawal", "体外射精"),
     OTHER("other", "其他");
 
     companion object {
