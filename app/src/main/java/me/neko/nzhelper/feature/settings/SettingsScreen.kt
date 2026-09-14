@@ -25,9 +25,11 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Male
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -64,6 +66,7 @@ import me.neko.nzhelper.core.crash.CrashLogManager
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.datastore.RecordModeSettings
 import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.datastore.UpdateSettings
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.settings.components.AgePickerBottomSheet
@@ -198,6 +201,21 @@ fun SettingsScreen(
         autoStartEnabled = enabled
         context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
             .edit { putBoolean("auto_start_timer", enabled) }
+    }
+
+    var checkUpdateEnabled by remember {
+        mutableStateOf(UpdateSettings.isCheckUpdateEnabled(context))
+    }
+    var betaUpdateEnabled by remember {
+        mutableStateOf(UpdateSettings.isBetaUpdateEnabled(context))
+    }
+    val toggleCheckUpdate: (Boolean) -> Unit = { enabled ->
+        checkUpdateEnabled = enabled
+        UpdateSettings.setCheckUpdateEnabled(context, enabled)
+    }
+    val toggleBetaUpdate: (Boolean) -> Unit = { enabled ->
+        betaUpdateEnabled = enabled
+        UpdateSettings.setBetaUpdateEnabled(context, enabled)
     }
 
     Scaffold(
@@ -378,6 +396,39 @@ fun SettingsScreen(
                             title = "回收站",
                             subtitle = "管理已删除记录",
                             onClick = { rootNavController.navigate("recycle_bin_settings") }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "更新") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Update,
+                            title = "检查新版本更新",
+                            subtitle = "启动时自动检查 GitHub 上的新版本",
+                            onClick = { toggleCheckUpdate(!checkUpdateEnabled) },
+                            trailingContent = {
+                                Switch(
+                                    checked = checkUpdateEnabled,
+                                    onCheckedChange = toggleCheckUpdate
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Science,
+                            title = "获取测试版更新",
+                            subtitle = "启动时自动检测每次推送的最新 CI 构建版本",
+                            onClick = { toggleBetaUpdate(!betaUpdateEnabled) },
+                            trailingContent = {
+                                Switch(
+                                    checked = betaUpdateEnabled,
+                                    onCheckedChange = toggleBetaUpdate
+                                )
+                            }
                         )
                     }
                 }

@@ -1,6 +1,7 @@
 package me.neko.nzhelper.ui.theme
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.DirectionsBike
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Air
@@ -29,7 +30,6 @@ import androidx.compose.material.icons.outlined.Chair
 import androidx.compose.material.icons.outlined.CleanHands
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Diamond
-import androidx.compose.material.icons.outlined.DirectionsBike
 import androidx.compose.material.icons.outlined.DirectionsBoat
 import androidx.compose.material.icons.outlined.DirectionsBus
 import androidx.compose.material.icons.outlined.DirectionsCar
@@ -239,7 +239,7 @@ object TagIcons {
         "flight" to Icons.Outlined.Flight,
         "boat" to Icons.Outlined.DirectionsBoat,
         "sailing" to Icons.Outlined.Sailing,
-        "bike" to Icons.Outlined.DirectionsBike,
+        "bike" to Icons.AutoMirrored.Outlined.DirectionsBike,
         "rocket" to Icons.Outlined.RocketLaunch,
         "map" to Icons.Outlined.Map,
         "navigation" to Icons.Outlined.Navigation,

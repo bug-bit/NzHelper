@@ -45,17 +45,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.datastore.UpdateSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.util.CiBuild
+import me.neko.nzhelper.core.util.UpdateChecker
 import me.neko.nzhelper.feature.addrecord.AddRecordFlow
-import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 import me.neko.nzhelper.feature.history.HistoryScreen
 import me.neko.nzhelper.feature.home.HomeScreen
-import me.neko.nzhelper.feature.lock.LockScreen
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
+import me.neko.nzhelper.feature.lock.LockScreen
 import me.neko.nzhelper.feature.settings.SettingsScreen
 import me.neko.nzhelper.feature.statistics.StatisticsScreen
-import me.neko.nzhelper.core.util.UpdateChecker
+import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 
 @Composable
 fun BottomNavigationBar(
@@ -154,6 +156,7 @@ fun MainScreen(
     val repo = "NzHelper"
     var showUpdateDialog by remember { mutableStateOf(false) }
     var latestTag by remember { mutableStateOf<String?>(null) }
+    var isCiUpdate by remember { mutableStateOf(false) }
 
     fun stripSuffix(version: String): String =
         version.trimStart('v', 'V').substringBefore('-')
@@ -181,11 +184,38 @@ fun MainScreen(
         return false
     }
 
+    data class LocalBuild(val basePrefix: String, val commitCount: Int, val shortHash: String)
+
+    fun parseLocalBuild(version: String): LocalBuild? {
+        val match = Regex("""(.*)\.r(\d+)\.([0-9a-f]+)$""").matchEntire(version)
+            ?: return null
+        val count = match.groupValues[2].toIntOrNull() ?: return null
+        return LocalBuild(match.groupValues[1], count, match.groupValues[3])
+    }
+
+    fun isCiNewer(local: LocalBuild, remote: CiBuild): Boolean =
+        remote.commitCount > local.commitCount ||
+                (remote.commitCount == local.commitCount && remote.shortHash != local.shortHash)
+
     LaunchedEffect(Unit) {
-        UpdateChecker.fetchLatestVersion(owner, repo)?.let { remoteVer ->
-            latestTag = remoteVer
-            if (isRemoteGreater(BuildConfig.VERSION_NAME, remoteVer)) {
-                showUpdateDialog = true
+        if (!UpdateSettings.isCheckUpdateEnabled(context)) return@LaunchedEffect
+        if (UpdateSettings.isBetaUpdateEnabled(context)) {
+            UpdateChecker.fetchLatestCiBuild(owner, repo)?.let { ci ->
+                val local = parseLocalBuild(BuildConfig.VERSION_NAME) ?: return@let
+                if (isCiNewer(local, ci)) {
+                    latestTag = "${local.basePrefix}.r${ci.commitCount}.${ci.shortHash}"
+                    isCiUpdate = true
+                    showUpdateDialog = true
+                }
+            }
+        } else {
+            UpdateChecker.fetchLatestRelease(owner, repo)?.let { release ->
+                val remoteVer = release.releaseName
+                latestTag = remoteVer
+                if (isRemoteGreater(BuildConfig.VERSION_NAME, remoteVer)) {
+                    isCiUpdate = false
+                    showUpdateDialog = true
+                }
             }
         }
     }
@@ -244,6 +274,7 @@ fun MainScreen(
                             openAddRecord(flow, elapsed, null)
                         }
                     )
+
                     BottomNavItem.Statistics.route -> StatisticsScreen(isActive = isCurrentPage)
                     BottomNavItem.History.route -> HistoryScreen(
                         isActive = isCurrentPage,
@@ -251,6 +282,7 @@ fun MainScreen(
                             openAddRecord(AddRecordFlow.EDIT, 0, session)
                         }
                     )
+
                     BottomNavItem.Settings.route -> SettingsScreen(
                         rootNavController = rootNavController
                     )
@@ -273,15 +305,21 @@ fun MainScreen(
                 title = "检测到新版本",
                 message = "当前版本：${BuildConfig.VERSION_NAME}\n" +
                         "最新版本：$latestTag\n\n" +
-                        "有新版本发布啦，是否前往 GitHub 下载？",
+                        if (isCiUpdate) {
+                            "检测到新的 CI 构建，是否前往 Telegram 频道下载？"
+                        } else {
+                            "有新版本发布啦，是否前往 GitHub 下载？"
+                        },
                 confirmText = "去下载",
                 confirmIcon = Icons.Default.Download,
                 dismissText = "稍后再说",
                 onConfirm = {
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        "https://github.com/$owner/$repo/releases/latest".toUri()
-                    )
+                    val url = if (isCiUpdate) {
+                        "https://t.me/NzzHelper"
+                    } else {
+                        "https://github.com/$owner/$repo/releases/latest"
+                    }
+                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                     context.startActivity(intent)
                 }
             )
