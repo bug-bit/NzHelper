@@ -139,12 +139,12 @@ jobs:
           APK_NAME=$(basename "${APK}")
           VERSION=$(echo "${APK_NAME}" | sed -E 's/^NzHelper_v(.*)_release\.apk$/\1/')
 
-          # 仅当版本号标记为 releases 时自动发布 GitHub Release
+          # 仅当版本号标记为 release/releases 时自动发布 GitHub Release
           case "${VERSION}" in
-            *-releases*)
+            *-release*)
               ;;
             *)
-              echo "版本 ${VERSION} 不是 releases 版本，跳过 GitHub Release"
+              echo "版本 ${VERSION} 不是 release 版本，跳过 GitHub Release"
               exit 0
               ;;
           esac
