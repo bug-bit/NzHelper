@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Slider
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -239,14 +240,17 @@ fun RatingSection(
             )
         }
 
-        Slider(
+        val sliderState = rememberSliderState(
             value = rating,
+            steps = 49,
+            trackRange = 0f..5f
+        )
+        Slider(
+            state = sliderState,
             onValueChange = {
                 val rounded = (it * 10).roundToInt() / 10f
                 onRatingChange(rounded.coerceIn(0f, 5f))
-            },
-            valueRange = 0f..5f,
-            steps = 49
+            }
         )
     }
 }

@@ -44,6 +44,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -567,11 +568,14 @@ fun AiConfigScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(Modifier.padding(8.dp))
-                    Slider(
+                    val sliderState = rememberSliderState(
                         value = maxTokens.toFloat(),
-                        onValueChange = { maxTokens = it.toInt() },
-                        valueRange = 40f..4000f,
                         steps = 98,
+                        trackRange = 40f..4000f
+                    )
+                    Slider(
+                        state = sliderState,
+                        onValueChange = { maxTokens = it.toInt() },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(

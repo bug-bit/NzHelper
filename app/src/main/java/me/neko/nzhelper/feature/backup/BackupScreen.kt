@@ -54,6 +54,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -899,11 +900,14 @@ private fun RetentionCountDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.height(8.dp))
-                Slider(
-                    value = value.toFloat(),
-                    onValueChange = { value = it.toInt() },
-                    valueRange = BackupSettings.MIN_KEEP.toFloat()..BackupSettings.MAX_KEEP.toFloat(),
+                val sliderState = rememberSliderState(
+                    value = initialValue.toFloat(),
                     steps = BackupSettings.MAX_KEEP - BackupSettings.MIN_KEEP - 1,
+                    trackRange = BackupSettings.MIN_KEEP.toFloat()..BackupSettings.MAX_KEEP.toFloat()
+                )
+                Slider(
+                    state = sliderState,
+                    onValueChange = { value = it.toInt() },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(

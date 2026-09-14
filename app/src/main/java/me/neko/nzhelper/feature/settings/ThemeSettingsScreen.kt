@@ -52,6 +52,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -287,8 +288,11 @@ fun ThemeSettingsScreen(
                             enabled = hasBackground,
                             onClick = {},
                             trailingContent = {
+                                val opacityState = rememberSliderState(
+                                    value = themeState.backgroundOpacity
+                                )
                                 Slider(
-                                    value = themeState.backgroundOpacity,
+                                    state = opacityState,
                                     onValueChange = { opacity ->
                                         themeState.backgroundOpacity = opacity
                                         ThemeSettings.setBackgroundOpacity(context, opacity)
@@ -311,13 +315,16 @@ fun ThemeSettingsScreen(
                             enabled = hasBackground,
                             onClick = {},
                             trailingContent = {
-                                Slider(
+                                val blurState = rememberSliderState(
                                     value = themeState.backgroundBlur,
+                                    trackRange = 0f..25f
+                                )
+                                Slider(
+                                    state = blurState,
                                     onValueChange = { blur ->
                                         themeState.backgroundBlur = blur
                                         ThemeSettings.setBackgroundBlur(context, blur)
                                     },
-                                    valueRange = 0f..25f,
                                     modifier = Modifier.width(160.dp),
                                     enabled = hasBackground
                                 )
@@ -332,8 +339,11 @@ fun ThemeSettingsScreen(
                             enabled = hasBackground,
                             onClick = {},
                             trailingContent = {
+                                val cardOpacityState = rememberSliderState(
+                                    value = themeState.cardOpacity
+                                )
                                 Slider(
-                                    value = themeState.cardOpacity,
+                                    state = cardOpacityState,
                                     onValueChange = { opacity ->
                                         themeState.cardOpacity = opacity
                                         ThemeSettings.setCardOpacity(context, opacity)
@@ -352,8 +362,11 @@ fun ThemeSettingsScreen(
                             enabled = hasBackground,
                             onClick = {},
                             trailingContent = {
+                                val dialogOpacityState = rememberSliderState(
+                                    value = themeState.dialogOpacity
+                                )
                                 Slider(
-                                    value = themeState.dialogOpacity,
+                                    state = dialogOpacityState,
                                     onValueChange = { opacity ->
                                         themeState.dialogOpacity = opacity
                                         ThemeSettings.setDialogOpacity(context, opacity)
