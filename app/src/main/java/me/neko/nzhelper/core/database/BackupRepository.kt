@@ -150,7 +150,7 @@ object BackupRepository {
 
         if (modules.sessions) {
             val currentSessions = SessionRepository.loadSessions(context)
-            val mergedSessions = (currentSessions + payload.sessions)
+            val mergedSessions = (currentSessions + payload.sessions.orEmpty())
                 .distinctBy { Mappers.sessionKey(it) }
                 .map { TagSettings.migrateLegacySession(context, it) }
             SessionRepository.saveSessions(context, mergedSessions, triggerAutoBackup = false)
@@ -159,7 +159,7 @@ object BackupRepository {
 
         if (modules.recycleBin) {
             val currentRecycle = RecycleRepository.loadRecycleBin(context)
-            val mergedRecycle = (currentRecycle + payload.recycleBin)
+            val mergedRecycle = (currentRecycle + payload.recycleBin.orEmpty())
                 .distinctBy { Mappers.sessionKey(it.session) }
                 .map { it.copy(session = TagSettings.migrateLegacySession(context, it.session)) }
             RecycleRepository.saveRecycleBin(context, mergedRecycle)
@@ -173,7 +173,7 @@ object BackupRepository {
                 payload.tagGroups,
                 payload.tags
             )
-            TagSettings.mergeArchivedTags(context, payload.archivedTags)
+            TagSettings.mergeArchivedTags(context, payload.archivedTags.orEmpty())
         }
 
         if (modules.aiConfig && !payload.aiConfig.isNullOrEmpty()) {
@@ -190,9 +190,11 @@ object BackupRepository {
         val payload: WebDavBackupPayload,
         val legacySessionsOnly: Boolean = false
     ) {
-        val sessionCount: Int get() = payload.sessions.size
-        val recycleCount: Int get() = payload.recycleBin.size
-        val taxonomyCount: Int get() = payload.categories.size + payload.tagGroups.size + payload.tags.size
+        val sessionCount: Int get() = payload.sessions.orEmpty().size
+        val recycleCount: Int get() = payload.recycleBin.orEmpty().size
+        val taxonomyCount: Int get() = payload.categories.orEmpty().size +
+                payload.tagGroups.orEmpty().size +
+                payload.tags.orEmpty().size
         val aiConfigCount: Int get() = payload.aiConfig?.size ?: 0
     }
 
@@ -204,6 +206,7 @@ object BackupRepository {
             ?: return@withContext null to "备份密码不匹配或文件已损坏"
         val payload = try {
             gson.fromJson(String(plain, Charsets.UTF_8), WebDavBackupPayload::class.java)
+                .normalized()
         } catch (_: Exception) {
             null
         } ?: return@withContext null to "备份内容格式无效"
@@ -225,7 +228,7 @@ object BackupRepository {
         }
         val text = String(bytes, Charsets.UTF_8)
         val payload = try {
-            gson.fromJson(text, WebDavBackupPayload::class.java)
+            gson.fromJson(text, WebDavBackupPayload::class.java).normalized()
         } catch (_: Exception) {
             null
         }
@@ -357,7 +360,7 @@ object BackupRepository {
 
                 val text = String(body, Charsets.UTF_8)
                 val legacyPayload = try {
-                    gson.fromJson(text, WebDavBackupPayload::class.java)
+                    gson.fromJson(text, WebDavBackupPayload::class.java).normalized()
                 } catch (_: Exception) {
                     null
                 }

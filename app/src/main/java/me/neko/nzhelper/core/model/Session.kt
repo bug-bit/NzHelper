@@ -94,14 +94,23 @@ data class RecycleBinItem(
 data class WebDavBackupPayload(
     @SerializedName("version") val version: Int = 3,
     @SerializedName("exportedAt") val exportedAt: Long,
-    @SerializedName("sessions") val sessions: List<Session> = emptyList(),
-    @SerializedName("recycleBin") val recycleBin: List<RecycleBinItem> = emptyList(),
-    @SerializedName("categories") val categories: List<CategoryDef> = emptyList(),
-    @SerializedName("tagGroups") val tagGroups: List<TagGroupDef> = emptyList(),
-    @SerializedName("tags") val tags: List<TagDef> = emptyList(),
-    @SerializedName("archivedTags") val archivedTags: List<TagDef> = emptyList(),
+    @SerializedName("sessions") val sessions: List<Session>? = emptyList(),
+    @SerializedName("recycleBin") val recycleBin: List<RecycleBinItem>? = emptyList(),
+    @SerializedName("categories") val categories: List<CategoryDef>? = emptyList(),
+    @SerializedName("tagGroups") val tagGroups: List<TagGroupDef>? = emptyList(),
+    @SerializedName("tags") val tags: List<TagDef>? = emptyList(),
+    @SerializedName("archivedTags") val archivedTags: List<TagDef>? = emptyList(),
     @SerializedName("aiConfig") val aiConfig: Map<String, String>? = null
-)
+) {
+    fun normalized(): WebDavBackupPayload = copy(
+        sessions = sessions.orEmpty(),
+        recycleBin = recycleBin.orEmpty(),
+        categories = categories.orEmpty(),
+        tagGroups = tagGroups.orEmpty(),
+        tags = tags.orEmpty(),
+        archivedTags = archivedTags.orEmpty()
+    )
+}
 
 @Immutable
 data class BackupModules(
