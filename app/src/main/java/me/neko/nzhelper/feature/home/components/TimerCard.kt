@@ -15,9 +15,12 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,23 +31,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Stop
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,15 +63,18 @@ import androidx.compose.ui.unit.sp
 import me.neko.nzhelper.core.util.formatTime
 import me.neko.nzhelper.feature.statistics.model.LatestSessionInfo
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun TimerCard(
     elapsedSeconds: Int,
     isRunning: Boolean,
     latestInfo: LatestSessionInfo? = null,
     isLoading: Boolean = false,
+    floatingEnabled: Boolean = false,
     onToggleRun: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
+    onToggleFloating: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val primary = MaterialTheme.colorScheme.primary
@@ -129,6 +138,31 @@ fun TimerCard(
         else -> "准备开始"
     }
 
+    var selectedAction by remember { mutableIntStateOf(1) }
+
+    val resetToggleColors = ToggleButtonDefaults.colors(
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        contentColor = onSurfaceVariant,
+        checkedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        checkedContentColor = onSurfaceVariant
+    )
+    val stopToggleColors = ToggleButtonDefaults.colors(
+        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+        contentColor = MaterialTheme.colorScheme.error,
+        checkedContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+        checkedContentColor = MaterialTheme.colorScheme.error
+    )
+    val runToggleColors = ToggleButtonDefaults.colors(
+        containerColor = if (isRunning) MaterialTheme.colorScheme.tertiary
+        else MaterialTheme.colorScheme.primary,
+        contentColor = if (isRunning) MaterialTheme.colorScheme.onTertiary
+        else MaterialTheme.colorScheme.onPrimary,
+        checkedContainerColor = if (isRunning) MaterialTheme.colorScheme.tertiary
+        else MaterialTheme.colorScheme.primary,
+        checkedContentColor = if (isRunning) MaterialTheme.colorScheme.onTertiary
+        else MaterialTheme.colorScheme.onPrimary
+    )
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -145,24 +179,35 @@ fun TimerCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier
-                        .size(if (isRunning) 10.dp else 8.dp)
-                        .scale(dotScale)
-                        .clip(CircleShape)
-                        .background(dotColor.copy(alpha = dotAlpha))
-                )
-                Crossfade(
-                    targetState = statusText,
-                    animationSpec = tween(300),
-                    label = "statusText"
-                ) { text ->
-                    Text(
-                        text = text,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = statusColor
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(if (isRunning) 10.dp else 8.dp)
+                            .scale(dotScale)
+                            .clip(CircleShape)
+                            .background(dotColor.copy(alpha = dotAlpha))
                     )
+                    Crossfade(
+                        targetState = statusText,
+                        animationSpec = tween(300),
+                        label = "statusText"
+                    ) { text ->
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = statusColor
+                        )
+                    }
                 }
             }
 
@@ -193,19 +238,13 @@ fun TimerCard(
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "加载中...",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = onSurfaceVariant
                         )
                     } else if (latestInfo != null) {
-                        Icon(
-                            Icons.Outlined.Schedule, null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
                         Text(
                             "距上次 · ${latestInfo.displayDate}",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
@@ -224,53 +263,96 @@ fun TimerCard(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(4.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f))
+                    .clickable { onToggleFloating() }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                FilledIconButton(
-                    onClick = onReset,
-                    modifier = Modifier.size(44.dp),
-                    shape = CircleShape,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                        contentColor = onSurfaceVariant
-                    )
+                Text(
+                    "计时悬浮窗",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (floatingEnabled) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        onSurfaceVariant
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier.size(width = 38.dp, height = 20.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Replay, "重置", modifier = Modifier.size(20.dp))
-                }
-                Button(
-                    onClick = onToggleRun,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRunning) MaterialTheme.colorScheme.tertiary
-                        else MaterialTheme.colorScheme.primary
+                    Switch(
+                        checked = floatingEnabled,
+                        onCheckedChange = null,
+                        modifier = Modifier.scale(0.6f)
                     )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                ToggleButton(
+                    checked = selectedAction == 0,
+                    onCheckedChange = {
+                        selectedAction = 0
+                        onReset()
+                    },
+                    shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(
+                        checkedShape = ButtonGroupDefaults.connectedLeadingButtonShape
+                    ),
+                    colors = resetToggleColors,
+                ) {
+                    Icon(Icons.Rounded.Replay, "重置", modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                    Text("重置")
+                }
+                ToggleButton(
+                    checked = selectedAction == 1,
+                    onCheckedChange = {
+                        selectedAction = 1
+                        onToggleRun()
+                    },
+                    shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(
+                        shape = ButtonGroupDefaults.connectedButtonCheckedShape
+                    ),
+                    modifier = Modifier.weight(1f),
+                    colors = runToggleColors,
                 ) {
                     Icon(
-                        imageVector = if (isRunning) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        imageVector = if (isRunning) Icons.Rounded.Pause
+                        else Icons.Rounded.PlayArrow,
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
                     Text(if (isRunning) "暂停" else "开始")
                 }
-                FilledIconButton(
-                    onClick = onStop,
-                    modifier = Modifier.size(44.dp),
-                    shape = CircleShape,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
+                ToggleButton(
+                    checked = selectedAction == 2,
+                    onCheckedChange = {
+                        selectedAction = 2
+                        onStop()
+                    },
+                    shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(
+                        checkedShape = ButtonGroupDefaults.connectedTrailingButtonShape
+                    ),
+                    colors = stopToggleColors,
                 ) {
-                    Icon(Icons.Rounded.Stop, "结束", modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.Stop, "结束", modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                    Text("结束")
                 }
             }
         }

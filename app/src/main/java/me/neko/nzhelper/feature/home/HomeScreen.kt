@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.PictureInPictureAlt
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Celebration
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -69,6 +73,7 @@ import me.neko.nzhelper.core.ai.AiUsage
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
+import me.neko.nzhelper.core.datastore.TimerSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.service.TimerService
 import me.neko.nzhelper.feature.addrecord.AddRecordFlow
@@ -77,6 +82,7 @@ import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
 import me.neko.nzhelper.feature.home.components.HealthTipCard
 import me.neko.nzhelper.feature.home.components.TimerCard
 import me.neko.nzhelper.feature.home.components.analyzeHealthTip
+import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 import java.time.LocalDate
 
 @OptIn(
@@ -132,6 +138,18 @@ fun HomeScreen(
 
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+
+    var floatingTimerEnabled by remember { mutableStateOf(TimerSettings.isFloatingEnabled(context)) }
+    var showOverlayPermissionDialog by remember { mutableStateOf(false) }
+    var pendingFloatingGrant by remember { mutableStateOf(false) }
+    val toggleFloatingTimer: (Boolean) -> Unit = { enabled ->
+        if (enabled && !Settings.canDrawOverlays(context)) {
+            showOverlayPermissionDialog = true
+        } else {
+            floatingTimerEnabled = enabled
+            TimerSettings.setFloatingEnabled(context, enabled)
+        }
+    }
     val sessions = remember { mutableStateListOf<Session>() }
     var isLoading by remember { mutableStateOf(true) }
     var handledStopRequestId by remember { mutableIntStateOf(0) }
@@ -140,7 +158,15 @@ fun HomeScreen(
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) resumeKey++
+            if (event == Lifecycle.Event.ON_RESUME) {
+                resumeKey++
+                floatingTimerEnabled = TimerSettings.isFloatingEnabled(context)
+                if (pendingFloatingGrant && Settings.canDrawOverlays(context)) {
+                    pendingFloatingGrant = false
+                    floatingTimerEnabled = true
+                    TimerSettings.setFloatingEnabled(context, true)
+                }
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -275,7 +301,12 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 4.dp,
+                    bottom = 16.dp
+                )
             ) {
                 item {
                     TimerCard(
@@ -283,6 +314,8 @@ fun HomeScreen(
                         isRunning = isServiceRunning,
                         latestInfo = latestInfo,
                         isLoading = isLoading,
+                        floatingEnabled = floatingTimerEnabled,
+                        onToggleFloating = { toggleFloatingTimer(!floatingTimerEnabled) },
                         onToggleRun = {
                             if (isServiceRunning) {
                                 context.startService(serviceIntent.apply {
@@ -381,6 +414,31 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    if (showOverlayPermissionDialog) {
+        CustomAppAlertDialog(
+            onDismissRequest = { showOverlayPermissionDialog = false },
+            iconVector = Icons.Outlined.PictureInPictureAlt,
+            title = "需要悬浮窗权限",
+            message = "计时悬浮窗需要「显示在其他应用上层」权限，请在系统设置中开启后再打开此开关。",
+            confirmText = "去授权",
+            confirmIcon = Icons.Outlined.Settings,
+            dismissText = "取消",
+            onConfirm = {
+                showOverlayPermissionDialog = false
+                pendingFloatingGrant = true
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    "package:${context.packageName}".toUri()
+                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        )
     }
 
     if (showConfirmDialog) {

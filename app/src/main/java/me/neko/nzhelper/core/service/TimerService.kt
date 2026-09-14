@@ -3,11 +3,24 @@ package me.neko.nzhelper.core.service
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.PixelFormat
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Binder
 import android.os.IBinder
 import android.os.SystemClock
+import android.provider.Settings
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewConfiguration
+import android.view.WindowManager
+import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.toColorInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,8 +34,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.MainActivity
 import me.neko.nzhelper.R
+import me.neko.nzhelper.core.datastore.TimerSettings
 import me.neko.nzhelper.core.notification.NotificationUtil
 import me.neko.nzhelper.core.util.formatTime
+import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -46,6 +61,9 @@ class TimerService : Service() {
 
     /** 当前计时 tick 协程，暂停/停止/重置时取消 */
     private var tickJob: Job? = null
+
+    /** 计时悬浮窗视图，null 表示未显示 */
+    private var floatingView: FloatingTimerView? = null
 
     override fun onBind(intent: Intent): IBinder = binder
 
@@ -76,12 +94,14 @@ class TimerService : Service() {
                     accumulatedSec + ((SystemClock.elapsedRealtime() - baseTimeMs) / 1000).toInt()
                 if (_elapsedSec.value != currentSec) {
                     _elapsedSec.value = currentSec
+                    updateFloatingWindow()
                 }
                 delay((1000L - (SystemClock.elapsedRealtime() % 1000)).milliseconds)
             }
         }
 
         startForeground(NOTIF_ID, buildNotification(_elapsedSec.value))
+        showFloatingWindow()
     }
 
     private fun pauseTimer() {
@@ -94,6 +114,7 @@ class TimerService : Service() {
         baseTimeMs = 0L
 
         updateNotification(accumulatedSec)
+        updateFloatingWindow()
     }
 
     private fun stopTimer() {
@@ -103,6 +124,7 @@ class TimerService : Service() {
         _elapsedSec.value = 0
         baseTimeMs = 0L
 
+        removeFloatingWindow()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -114,6 +136,7 @@ class TimerService : Service() {
         _elapsedSec.value = 0
         baseTimeMs = 0L
 
+        removeFloatingWindow()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -189,9 +212,143 @@ class TimerService : Service() {
         notificationManager.notify(NOTIF_ID, notif)
     }
 
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
+
+    private fun showFloatingWindow() {
+        if (!TimerSettings.isFloatingEnabled(this)) return
+        if (!Settings.canDrawOverlays(this)) return
+        if (floatingView != null) return
+        val wm = getSystemService(WINDOW_SERVICE) as? WindowManager ?: return
+
+        val view = FloatingTimerView(this).apply {
+            text = formatTime(_elapsedSec.value)
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            fontFeatureSettings = "tnum"
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor("#B3202020".toColorInt())
+            }
+            onTap = {
+                val intent = Intent(this@TimerService, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+                try {
+                    this@TimerService.startActivity(intent)
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        view.measure(
+            View.MeasureSpec.makeMeasureSpec(
+                0, View.MeasureSpec.UNSPECIFIED
+            ),
+            View.MeasureSpec.makeMeasureSpec(
+                0, View.MeasureSpec.UNSPECIFIED
+            )
+        )
+
+        (view.background as? GradientDrawable)?.cornerRadius = view.measuredHeight / 2f
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = resources.displayMetrics.widthPixels - view.measuredWidth - dp(16)
+            y = dp(96)
+        }
+
+        attachFloatingTouch(view, params, wm)
+
+        try {
+            wm.addView(view, params)
+            floatingView = view
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun attachFloatingTouch(
+        view: FloatingTimerView,
+        params: WindowManager.LayoutParams,
+        wm: WindowManager
+    ) {
+        val slop = ViewConfiguration.get(this).scaledTouchSlop
+        var downRawX = 0f
+        var downRawY = 0f
+        var downX = 0
+        var downY = 0
+        var moved = false
+
+        view.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downRawX = event.rawX
+                    downRawY = event.rawY
+                    downX = params.x
+                    downY = params.y
+                    moved = false
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downRawX
+                    val dy = event.rawY - downRawY
+                    if (!moved && (abs(dx) > slop || abs(dy) > slop)) moved = true
+                    if (moved) {
+                        params.x = downX + dx.toInt()
+                        params.y = downY + dy.toInt()
+                        try {
+                            wm.updateViewLayout(view, params)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) {
+                        view.performClick()
+                    }
+                    true
+                }
+
+                else -> false
+            }
+        }
+    }
+
+    private fun updateFloatingWindow() {
+        val view = floatingView ?: return
+        val elapsed = _elapsedSec.value
+        val running = _isRunning.value
+        view.text = formatTime(elapsed)
+        view.setTextColor(if (running) Color.WHITE else "#B3FFFFFF".toColorInt())
+    }
+
+    private fun removeFloatingWindow() {
+        val view = floatingView ?: return
+        floatingView = null
+        try {
+            (getSystemService(WINDOW_SERVICE) as? WindowManager)?.removeView(view)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     override fun onDestroy() {
         tickJob?.cancel()
         serviceScope.cancel()
+        removeFloatingWindow()
         super.onDestroy()
     }
 
@@ -201,5 +358,15 @@ class TimerService : Service() {
         const val ACTION_STOP = "me.neko.nzhelper.ACTION_STOP"
         const val ACTION_RESET = "me.neko.nzhelper.ACTION_RESET"
         const val NOTIF_ID = 1001
+    }
+}
+
+private class FloatingTimerView(context: Context) : AppCompatTextView(context) {
+    var onTap: (() -> Unit)? = null
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        onTap?.invoke()
+        return true
     }
 }
