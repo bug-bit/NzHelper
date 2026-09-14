@@ -2,10 +2,13 @@ package me.neko.nzhelper.core.database
 
 import android.content.Context
 import android.net.Uri
+import android.util.Base64
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.database.entity.AiConfigEntity
+import me.neko.nzhelper.core.datastore.BackupSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.BackupModules
 import me.neko.nzhelper.core.model.WebDavBackupPayload
@@ -15,6 +18,10 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.xmlpull.v1.XmlPullParser
+import java.text.SimpleDateFormat
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -22,8 +29,21 @@ import java.util.concurrent.TimeUnit
 object BackupRepository {
 
     private const val WEBDAV_BACKUP_FILENAME = "nzHelper_backup.nz"
+    private const val BACKUP_FILENAME_PREFIX = "nzHelper_backup_"
+    private val BACKUP_FILENAME_PATTERN =
+        Regex("""nzHelper_backup_(auto|manual)_(\d{8}_\d{6}_\d{3})\.nz""")
     private const val CONNECT_TIMEOUT = 15_000L
     private const val READ_TIMEOUT = 30_000L
+
+    enum class BackupType { AUTO, MANUAL }
+
+    data class WebDavBackupFile(
+        val fileName: String,
+        val type: BackupType?,
+        val timestamp: Long,
+        val size: Long,
+        val legacy: Boolean
+    )
 
     private val gson = NzApplication.gson
 
@@ -41,9 +61,9 @@ object BackupRepository {
         val pass = WebDavSettings.getPassword(context)
         if (user.isBlank()) return null
         val credentials = "$user:$pass"
-        return "Basic " + android.util.Base64.encodeToString(
+        return "Basic " + Base64.encodeToString(
             credentials.toByteArray(),
-            android.util.Base64.NO_WRAP
+            Base64.NO_WRAP
         )
     }
 
@@ -61,6 +81,38 @@ object BackupRepository {
         val encodedPath = encodeWebDavPath(remotePath)
         val finalFileName = if (fileName.startsWith("/")) fileName else "/$fileName"
         return "$baseUrl$encodedPath$finalFileName"
+    }
+
+    private fun backupFileName(type: BackupType, timeMillis: Long): String {
+        val timeStr = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US)
+            .format(Date(timeMillis))
+        return "${BACKUP_FILENAME_PREFIX}${type.name.lowercase(Locale.US)}_$timeStr.nz"
+    }
+
+    private fun parseTimestampedFileName(fileName: String): Pair<BackupType, Long>? {
+        val match = BACKUP_FILENAME_PATTERN.matchEntire(fileName) ?: return null
+        val type = if (match.groupValues[1] == "auto") BackupType.AUTO else BackupType.MANUAL
+        val timestamp = try {
+            SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US)
+                .parse(match.groupValues[2])?.time ?: 0L
+        } catch (_: Exception) {
+            0L
+        }
+        return type to timestamp
+    }
+
+    private fun deleteRemoteFile(url: String, auth: String): Boolean {
+        val request = Request.Builder()
+            .url(url)
+            .delete()
+            .header("Authorization", auth)
+            .build()
+        return try {
+            okHttpClient.newCall(request).execute().use { it.isSuccessful || it.code == 404 }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 
     private fun ensureRemoteDirectory(context: Context): Boolean {
@@ -192,9 +244,10 @@ object BackupRepository {
     ) {
         val sessionCount: Int get() = payload.sessions.orEmpty().size
         val recycleCount: Int get() = payload.recycleBin.orEmpty().size
-        val taxonomyCount: Int get() = payload.categories.orEmpty().size +
-                payload.tagGroups.orEmpty().size +
-                payload.tags.orEmpty().size
+        val taxonomyCount: Int
+            get() = payload.categories.orEmpty().size +
+                    payload.tagGroups.orEmpty().size +
+                    payload.tags.orEmpty().size
         val aiConfigCount: Int get() = payload.aiConfig?.size ?: 0
     }
 
@@ -261,7 +314,12 @@ object BackupRepository {
         modules: BackupModules
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         val effective = if (preview.legacySessionsOnly) {
-            BackupModules(sessions = modules.sessions, recycleBin = false, taxonomy = false, aiConfig = false)
+            BackupModules(
+                sessions = modules.sessions,
+                recycleBin = false,
+                taxonomy = false,
+                aiConfig = false
+            )
         } else {
             modules
         }
@@ -275,7 +333,8 @@ object BackupRepository {
 
     suspend fun backupToWebDav(
         context: Context,
-        modules: BackupModules = BackupModules.ALL
+        modules: BackupModules = BackupModules.ALL,
+        type: BackupType = BackupType.MANUAL
     ): Pair<Boolean, String> =
         withContext(Dispatchers.IO) {
             if (!WebDavSettings.isConfigured(context)) {
@@ -285,7 +344,7 @@ object BackupRepository {
                 val data = exportNzBytes(context, modules)
                 val mediaType = "application/octet-stream".toMediaTypeOrNull()
 
-                val url = buildFullUrl(context, WEBDAV_BACKUP_FILENAME)
+                val url = buildFullUrl(context, backupFileName(type, System.currentTimeMillis()))
                 val auth = buildAuthHeader(context)
                     ?: return@withContext false to "未配置 WebDAV 服务器"
 
@@ -293,16 +352,7 @@ object BackupRepository {
 
                 if (respCode == 409) {
                     if (ensureRemoteDirectory(context)) {
-                        val deleteRequest = Request.Builder()
-                            .url(url)
-                            .delete()
-                            .header("Authorization", auth)
-                            .build()
-                        try {
-                            okHttpClient.newCall(deleteRequest).execute().close()
-                        } catch (_: Exception) {
-                        }
-
+                        deleteRemoteFile(url, auth)
                         respCode = tryPut(url, auth, data, mediaType)
                     } else {
                         return@withContext false to "无法创建远程目录"
@@ -312,8 +362,9 @@ object BackupRepository {
                 if (respCode in 200..299) {
                     val currentTime = System.currentTimeMillis()
                     WebDavSettings.setLastBackupTime(context, currentTime)
+                    pruneOldBackups(context, type)
 
-                    val timeStr = java.text.SimpleDateFormat(
+                    val timeStr = SimpleDateFormat(
                         "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
                     ).format(Date(currentTime))
                     true to "备份成功 ($timeStr)"
@@ -327,13 +378,14 @@ object BackupRepository {
         }
 
     suspend fun previewFromWebDav(
-        context: Context
+        context: Context,
+        fileName: String = WEBDAV_BACKUP_FILENAME
     ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
         if (!WebDavSettings.isConfigured(context)) {
             return@withContext null to "未配置 WebDAV 服务器"
         }
         try {
-            val url = buildFullUrl(context, WEBDAV_BACKUP_FILENAME)
+            val url = buildFullUrl(context, fileName)
             val auth = buildAuthHeader(context)
                 ?: return@withContext null to "未配置 WebDAV 服务器"
 
@@ -383,6 +435,168 @@ object BackupRepository {
         }
     }
 
+    suspend fun listWebDavBackups(
+        context: Context
+    ): Pair<List<WebDavBackupFile>, String> = withContext(Dispatchers.IO) {
+        if (!WebDavSettings.isConfigured(context)) {
+            return@withContext emptyList<WebDavBackupFile>() to "未配置 WebDAV 服务器"
+        }
+        try {
+            val baseUrl = WebDavSettings.getUrl(context).trimEnd('/')
+            val encodedPath = encodeWebDavPath(WebDavSettings.getRemotePath(context).trimEnd('/'))
+            val auth = buildAuthHeader(context)
+                ?: return@withContext emptyList<WebDavBackupFile>() to "未配置 WebDAV 服务器"
+
+            val propfindBody = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                    "<d:propfind xmlns:d=\"DAV:\">" +
+                    "<d:prop><d:getcontentlength/><d:getlastmodified/><d:resourcetype/></d:prop>" +
+                    "</d:propfind>"
+
+            val request = Request.Builder()
+                .url("$baseUrl$encodedPath/")
+                .method(
+                    "PROPFIND",
+                    propfindBody.toRequestBody("application/xml".toMediaTypeOrNull())
+                )
+                .header("Authorization", auth)
+                .header("Depth", "1")
+                .build()
+
+            okHttpClient.newCall(request).execute().use { resp ->
+                if (!(resp.isSuccessful || resp.code == 207)) {
+                    val msg = when (resp.code) {
+                        401 -> "获取备份列表失败: 认证失败 (HTTP 401)"
+                        else -> "获取备份列表失败: HTTP ${resp.code}"
+                    }
+                    return@withContext emptyList<WebDavBackupFile>() to msg
+                }
+                val body = resp.body.bytes()
+                parseBackupFileList(body).sortedByDescending { it.timestamp } to ""
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList<WebDavBackupFile>() to "获取备份列表失败: ${e.message ?: "未知错误"}"
+        }
+    }
+
+    private fun parseBackupFileList(body: ByteArray): List<WebDavBackupFile> {
+        val files = mutableListOf<WebDavBackupFile>()
+        try {
+            val parser = android.util.Xml.newPullParser()
+            parser.setInput(body.inputStream(), "UTF-8")
+            var eventType = parser.eventType
+            var href: String? = null
+            var lastModified: String? = null
+            var length = -1L
+            var collection = false
+            var inHref = false
+            var inLastModified = false
+            var inLength = false
+
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                when (eventType) {
+                    XmlPullParser.START_TAG -> when (parser.name) {
+                        "response" -> {
+                            href = null
+                            lastModified = null
+                            length = -1L
+                            collection = false
+                        }
+
+                        "href" -> inHref = true
+                        "getlastmodified" -> inLastModified = true
+                        "getcontentlength" -> inLength = true
+                        "collection" -> collection = true
+                    }
+
+                    XmlPullParser.TEXT -> {
+                        if (inHref) href = parser.text
+                        if (inLastModified) lastModified = parser.text
+                        if (inLength) length = parser.text.toLongOrNull() ?: -1L
+                    }
+
+                    XmlPullParser.END_TAG -> when (parser.name) {
+                        "href" -> inHref = false
+                        "getlastmodified" -> inLastModified = false
+                        "getcontentlength" -> inLength = false
+                        "response" -> {
+                            if (!collection && !href.isNullOrBlank()) {
+                                val fileName = decodeFileNameFromHref(href)
+                                if (fileName != null) {
+                                    val timestamped = parseTimestampedFileName(fileName)
+                                    val file = if (timestamped != null) {
+                                        WebDavBackupFile(
+                                            fileName = fileName,
+                                            type = timestamped.first,
+                                            timestamp = timestamped.second,
+                                            size = length,
+                                            legacy = false
+                                        )
+                                    } else if (fileName == WEBDAV_BACKUP_FILENAME) {
+                                        WebDavBackupFile(
+                                            fileName = fileName,
+                                            type = null,
+                                            timestamp = parseLastModified(lastModified),
+                                            size = length,
+                                            legacy = true
+                                        )
+                                    } else {
+                                        null
+                                    }
+                                    file?.let { files.add(it) }
+                                }
+                            }
+                        }
+                    }
+                }
+                eventType = parser.next()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return files
+    }
+
+    private fun decodeFileNameFromHref(href: String): String? {
+        val raw = href.substringAfterLast('/').trim()
+        if (raw.isBlank()) return null
+        val decoded = try {
+            java.net.URLDecoder.decode(raw.replace("+", "%2B"), "UTF-8")
+        } catch (_: Exception) {
+            raw
+        }
+        return decoded.trimEnd('/').ifBlank { null }
+    }
+
+    private fun parseLastModified(text: String?): Long {
+        if (text.isNullOrBlank()) return 0L
+        return try {
+            ZonedDateTime.parse(text.trim(), DateTimeFormatter.RFC_1123_DATE_TIME)
+                .toInstant().toEpochMilli()
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    private suspend fun pruneOldBackups(context: Context, type: BackupType) {
+        val keepCount = when (type) {
+            BackupType.AUTO -> BackupSettings.getAutoKeepCount(context)
+            BackupType.MANUAL -> BackupSettings.getManualKeepCount(context)
+        }
+        val (files, _) = listWebDavBackups(context)
+        val candidates = files
+            .filter { !it.legacy && it.type == type }
+            .sortedByDescending { it.timestamp }
+        if (candidates.size <= keepCount) return
+        val auth = buildAuthHeader(context) ?: return
+        candidates.drop(keepCount).forEach { file ->
+            val url = buildFullUrl(context, file.fileName)
+            if (!deleteRemoteFile(url, auth)) {
+                Log.w("BackupRepository", "清理过期备份失败: ${file.fileName}")
+            }
+        }
+    }
+
     suspend fun testWebDavConnection(
         url: String,
         username: String,
@@ -391,8 +605,8 @@ object BackupRepository {
         try {
             val cleanUrl = url.trimEnd('/')
             val credentials = "$username:$password"
-            val auth = "Basic " + android.util.Base64.encodeToString(
-                credentials.toByteArray(), android.util.Base64.NO_WRAP
+            val auth = "Basic " + Base64.encodeToString(
+                credentials.toByteArray(), Base64.NO_WRAP
             )
 
             val request = Request.Builder()
@@ -419,6 +633,6 @@ object BackupRepository {
     suspend fun autoBackupIfNeeded(context: Context) {
         if (!WebDavSettings.isAutoBackupEnabled(context)) return
         if (!WebDavSettings.isConfigured(context)) return
-        backupToWebDav(context)
+        backupToWebDav(context, BackupModules.ALL, BackupType.AUTO)
     }
 }

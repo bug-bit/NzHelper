@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -27,9 +29,11 @@ import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FileOpen
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Recycling
 import androidx.compose.material.icons.outlined.Sell
+import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -47,12 +51,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +72,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -75,6 +82,7 @@ import me.neko.nzhelper.core.database.AppDatabase
 import me.neko.nzhelper.core.database.BackupRepository
 import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.database.SessionRepository
+import me.neko.nzhelper.core.datastore.BackupSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.export.DocumentExporter
 import me.neko.nzhelper.core.model.BackupModules
@@ -204,6 +212,14 @@ fun BackupScreen(
             null
         )
     }
+    var webDavBackupFiles by remember {
+        mutableStateOf<List<BackupRepository.WebDavBackupFile>?>(null)
+    }
+
+    var autoKeepCount by remember { mutableIntStateOf(BackupSettings.getAutoKeepCount(context)) }
+    var manualKeepCount by remember { mutableIntStateOf(BackupSettings.getManualKeepCount(context)) }
+    var showAutoKeepDialog by remember { mutableStateOf(false) }
+    var showManualKeepDialog by remember { mutableStateOf(false) }
 
     val webDavBackupDateStr = remember(webDavLastBackup, configuration) {
         if (webDavLastBackup > 0) {
@@ -377,17 +393,35 @@ fun BackupScreen(
                         SettingsItem(
                             icon = Icons.Outlined.CloudDownload,
                             title = "云端恢复",
-                            subtitle = "从 WebDAV 选择内容恢复并合并到本地",
+                            subtitle = "从云端备份历史中选择一份恢复并合并到本地",
                             onClick = {
                                 if (webDavConfigured && !webDavRestoring) {
                                     webDavRestoring = true
                                     scope.launch {
-                                        val (preview, msg) = BackupRepository.previewFromWebDav(context)
-                                        webDavRestoring = false
-                                        if (preview == null) {
-                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        val (files, listMsg) = BackupRepository.listWebDavBackups(context)
+                                        if (files.isEmpty()) {
+                                            if (listMsg.isEmpty()) {
+                                                webDavRestoring = false
+                                                Toast.makeText(
+                                                    context,
+                                                    "云端暂无备份文件",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                // 列表拉取失败时回退为直接读取旧版固定文件名
+                                                val (preview, msg) =
+                                                    BackupRepository.previewFromWebDav(context)
+                                                webDavRestoring = false
+                                                if (preview == null) {
+                                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT)
+                                                        .show()
+                                                } else {
+                                                    pendingWebDavRestorePreview = preview
+                                                }
+                                            }
                                         } else {
-                                            pendingWebDavRestorePreview = preview
+                                            webDavRestoring = false
+                                            webDavBackupFiles = files
                                         }
                                     }
                                 }
@@ -403,6 +437,22 @@ fun BackupScreen(
                                     TrailingArrowIcon()
                                 }
                             }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Update,
+                            title = "自动备份保留份数",
+                            subtitle = "云端保留最近 $autoKeepCount 份自动备份，超出后自动删除最旧的",
+                            onClick = { showAutoKeepDialog = true }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.History,
+                            title = "手动备份保留份数",
+                            subtitle = "云端保留最近 $manualKeepCount 份手动备份，超出后自动删除最旧的",
+                            onClick = { showManualKeepDialog = true }
                         )
                     }
                 }
@@ -504,7 +554,9 @@ fun BackupScreen(
                     } else {
                         webDavBackingUp = true
                         scope.launch {
-                            val (_, msg) = BackupRepository.backupToWebDav(context, selected)
+                            val (_, msg) = BackupRepository.backupToWebDav(
+                                context, selected, BackupRepository.BackupType.MANUAL
+                            )
                             webDavBackingUp = false
                             webDavLastBackup = WebDavSettings.getLastBackupTime(context)
                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
@@ -542,6 +594,53 @@ fun BackupScreen(
                 }
             },
             onDismiss = { pendingWebDavRestorePreview = null }
+        )
+    }
+
+    webDavBackupFiles?.let { files ->
+        BackupHistoryPickerSheet(
+            files = files,
+            onConfirm = { selected ->
+                webDavBackupFiles = null
+                webDavRestoring = true
+                scope.launch {
+                    val (preview, msg) =
+                        BackupRepository.previewFromWebDav(context, selected.fileName)
+                    webDavRestoring = false
+                    if (preview == null) {
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    } else {
+                        pendingWebDavRestorePreview = preview
+                    }
+                }
+            },
+            onDismiss = { webDavBackupFiles = null }
+        )
+    }
+
+    if (showAutoKeepDialog) {
+        RetentionCountDialog(
+            title = "自动备份保留份数",
+            initialValue = autoKeepCount,
+            onConfirm = { count ->
+                BackupSettings.setAutoKeepCount(context, count)
+                autoKeepCount = count
+                showAutoKeepDialog = false
+            },
+            onDismiss = { showAutoKeepDialog = false }
+        )
+    }
+
+    if (showManualKeepDialog) {
+        RetentionCountDialog(
+            title = "手动备份保留份数",
+            initialValue = manualKeepCount,
+            onConfirm = { count ->
+                BackupSettings.setManualKeepCount(context, count)
+                manualKeepCount = count
+                showManualKeepDialog = false
+            },
+            onDismiss = { showManualKeepDialog = false }
         )
     }
 
@@ -767,6 +866,69 @@ private fun BackupPasswordDialog(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) { Text("保存") }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large
+            ) { Text("取消") }
+        }
+    )
+}
+
+@Composable
+private fun RetentionCountDialog(
+    title: String,
+    initialValue: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var value by remember { mutableIntStateOf(initialValue) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        title = {
+            Text(title, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "$value",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(8.dp))
+                Slider(
+                    value = value.toFloat(),
+                    onValueChange = { value = it.toInt() },
+                    valueRange = BackupSettings.MIN_KEEP.toFloat()..BackupSettings.MAX_KEEP.toFloat(),
+                    steps = BackupSettings.MAX_KEEP - BackupSettings.MIN_KEEP - 1,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "${BackupSettings.MIN_KEEP} 份",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "${BackupSettings.MAX_KEEP} 份",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(value) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large
+            ) { Text("确定") }
         },
         dismissButton = {
             OutlinedButton(
