@@ -71,6 +71,8 @@ jobs:
     name: Build Release APK & Publish Telegram
     needs: build
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -124,6 +126,44 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+
+          APK=$(find app/build/outputs/apk/release -type f -name '*.apk' -print -quit)
+          [ -f "${APK}" ] || exit 1
+
+          APK_NAME=$(basename "${APK}")
+          VERSION=$(echo "${APK_NAME}" | sed -E 's/^NzHelper_v(.*)_release\.apk$/\1/')
+
+          # 仅当版本号标记为 releases 时自动发布 GitHub Release
+          case "${VERSION}" in
+            *-releases*)
+              ;;
+            *)
+              echo "版本 ${VERSION} 不是 releases 版本，跳过 GitHub Release"
+              exit 0
+              ;;
+          esac
+
+          if git ls-remote --tags origin "refs/tags/${VERSION}" | grep -q .; then
+            echo "Tag ${VERSION} 已存在，跳过创建 Release"
+            exit 0
+          fi
+
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+          if [ -n "${PREV_TAG}" ]; then
+            NOTES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s")
+          else
+            NOTES=$(git log -1 --pretty=format:"%s")
+          fi
+
+          gh release create "${VERSION}" "${APK}" \
+            --title "${VERSION}" \
+            --notes "${NOTES:-自动构建}"
 
       - name: Publish Release APK to Telegram
         env:
