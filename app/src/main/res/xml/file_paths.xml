@@ -4,4 +4,8 @@
     <files-path
         name="crash_logs"
         path="crash_logs/" />
+    <!-- 成就分享图片（缓存目录，系统随时回收） -->
+    <cache-path
+        name="shared_images"
+        path="shared_images/" />
 </paths>

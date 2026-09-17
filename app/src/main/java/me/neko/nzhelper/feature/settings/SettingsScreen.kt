@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Info
@@ -60,6 +61,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import me.neko.nzhelper.core.achievement.AchievementRepository
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.crash.CrashLogManager
@@ -111,6 +113,16 @@ fun SettingsScreen(
     }
     var showModeDialog by remember { mutableStateOf(false) }
 
+    var unlockedAchievementCount by remember {
+        mutableIntStateOf(AchievementRepository.unlockedCount(context))
+    }
+    var unseenAchievementCount by remember {
+        mutableIntStateOf(AchievementRepository.unseenCount(context))
+    }
+    var visibleAchievementTotal by remember {
+        mutableIntStateOf(AchievementRepository.visibleTotal(context))
+    }
+
     var lockEnabled by remember { mutableStateOf(AppLockManager.isLockEnabled(context)) }
     var hasGesturePassword by remember {
         mutableStateOf(GestureLockManager.hasGesturePassword(context))
@@ -156,6 +168,10 @@ fun SettingsScreen(
                     hasGesturePassword = GestureLockManager.hasGesturePassword(context)
                     aiEnabled = AiSettings.isEnabled(context)
                     aiSubtitle = buildAiSubtitle(context, aiEnabled)
+                    AchievementRepository.sync(context)
+                    unlockedAchievementCount = AchievementRepository.unlockedCount(context)
+                    unseenAchievementCount = AchievementRepository.unseenCount(context)
+                    visibleAchievementTotal = AchievementRepository.visibleTotal(context)
                 }
             }
         }
@@ -359,6 +375,24 @@ fun SettingsScreen(
                             title = "AI 健康建议",
                             subtitle = aiSubtitle,
                             onClick = { rootNavController.navigate("ai_config") }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "成就") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.EmojiEvents,
+                            title = "我的成就",
+                            subtitle = "已解锁 $unlockedAchievementCount / $visibleAchievementTotal",
+                            onClick = { rootNavController.navigate("achievement") },
+                            badgeText = if (unseenAchievementCount > 0) {
+                                "$unseenAchievementCount"
+                            } else {
+                                null
+                            }
                         )
                     }
                 }

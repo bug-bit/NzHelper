@@ -26,6 +26,7 @@ import me.neko.nzhelper.core.datastore.OnboardingSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.about.AboutScreen
 import me.neko.nzhelper.feature.about.OpenSourceScreen
+import me.neko.nzhelper.feature.achievement.AchievementScreen
 import me.neko.nzhelper.feature.addrecord.AddRecordFlow
 import me.neko.nzhelper.feature.addrecord.AddRecordScreen
 import me.neko.nzhelper.feature.ai.AiConfigScreen
@@ -231,6 +232,9 @@ class MainActivity : AppCompatActivity() {
                         }
                         composable("chart_manage") {
                             ChartManageScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable("achievement") {
+                            AchievementScreen(onBack = { navController.popBackStack() })
                         }
                     }
                 }

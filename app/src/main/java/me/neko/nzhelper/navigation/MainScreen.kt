@@ -28,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,10 +46,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.achievement.AchievementRepository
 import me.neko.nzhelper.core.datastore.UpdateSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.util.CiBuild
 import me.neko.nzhelper.core.util.UpdateChecker
+import me.neko.nzhelper.feature.achievement.components.AchievementUnlockDialog
 import me.neko.nzhelper.feature.addrecord.AddRecordFlow
 import me.neko.nzhelper.feature.history.HistoryScreen
 import me.neko.nzhelper.feature.home.HomeScreen
@@ -220,11 +223,17 @@ fun MainScreen(
         }
     }
 
+    // ── 成就 ──
+    LaunchedEffect(Unit) {
+        AchievementRepository.sync(context)
+    }
+    val pendingAchievementUnlocks by AchievementRepository.newUnlocks.collectAsState()
+
     // ── Pager 状态 ──
     val pagerState = rememberPagerState(pageCount = { BottomNavItem.items.size })
     val scope = rememberCoroutineScope()
     val stopRequestId by stopRequest?.collectAsState(initial = 0)
-        ?: remember { mutableStateOf(0) }
+        ?: remember { mutableIntStateOf(0) }
 
     LaunchedEffect(stopRequestId) {
         if (stopRequestId > 0) {
@@ -337,6 +346,13 @@ fun MainScreen(
                 onConfirm = {
                     openNotificationSettings(context)
                 }
+            )
+        }
+
+        if (pendingAchievementUnlocks.isNotEmpty()) {
+            AchievementUnlockDialog(
+                achievements = pendingAchievementUnlocks,
+                onDismiss = { AchievementRepository.consumeNewUnlocks() }
             )
         }
     }

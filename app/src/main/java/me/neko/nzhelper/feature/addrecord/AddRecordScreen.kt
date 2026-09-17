@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import me.neko.nzhelper.core.achievement.AchievementRepository
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.datastore.RecordModeSettings
@@ -286,6 +287,7 @@ fun AddRecordScreen(
                     val sessions = SessionRepository.loadSessions(context).toMutableList()
                     sessions.add(0, session)
                     SessionRepository.saveSessions(context, sessions)
+                    AchievementRepository.checkForNewUnlocks(context, sessions)
                     context.startService(Intent(context, TimerService::class.java).apply {
                         action = TimerService.ACTION_STOP
                     })
@@ -319,6 +321,7 @@ fun AddRecordScreen(
                     val sessions = SessionRepository.loadSessions(context).toMutableList()
                     sessions.add(0, session)
                     SessionRepository.saveSessions(context, sessions)
+                    AchievementRepository.checkForNewUnlocks(context, sessions)
                     onClose()
                 }
             }
@@ -367,6 +370,7 @@ fun AddRecordScreen(
                     val index = sessions.indexOf(original)
                     if (index != -1) sessions[index] = updated else sessions.add(0, updated)
                     SessionRepository.saveSessions(context, sessions)
+                    AchievementRepository.checkForNewUnlocks(context, sessions)
                     onClose()
                 }
             }
