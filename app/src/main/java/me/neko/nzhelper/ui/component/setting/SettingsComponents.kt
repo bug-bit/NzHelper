@@ -207,6 +207,8 @@ fun SettingsItem(
     enabled: Boolean = true,
     selected: Boolean = false,
     badgeText: String? = null,
+    iconTint: Color? = null,
+    iconSize: Dp = 24.dp,
     leadingModifier: Modifier = Modifier,
     trailingContent: @Composable (() -> Unit)? = null
 ) {
@@ -253,6 +255,7 @@ fun SettingsItem(
     } else {
         defaultIconColor
     }
+    val effectiveIconColor = iconTint ?: resolvedIconColor
     val effectiveTitleColor = if (selected) baseContentColor else titleColor
     val effectiveSubtitleColor =
         if (selected) baseContentColor.copy(alpha = 0.7f) else subtitleColor
@@ -282,8 +285,8 @@ fun SettingsItem(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = resolvedIconColor,
-                    modifier = Modifier.size(24.dp)
+                    tint = effectiveIconColor,
+                    modifier = Modifier.size(iconSize)
                 )
             }
         },

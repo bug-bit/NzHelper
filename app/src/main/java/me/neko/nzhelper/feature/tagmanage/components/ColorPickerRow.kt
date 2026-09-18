@@ -11,16 +11,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
-import me.neko.nzhelper.ui.theme.LocalDarkMode
 import me.neko.nzhelper.ui.theme.TagColors
+
+private val SwatchSize = 36.dp
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -29,41 +32,38 @@ fun ColorPickerRow(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalDarkMode.current
     FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         TagColors.names.forEach { name ->
             val color = TagColors.colorFor(name)
             val isSelected = name == selected
-            val contrastColor = if (isDark) Color.Black else Color.White
+            val contrastColor = if (color.luminance() > 0.5f) Color.Black else Color.White
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(SwatchSize)
                     .clip(CircleShape)
                     .background(color)
-                    .then(
-                        if (isSelected) {
-                            Modifier.border(
-                                width = 2.dp,
-                                color = contrastColor,
-                                shape = CircleShape
-                            )
+                    .border(
+                        width = if (isSelected) 2.dp else 1.dp,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onSurface
                         } else {
-                            Modifier
-                        }
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                        },
+                        shape = CircleShape
                     )
                     .clickable { onSelect(name) },
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
                     Icon(
-                        imageVector = Icons.Default.Check,
+                        imageVector = Icons.Rounded.Check,
                         contentDescription = null,
                         tint = contrastColor,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

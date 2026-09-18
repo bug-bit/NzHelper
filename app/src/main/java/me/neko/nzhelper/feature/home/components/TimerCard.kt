@@ -70,15 +70,15 @@ import me.neko.nzhelper.ui.component.setting.TrailingArrowIcon
 fun TimerCard(
     elapsedSeconds: Int,
     isRunning: Boolean,
-    latestInfo: LatestSessionInfo? = null,
-    isLoading: Boolean = false,
-    floatingEnabled: Boolean = false,
     onToggleRun: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
+    modifier: Modifier = Modifier,
+    latestInfo: LatestSessionInfo? = null,
+    isLoading: Boolean = false,
+    floatingEnabled: Boolean = false,
     onToggleFloating: () -> Unit = {},
-    onOpenHistory: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onOpenHistory: (() -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val haptic = LocalHapticFeedback.current

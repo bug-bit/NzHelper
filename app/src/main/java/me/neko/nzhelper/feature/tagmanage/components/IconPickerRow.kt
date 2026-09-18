@@ -1,6 +1,7 @@
 package me.neko.nzhelper.feature.tagmanage.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.ui.theme.TagColors
 import me.neko.nzhelper.ui.theme.TagIcons
 
+private val IconCellSize = 44.dp
+private val IconCellShape = RoundedCornerShape(12.dp)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun IconPickerRow(
@@ -31,15 +35,15 @@ fun IconPickerRow(
     modifier: Modifier = Modifier,
     accentColor: String = "slate"
 ) {
+    val accent = TagColors.colorFor(accentColor)
     val selectedContainer = TagColors.containerColor(accentColor)
-    val selectedContent = TagColors.contentColor(accentColor)
-    val idleContainer = MaterialTheme.colorScheme.surfaceContainerHigh
+    val idleContainer = MaterialTheme.colorScheme.surfaceContainerHighest
     val idleContent = MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(max = 120.dp)
+            .heightIn(max = 164.dp)
             .verticalScroll(rememberScrollState())
     ) {
         FlowRow(
@@ -51,17 +55,22 @@ fun IconPickerRow(
                 val isSelected = name == selected
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .size(IconCellSize)
+                        .clip(IconCellShape)
                         .background(if (isSelected) selectedContainer else idleContainer)
+                        .border(
+                            width = if (isSelected) 1.5.dp else 0.dp,
+                            color = if (isSelected) accent else idleContainer,
+                            shape = IconCellShape
+                        )
                         .clickable { onSelect(name) },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = TagIcons.iconFor(name),
                         contentDescription = name,
-                        tint = if (isSelected) selectedContent else idleContent,
-                        modifier = Modifier.size(20.dp)
+                        tint = if (isSelected) accent else idleContent,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
