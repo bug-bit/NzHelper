@@ -351,6 +351,7 @@ fun ThemeSettingsScreen(
                                 Slider(
                                     state = opacityState,
                                     onValueChange = { opacity ->
+                                        opacityState.value = opacity
                                         themeState.backgroundOpacity = opacity
                                         ThemeSettings.setBackgroundOpacity(context, opacity)
                                     },
@@ -379,6 +380,7 @@ fun ThemeSettingsScreen(
                                 Slider(
                                     state = blurState,
                                     onValueChange = { blur ->
+                                        blurState.value = blur
                                         themeState.backgroundBlur = blur
                                         ThemeSettings.setBackgroundBlur(context, blur)
                                     },
@@ -402,6 +404,7 @@ fun ThemeSettingsScreen(
                                 Slider(
                                     state = cardOpacityState,
                                     onValueChange = { opacity ->
+                                        cardOpacityState.value = opacity
                                         themeState.cardOpacity = opacity
                                         ThemeSettings.setCardOpacity(context, opacity)
                                     },
@@ -425,6 +428,7 @@ fun ThemeSettingsScreen(
                                 Slider(
                                     state = dialogOpacityState,
                                     onValueChange = { opacity ->
+                                        dialogOpacityState.value = opacity
                                         themeState.dialogOpacity = opacity
                                         ThemeSettings.setDialogOpacity(context, opacity)
                                     },

@@ -575,7 +575,10 @@ fun AiConfigScreen(
                     )
                     Slider(
                         state = sliderState,
-                        onValueChange = { maxTokens = it.toInt() },
+                        onValueChange = { value ->
+                            sliderState.value = value
+                            maxTokens = value.toInt()
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(

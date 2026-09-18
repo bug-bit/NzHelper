@@ -907,7 +907,10 @@ private fun RetentionCountDialog(
                 )
                 Slider(
                     state = sliderState,
-                    onValueChange = { value = it.toInt() },
+                    onValueChange = { newValue ->
+                        sliderState.value = newValue
+                        value = newValue.toInt()
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(

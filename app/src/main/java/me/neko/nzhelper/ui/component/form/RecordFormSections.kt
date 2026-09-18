@@ -249,6 +249,7 @@ fun RatingSection(
             state = sliderState,
             onValueChange = {
                 val rounded = (it * 10).roundToInt() / 10f
+                sliderState.value = rounded.coerceIn(0f, 5f)
                 onRatingChange(rounded.coerceIn(0f, 5f))
             }
         )
