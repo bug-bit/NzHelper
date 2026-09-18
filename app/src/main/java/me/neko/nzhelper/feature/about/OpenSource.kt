@@ -282,6 +282,12 @@ private val licenseList = listOf(
         "Kotlin Symbol Processing API",
         "https://github.com/google/ksp",
         LicenseType.Apache2
+    ),
+    LicenseItem(
+        "chrisbanes",
+        "Haze",
+        "https://github.com/chrisbanes/haze",
+        LicenseType.Apache2
     )
 )
 

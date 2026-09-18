@@ -3,20 +3,20 @@ package me.neko.nzhelper.feature.mine
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewQuilt
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Cake
@@ -38,32 +38,34 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
+import java.time.LocalDate
+import java.time.Period
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.core.achievement.AchievementRepository
@@ -82,11 +84,10 @@ import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.mine.components.ProfileSummaryCard
 import me.neko.nzhelper.feature.settings.components.AgePickerBottomSheet
 import me.neko.nzhelper.feature.settings.components.RecordModePickerBottomSheet
+import me.neko.nzhelper.navigation.floatingBarContentBottomInset
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsItem
-import java.time.LocalDate
-import java.time.Period
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -292,7 +293,12 @@ fun MineScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = 16.dp + floatingBarContentBottomInset()
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {

@@ -1,5 +1,6 @@
 package me.neko.nzhelper.feature.settings
 
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.BlurCircular
 import androidx.compose.material.icons.outlined.BlurOn
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Dashboard
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Opacity
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.Window
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -259,6 +262,60 @@ fun ThemeSettingsScreen(
                                 }
                             )
                         }
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "界面") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.VerticalAlignBottom,
+                            title = "悬浮底栏",
+                            subtitle = "使用悬浮胶囊样式的底部导航栏",
+                            onClick = {
+                                themeState.floatingBottomBar = !themeState.floatingBottomBar
+                                ThemeSettings.setFloatingBottomBar(
+                                    context,
+                                    themeState.floatingBottomBar
+                                )
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = themeState.floatingBottomBar,
+                                    onCheckedChange = { enabled ->
+                                        themeState.floatingBottomBar = enabled
+                                        ThemeSettings.setFloatingBottomBar(context, enabled)
+                                    }
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.BlurCircular,
+                            title = "模糊效果",
+                            subtitle = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                "使用毛玻璃背景模糊"
+                            } else {
+                                "当前系统版本不支持背景模糊（需 Android 12+）"
+                            },
+                            enabled = themeState.floatingBottomBar,
+                            onClick = {
+                                themeState.blurEffect = !themeState.blurEffect
+                                ThemeSettings.setBlurEffectEnabled(context, themeState.blurEffect)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = themeState.blurEffect,
+                                    enabled = themeState.floatingBottomBar,
+                                    onCheckedChange = { enabled ->
+                                        themeState.blurEffect = enabled
+                                        ThemeSettings.setBlurEffectEnabled(context, enabled)
+                                    }
+                                )
+                            }
+                        )
                     }
                 }
             }

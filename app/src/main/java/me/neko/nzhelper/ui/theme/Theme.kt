@@ -34,6 +34,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.neko.nzhelper.core.datastore.ThemeSettings
@@ -54,7 +56,9 @@ class ThemeState(
     initialBackgroundOpacity: Float,
     initialBackgroundBlur: Float,
     initialCardOpacity: Float,
-    initialDialogOpacity: Float
+    initialDialogOpacity: Float,
+    initialFloatingBottomBar: Boolean,
+    initialBlurEffect: Boolean
 ) {
     var themeMode by mutableStateOf(initialMode)
     var amoledDark by mutableStateOf(initialAmoledDark)
@@ -65,6 +69,8 @@ class ThemeState(
     var backgroundBlur by mutableStateOf(initialBackgroundBlur)
     var cardOpacity by mutableStateOf(initialCardOpacity)
     var dialogOpacity by mutableStateOf(initialDialogOpacity)
+    var floatingBottomBar by mutableStateOf(initialFloatingBottomBar)
+    var blurEffect by mutableStateOf(initialBlurEffect)
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -84,7 +90,9 @@ fun NzHelperTheme(
             initialBackgroundOpacity = ThemeSettings.getBackgroundOpacity(context),
             initialBackgroundBlur = ThemeSettings.getBackgroundBlur(context),
             initialCardOpacity = ThemeSettings.getCardOpacity(context),
-            initialDialogOpacity = ThemeSettings.getDialogOpacity(context)
+            initialDialogOpacity = ThemeSettings.getDialogOpacity(context),
+            initialFloatingBottomBar = ThemeSettings.isFloatingBottomBar(context),
+            initialBlurEffect = ThemeSettings.isBlurEffectEnabled(context)
         )
     }
 
@@ -96,6 +104,8 @@ fun NzHelperTheme(
             ThemeSettings.setBackgroundImagePath(context, null)
         }
     }
+
+    val hazeState = rememberHazeState()
 
     val darkTheme = when (themeState.themeMode) {
         ThemeSettings.ThemeMode.LIGHT -> false
@@ -161,6 +171,7 @@ fun NzHelperTheme(
     CompositionLocalProvider(
         LocalDarkMode provides darkTheme,
         LocalThemeState provides themeState,
+        LocalHazeState provides hazeState,
         LocalOverscrollFactory provides null
     ) {
         MaterialExpressiveTheme(
@@ -169,37 +180,41 @@ fun NzHelperTheme(
             motionScheme = MotionScheme.expressive(),
             typography = Typography,
         ) {
+            val bgPath = themeState.backgroundImagePath
+            val bgBitmap by produceState<ImageBitmap?>(initialValue = null, bgPath) {
+                value = if (bgPath == null) {
+                    null
+                } else {
+                    withContext(Dispatchers.IO) {
+                        BackgroundImageManager.loadImageBitmap(bgPath)?.asImageBitmap()
+                    }
+                }
+            }
+            val backgroundOverlay = resolvedColorScheme.background.copy(
+                alpha = (1f - themeState.backgroundOpacity).coerceIn(0f, 1f)
+            )
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(resolvedColorScheme.background)
             ) {
-                val bgPath = themeState.backgroundImagePath
-                if (bgPath != null) {
-                    val bgBitmap by produceState<ImageBitmap?>(initialValue = null, bgPath) {
-                        value = withContext(Dispatchers.IO) {
-                            BackgroundImageManager.loadImageBitmap(bgPath)?.asImageBitmap()
-                        }
-                    }
-                    bgBitmap?.let { bitmap ->
-                        Image(
-                            bitmap = bitmap,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .scale(1.1f)
-                                .blur(themeState.backgroundBlur.dp),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
+                val bitmap = bgBitmap
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .scale(1.1f)
+                            .blur(themeState.backgroundBlur.dp)
+                            .hazeSource(hazeState),
+                        contentScale = ContentScale.Crop
+                    )
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                resolvedColorScheme.background.copy(
-                                    alpha = (1f - themeState.backgroundOpacity).coerceIn(0f, 1f)
-                                )
-                            )
+                            .background(backgroundOverlay)
                     )
                 }
                 content()

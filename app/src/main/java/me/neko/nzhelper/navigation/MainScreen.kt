@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -42,6 +43,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.navigation.NavController
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
@@ -62,6 +64,8 @@ import me.neko.nzhelper.feature.lock.LockScreen
 import me.neko.nzhelper.feature.mine.MineScreen
 import me.neko.nzhelper.feature.statistics.StatisticsScreen
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
+import me.neko.nzhelper.ui.theme.LocalHazeState
+import me.neko.nzhelper.ui.theme.LocalThemeState
 
 @Composable
 fun BottomNavigationBar(
@@ -253,18 +257,23 @@ fun MainScreen(
     }
 
     // ── UI ──
+    val floatingBottomBar = LocalThemeState.current.floatingBottomBar
+    val blurEffect = LocalThemeState.current.blurEffect
+    val hazeState = LocalHazeState.current?.takeIf { floatingBottomBar && blurEffect }
+    val onPageSelected: (Int) -> Unit = { targetPage ->
+        scope.launch { pagerState.animateScrollToPage(targetPage) }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             bottomBar = {
-                BottomNavigationBar(
-                    pagerState = pagerState,
-                    onPageSelected = { targetPage ->
-                        scope.launch {
-                            pagerState.animateScrollToPage(targetPage)
-                        }
-                    }
-                )
+                if (!floatingBottomBar) {
+                    BottomNavigationBar(
+                        pagerState = pagerState,
+                        onPageSelected = onPageSelected
+                    )
+                }
             },
             contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { innerPadding ->
@@ -272,7 +281,10 @@ fun MainScreen(
                 state = pagerState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .then(
+                        if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier
+                    ),
                 beyondViewportPageCount = 1
             ) { page ->
                 val isCurrentPage = pagerState.currentPage == page
@@ -306,6 +318,16 @@ fun MainScreen(
                     )
                 }
             }
+        }
+
+        if (floatingBottomBar) {
+            FloatingBottomBar(
+                items = BottomNavItem.items,
+                pagerState = pagerState,
+                onItemClick = onPageSelected,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                hazeState = hazeState
+            )
         }
 
         // 锁屏覆盖层

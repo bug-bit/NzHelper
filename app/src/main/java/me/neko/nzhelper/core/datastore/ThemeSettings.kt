@@ -15,12 +15,16 @@ object ThemeSettings {
     private const val KEY_BACKGROUND_BLUR = "background_blur"
     private const val KEY_CARD_OPACITY = "card_opacity"
     private const val KEY_DIALOG_OPACITY = "dialog_opacity"
+    private const val KEY_FLOATING_BOTTOM_BAR = "floating_bottom_bar"
+    private const val KEY_BLUR_EFFECT = "blur_effect"
 
     const val DEFAULT_BACKGROUND_OPACITY = 0.45f
     const val DEFAULT_BACKGROUND_BLUR = 0f
     const val DEFAULT_CARD_OPACITY = 1f
     const val DEFAULT_DIALOG_OPACITY = 1f
     const val DEFAULT_THEME_COLOR_INDEX = 0
+    const val DEFAULT_FLOATING_BOTTOM_BAR = true
+    const val DEFAULT_BLUR_EFFECT = true
 
     enum class ThemeMode(val label: String) {
         SYSTEM("跟随系统"),
@@ -103,5 +107,19 @@ object ThemeSettings {
 
     fun setDialogOpacity(context: Context, opacity: Float) {
         prefs(context).edit { putFloat(KEY_DIALOG_OPACITY, opacity) }
+    }
+
+    fun isFloatingBottomBar(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_FLOATING_BOTTOM_BAR, DEFAULT_FLOATING_BOTTOM_BAR)
+
+    fun setFloatingBottomBar(context: Context, enabled: Boolean) {
+        prefs(context).edit { putBoolean(KEY_FLOATING_BOTTOM_BAR, enabled) }
+    }
+
+    fun isBlurEffectEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_BLUR_EFFECT, DEFAULT_BLUR_EFFECT)
+
+    fun setBlurEffectEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit { putBoolean(KEY_BLUR_EFFECT, enabled) }
     }
 }

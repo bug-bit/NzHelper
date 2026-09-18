@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.2"
+agp = "9.3.3"
 biometric = "1.4.0-alpha07"
 gson = "2.14.0"
 kotlin = "2.4.20"
@@ -24,6 +24,7 @@ workRuntimeKtx = "2.11.2"
 lifecycleProcess = "2.11.0"
 room = "2.8.5"
 sqlcipher = "4.19.0"
+haze = "2.0.0-rc02"
 
 [libraries]
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
@@ -57,6 +58,9 @@ androidx-room-runtime = { group = "androidx.room", name = "room-runtime", versio
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 sqlcipher = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipher" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+haze-blur = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "haze" }
+haze-blur-material3 = { module = "dev.chrisbanes.haze:haze-blur-material3", version.ref = "haze" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

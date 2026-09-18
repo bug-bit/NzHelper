@@ -4,15 +4,15 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FilterList
@@ -24,22 +24,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,9 +54,10 @@ import me.neko.nzhelper.feature.history.components.HistoryFilterSheet
 import me.neko.nzhelper.feature.history.components.HistoryQuickFilter
 import me.neko.nzhelper.feature.history.components.HistorySearchBar
 import me.neko.nzhelper.feature.history.components.HistorySearchEmptyState
+import me.neko.nzhelper.feature.history.components.matches
 import me.neko.nzhelper.feature.history.components.SessionDetailDialog
 import me.neko.nzhelper.feature.history.components.TimelineItem
-import me.neko.nzhelper.feature.history.components.matches
+import me.neko.nzhelper.navigation.floatingBarContentBottomInset
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -179,7 +180,7 @@ fun HistoryScreen(
                             start = 16.dp,
                             end = 16.dp,
                             top = 4.dp,
-                            bottom = 16.dp
+                            bottom = 16.dp + floatingBarContentBottomInset()
                         ),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
