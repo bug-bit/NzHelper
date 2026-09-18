@@ -4,14 +4,17 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -27,8 +30,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.ai.AiUsage
 import me.neko.nzhelper.core.model.Session
@@ -47,20 +52,19 @@ data class HealthTip(
 fun HealthTipCard(
     modifier: Modifier = Modifier,
     tip: HealthTip? = null,
+    aiEnabled: Boolean = false,
     aiTip: String? = null,
     aiLoading: Boolean = false,
     errorText: String? = null,
     usage: AiUsage? = null,
     onRefreshAi: (() -> Unit)? = null
 ) {
-    val isAi = onRefreshAi != null
     val context = LocalContext.current
     val message = when {
-        aiTip != null -> aiTip
-        isAi -> "点击刷新获取 AI 建议"
+        aiEnabled -> aiTip ?: "点击刷新，让 AI 结合你的记录给出建议"
         else -> tip?.message ?: ""
     }
-    val color = if (isAi) {
+    val color = if (aiEnabled) {
         MaterialTheme.colorScheme.tertiary
     } else when (tip?.type) {
         TipType.PRAISE -> MaterialTheme.colorScheme.primary
@@ -68,6 +72,8 @@ fun HealthTipCard(
         TipType.INFO -> MaterialTheme.colorScheme.secondary
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val title = if (aiEnabled) "AI 健康建议" else "健康小贴士"
+    val subtitle = if (aiEnabled) "结合你的记录生成" else "基于最近一周的记录"
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -76,28 +82,44 @@ fun HealthTipCard(
             containerColor = MaterialTheme.colorScheme.surfaceBright
         )
     ) {
-        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = if (isAi) Icons.Outlined.AutoAwesome else Icons.Outlined.Lightbulb,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = if (isAi) "AI 健康建议" else "健康小贴士",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = color,
-                    modifier = Modifier.weight(1f)
-                )
-                if (isAi) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(color.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (aiEnabled) Icons.Outlined.AutoAwesome
+                        else Icons.Outlined.Lightbulb,
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = color
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (aiEnabled) {
                     Box(
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(36.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (aiLoading) {
@@ -108,14 +130,14 @@ fun HealthTipCard(
                             )
                         } else {
                             IconButton(
-                                onClick = onRefreshAi,
-                                modifier = Modifier.size(28.dp)
+                                onClick = { onRefreshAi?.invoke() },
+                                modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
                                     Icons.Outlined.Refresh,
                                     "刷新 AI 分析",
                                     tint = color,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
@@ -127,31 +149,26 @@ fun HealthTipCard(
                                 clipboard.setPrimaryClip(ClipData.newPlainText("AI Error", errorText))
                                 Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
                             },
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
                                 Icons.Outlined.ContentCopy,
                                 "复制错误信息",
                                 tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
                 }
             }
-            Spacer(Modifier.size(8.dp))
-            if (isAi && aiLoading) {
+            Spacer(Modifier.height(12.dp))
+            if (aiEnabled && aiLoading) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = color
-                    )
                     Text(
-                        "AI 分析中...",
+                        "AI 分析中…",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -159,20 +176,21 @@ fun HealthTipCard(
             } else {
                 Text(
                     text = message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (isAi && aiTip == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                        alpha = 0.6f
-                    )
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (aiEnabled && aiTip == null) {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
-                if (isAi && usage != null && aiTip != null) {
-                    Spacer(Modifier.size(6.dp))
+                if (aiEnabled && usage != null && aiTip != null) {
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = "↑${usage.inputTokens ?: "?"} ↓${usage.outputTokens ?: "?"}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                        textAlign = TextAlign.End
                     )
                 }
             }

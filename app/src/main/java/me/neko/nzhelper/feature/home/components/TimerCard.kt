@@ -5,7 +5,6 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -31,6 +30,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
@@ -42,26 +43,27 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.neko.nzhelper.core.util.formatTime
 import me.neko.nzhelper.feature.statistics.model.LatestSessionInfo
+import me.neko.nzhelper.ui.component.setting.TrailingArrowIcon
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -75,140 +77,44 @@ fun TimerCard(
     onStop: () -> Unit,
     onReset: () -> Unit,
     onToggleFloating: () -> Unit = {},
+    onOpenHistory: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val onSurface = MaterialTheme.colorScheme.onSurface
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-    val tertiary = MaterialTheme.colorScheme.tertiary
-
+    val colorScheme = MaterialTheme.colorScheme
+    val haptic = LocalHapticFeedback.current
     val isPaused = !isRunning && elapsedSeconds > 0
-
-    val dotColor by animateColorAsState(
-        targetValue = when {
-            isRunning -> primary
-            isPaused -> tertiary
-            else -> onSurfaceVariant
-        },
-        animationSpec = tween(600), label = "dotColor"
-    )
-
-    val statusColor by animateColorAsState(
-        targetValue = when {
-            isRunning -> primary
-            isPaused -> tertiary
-            else -> onSurfaceVariant
-        },
-        animationSpec = tween(600), label = "statusColor"
-    )
 
     val timeColor by animateColorAsState(
         targetValue = when {
-            isRunning -> primary
-            isPaused -> onSurface
-            else -> onSurface.copy(alpha = 0.7f)
+            isRunning -> colorScheme.primary
+            isPaused -> colorScheme.onSurface
+            else -> colorScheme.onSurfaceVariant
         },
-        animationSpec = tween(800), label = "timeColor"
-    )
-
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 1.4f,
-        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
-        label = "pulseScale"
-    )
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f, targetValue = 0.25f,
-        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
-        label = "pulseAlpha"
-    )
-
-    val dotScale by animateFloatAsState(
-        targetValue = if (isRunning) pulseScale else 1f,
-        animationSpec = tween(300), label = "dotScale"
-    )
-    val dotAlpha by animateFloatAsState(
-        targetValue = if (isRunning) pulseAlpha else if (isPaused) 0.7f else 0.4f,
-        animationSpec = tween(300), label = "dotAlpha"
-    )
-
-    val statusText = when {
-        isRunning -> "进行中…"
-        isPaused -> "已暂停"
-        else -> "准备开始"
-    }
-
-    var selectedAction by remember { mutableIntStateOf(1) }
-
-    val resetToggleColors = ToggleButtonDefaults.colors(
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-        contentColor = onSurfaceVariant,
-        checkedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-        checkedContentColor = onSurfaceVariant
-    )
-    val stopToggleColors = ToggleButtonDefaults.colors(
-        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-        contentColor = MaterialTheme.colorScheme.error,
-        checkedContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-        checkedContentColor = MaterialTheme.colorScheme.error
-    )
-    val runToggleColors = ToggleButtonDefaults.colors(
-        containerColor = if (isRunning) MaterialTheme.colorScheme.tertiary
-        else MaterialTheme.colorScheme.primary,
-        contentColor = if (isRunning) MaterialTheme.colorScheme.onTertiary
-        else MaterialTheme.colorScheme.onPrimary,
-        checkedContainerColor = if (isRunning) MaterialTheme.colorScheme.tertiary
-        else MaterialTheme.colorScheme.primary,
-        checkedContentColor = if (isRunning) MaterialTheme.colorScheme.onTertiary
-        else MaterialTheme.colorScheme.onPrimary
+        animationSpec = tween(800), label = "timerTimeColor"
     )
 
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceBright
+            containerColor = colorScheme.surfaceBright
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 22.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(
-                            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
-                        )
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(if (isRunning) 10.dp else 8.dp)
-                            .scale(dotScale)
-                            .clip(CircleShape)
-                            .background(dotColor.copy(alpha = dotAlpha))
-                    )
-                    Crossfade(
-                        targetState = statusText,
-                        animationSpec = tween(300),
-                        label = "statusText"
-                    ) { text ->
-                        Text(
-                            text = text,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = statusColor
-                        )
-                    }
-                }
+                TimerStatusPill(isRunning = isRunning, isPaused = isPaused)
+                Spacer(Modifier.weight(1f))
+                FloatingWindowChip(
+                    enabled = floatingEnabled,
+                    onClick = onToggleFloating
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -216,145 +122,345 @@ fun TimerCard(
             FlipClockText(
                 text = formatTime(elapsedSeconds),
                 color = timeColor,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            if (isLoading || latestInfo != null) {
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "加载中...",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = onSurfaceVariant
-                        )
-                    } else if (latestInfo != null) {
-                        Text(
-                            "距上次 · ${latestInfo.displayDate}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                        val (daysText, daysUnit) = when (latestInfo.daysAgo) {
-                            0L -> "今天" to ""
-                            1L -> "昨天" to ""
-                            else -> latestInfo.daysAgo.toString() to " 天前"
-                        }
-                        Text(
-                            "$daysText$daysUnit",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f))
-                    .clickable { onToggleFloating() }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "计时悬浮窗",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (floatingEnabled) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        onSurfaceVariant
-                    },
-                    modifier = Modifier.weight(1f)
+                    .padding(vertical = 8.dp)
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            if (isLoading) {
+                LastSessionPlaceholder()
+            } else if (latestInfo != null) {
+                LastSessionRow(
+                    info = latestInfo,
+                    onClick = onOpenHistory
                 )
-                Box(
-                    modifier = Modifier.size(width = 38.dp, height = 20.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Switch(
-                        checked = floatingEnabled,
-                        onCheckedChange = null,
-                        modifier = Modifier.scale(0.6f)
-                    )
-                }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            FlowRow(
+            TimerActionGroup(
+                isRunning = isRunning,
+                onToggleRun = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onToggleRun()
+                },
+                onStop = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onStop()
+                },
+                onReset = onReset
+            )
+        }
+    }
+}
+
+@Composable
+private fun TimerStatusPill(
+    isRunning: Boolean,
+    isPaused: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            isRunning -> colorScheme.primaryContainer
+            isPaused -> colorScheme.tertiaryContainer
+            else -> colorScheme.surfaceContainerHigh
+        },
+        animationSpec = tween(500), label = "statusContainer"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = when {
+            isRunning -> colorScheme.onPrimaryContainer
+            isPaused -> colorScheme.onTertiaryContainer
+            else -> colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(500), label = "statusContent"
+    )
+
+    val pulseScale: Float
+    val pulseAlpha: Float
+    if (isRunning) {
+        val transition = rememberInfiniteTransition(label = "timerPulse")
+        pulseScale = transition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.5f,
+            animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+            label = "timerPulseScale"
+        ).value
+        pulseAlpha = transition.animateFloat(
+            initialValue = 0.8f,
+            targetValue = 0.3f,
+            animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+            label = "timerPulseAlpha"
+        ).value
+    } else {
+        pulseScale = 1f
+        pulseAlpha = if (isPaused) 0.8f else 0.5f
+    }
+
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(containerColor)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .scale(pulseScale)
+                .clip(CircleShape)
+                .background(contentColor.copy(alpha = pulseAlpha))
+        )
+        Crossfade(
+            targetState = when {
+                isRunning -> "进行中"
+                isPaused -> "已暂停"
+                else -> "准备开始"
+            },
+            animationSpec = tween(300),
+            label = "statusText"
+        ) { text ->
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = contentColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingWindowChip(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val containerColor by animateColorAsState(
+        targetValue = if (enabled) {
+            colorScheme.primaryContainer
+        } else {
+            colorScheme.surfaceContainerHigh
+        },
+        animationSpec = tween(400), label = "floatingChipContainer"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (enabled) {
+            colorScheme.onPrimaryContainer
+        } else {
+            colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(400), label = "floatingChipContent"
+    )
+
+    Box(
+        modifier = modifier.minimumInteractiveComponentSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(containerColor)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.PictureInPictureAlt,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = "悬浮窗",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = contentColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun LastSessionPlaceholder(modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            strokeWidth = 2.dp,
+            color = colorScheme.primary
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "加载中…",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun LastSessionRow(
+    info: LatestSessionInfo,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val daysAgoText = when (info.daysAgo) {
+        0L -> "今天"
+        1L -> "昨天"
+        else -> "${info.daysAgo} 天前"
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(colorScheme.surfaceContainerHigh)
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+            )
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.History,
+            contentDescription = null,
+            tint = colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ToggleButton(
-                    checked = selectedAction == 0,
-                    onCheckedChange = {
-                        selectedAction = 0
-                        onReset()
-                    },
-                    shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(
-                        checkedShape = ButtonGroupDefaults.connectedLeadingButtonShape
-                    ),
-                    colors = resetToggleColors,
-                ) {
-                    Icon(Icons.Rounded.Replay, "重置", modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                    Text("重置")
-                }
-                ToggleButton(
-                    checked = selectedAction == 1,
-                    onCheckedChange = {
-                        selectedAction = 1
-                        onToggleRun()
-                    },
-                    shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(
-                        shape = ButtonGroupDefaults.connectedButtonCheckedShape
-                    ),
-                    modifier = Modifier.weight(1f),
-                    colors = runToggleColors,
-                ) {
-                    Icon(
-                        imageVector = if (isRunning) Icons.Rounded.Pause
-                        else Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                    Text(if (isRunning) "暂停" else "开始")
-                }
-                ToggleButton(
-                    checked = selectedAction == 2,
-                    onCheckedChange = {
-                        selectedAction = 2
-                        onStop()
-                    },
-                    shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(
-                        checkedShape = ButtonGroupDefaults.connectedTrailingButtonShape
-                    ),
-                    colors = stopToggleColors,
-                ) {
-                    Icon(Icons.Rounded.Stop, "结束", modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                    Text("结束")
-                }
+                Text(
+                    text = "上次记录",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = daysAgoText,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = colorScheme.primary
+                )
             }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "${info.displayDate} ${info.time} · ${info.durationText}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (onClick != null) {
+            TrailingArrowIcon()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
+@Composable
+private fun TimerActionGroup(
+    isRunning: Boolean,
+    onToggleRun: () -> Unit,
+    onStop: () -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+
+    val actionHeight = 52.dp
+
+    val resetColors = ToggleButtonDefaults.colors(
+        containerColor = colorScheme.surfaceContainerHigh,
+        contentColor = colorScheme.onSurfaceVariant,
+        checkedContainerColor = colorScheme.surfaceContainerHigh,
+        checkedContentColor = colorScheme.onSurfaceVariant
+    )
+    val stopColors = ToggleButtonDefaults.colors(
+        containerColor = colorScheme.errorContainer,
+        contentColor = colorScheme.onErrorContainer,
+        checkedContainerColor = colorScheme.errorContainer,
+        checkedContentColor = colorScheme.onErrorContainer
+    )
+    val runColors = ToggleButtonDefaults.colors(
+        containerColor = if (isRunning) colorScheme.tertiary else colorScheme.primary,
+        contentColor = if (isRunning) colorScheme.onTertiary else colorScheme.onPrimary,
+        checkedContainerColor = if (isRunning) colorScheme.tertiary else colorScheme.primary,
+        checkedContentColor = if (isRunning) colorScheme.onTertiary else colorScheme.onPrimary
+    )
+
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        ToggleButton(
+            checked = false,
+            onCheckedChange = { onReset() },
+            modifier = Modifier.height(actionHeight),
+            shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(
+                checkedShape = ButtonGroupDefaults.connectedLeadingButtonShape
+            ),
+            colors = resetColors,
+        ) {
+            Icon(Icons.Rounded.Replay, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+            Text("重置")
+        }
+        ToggleButton(
+            checked = false,
+            onCheckedChange = { onToggleRun() },
+            modifier = Modifier
+                .weight(1f)
+                .height(actionHeight),
+            shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(
+                shape = ButtonGroupDefaults.connectedButtonCheckedShape
+            ),
+            colors = runColors,
+        ) {
+            Icon(
+                imageVector = if (isRunning) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+            Text(if (isRunning) "暂停" else "开始")
+        }
+        ToggleButton(
+            checked = false,
+            onCheckedChange = { onStop() },
+            modifier = Modifier.height(actionHeight),
+            shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(
+                checkedShape = ButtonGroupDefaults.connectedTrailingButtonShape
+            ),
+            colors = stopColors,
+        ) {
+            Icon(Icons.Rounded.Stop, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+            Text("结束")
         }
     }
 }
@@ -383,7 +489,7 @@ private fun FlipClockText(
                         (slideInVertically { it } + fadeIn()) togetherWith
                                 (slideOutVertically { -it } + fadeOut())
                     },
-                    label = "flip_$ch"
+                    label = "flipDigit"
                 ) { digit ->
                     Text(
                         text = digit.toString(),
@@ -396,7 +502,7 @@ private fun FlipClockText(
                 Text(
                     text = ch.toString(),
                     style = charStyle,
-                    color = color,
+                    color = color.copy(alpha = color.alpha * 0.55f),
                     textAlign = TextAlign.Center
                 )
             }

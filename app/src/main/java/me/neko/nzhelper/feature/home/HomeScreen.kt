@@ -7,8 +7,10 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -24,17 +26,18 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Celebration
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +58,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -93,7 +97,8 @@ import java.time.LocalDate
 fun HomeScreen(
     isActive: Boolean = false,
     stopRequestId: Int = 0,
-    onOpenAddRecord: (AddRecordFlow, Int) -> Unit = { _, _ -> }
+    onOpenAddRecord: (AddRecordFlow, Int) -> Unit = { _, _ -> },
+    onOpenHistory: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scrollBehavior =
@@ -223,7 +228,7 @@ fun HomeScreen(
             val birth = AgeGroupSettings.getBirthDate(context)
             val today = LocalDate.now()
             if (birth.month == today.month && birth.dayOfMonth == today.dayOfMonth)
-                "生日快乐！🎂 \n今天对自己好一点，放松心情享受生活吧～"
+                "今天对自己好一点，放松心情享受生活吧～"
             else null
         } catch (_: Exception) {
             null
@@ -335,21 +340,20 @@ fun HomeScreen(
                         onReset = {
                             if (elapsedSeconds > 0) showResetConfirmDialog = true
                             else Toast.makeText(context, "计时尚未开始", Toast.LENGTH_SHORT).show()
-                        }
+                        },
+                        onOpenHistory = onOpenHistory
                     )
                 }
                 item {
-                    Button(
-                        onClick = {
-                            onOpenAddRecord(AddRecordFlow.MANUAL, 0)
-                        },
+                    FilledTonalButton(
+                        onClick = { onOpenAddRecord(AddRecordFlow.MANUAL, 0) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
+                            .height(56.dp),
                         shape = MaterialTheme.shapes.large,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceBright,
-                            contentColor = MaterialTheme.colorScheme.onSurface
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     ) {
                         Icon(
@@ -367,43 +371,14 @@ fun HomeScreen(
                 }
                 if (birthdayGreeting != null) {
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(
-                                    alpha = 0.6f
-                                )
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Celebration, null,
-                                    tint = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    birthdayGreeting,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                        }
+                        BirthdayCard(message = birthdayGreeting)
                     }
                 }
-                if (healthTip != null && !showAiCard) {
-                    item {
-                        HealthTipCard(tip = healthTip!!)
-                    }
-                }
-                if (showAiCard) {
+                if (showAiCard || healthTip != null) {
                     item {
                         HealthTipCard(
                             tip = healthTip,
+                            aiEnabled = showAiCard,
                             aiTip = aiHealthTip,
                             aiLoading = aiLoading,
                             errorText = aiError,
@@ -464,6 +439,52 @@ fun HomeScreen(
                 })
             }
         )
+    }
+}
+
+@Composable
+private fun BirthdayCard(message: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Celebration,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "生日快乐 🎂",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
+                )
+            }
+        }
     }
 }
 

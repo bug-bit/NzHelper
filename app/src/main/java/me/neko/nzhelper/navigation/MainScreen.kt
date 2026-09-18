@@ -283,6 +283,13 @@ fun MainScreen(
                         stopRequestId = if (isLocked) 0 else stopRequestId,
                         onOpenAddRecord = { flow, elapsed ->
                             openAddRecord(flow, elapsed, null)
+                        },
+                        onOpenHistory = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(
+                                    BottomNavItem.items.indexOf(BottomNavItem.History)
+                                )
+                            }
                         }
                     )
 
