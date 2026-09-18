@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import me.neko.nzhelper.core.achievement.AchievementRepository.newUnlocks
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.model.Achievement
 import me.neko.nzhelper.core.model.AchievementProgress
@@ -33,8 +34,12 @@ object AchievementRepository {
     private val syncMutex = Mutex()
 
     private val _newUnlocks = MutableStateFlow<List<Achievement>>(emptyList())
+    private val _progress = MutableStateFlow<List<AchievementProgress>>(emptyList())
+    private var syncedWriteCount = -1
 
     val newUnlocks: StateFlow<List<Achievement>> = _newUnlocks.asStateFlow()
+
+    val progress: StateFlow<List<AchievementProgress>> = _progress.asStateFlow()
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -76,8 +81,7 @@ object AchievementRepository {
         return readUnlocked(context).keys.count { it !in seen }
     }
 
-    /** 进入成就页后调用，清除角标。 */
-    fun markAllSeen(context: Context) {
+    suspend fun markAllSeen(context: Context) = withContext(Dispatchers.IO) {
         markSeen(context, readUnlocked(context).keys)
     }
 
@@ -100,8 +104,15 @@ object AchievementRepository {
         sessions: List<Session>? = null
     ): List<AchievementProgress> = withContext(Dispatchers.IO) {
         syncMutex.withLock {
+            val writeCount = SessionRepository.writeCount.value
+            if (sessions == null && syncedWriteCount == writeCount && _progress.value.isNotEmpty()) {
+                return@withLock _progress.value
+            }
             val records = sessions ?: SessionRepository.loadSessions(context)
-            evaluateAndPersist(context, records, markNewAsSeen = true).second
+            val progress = evaluateAndPersist(context, records, markNewAsSeen = true).second
+            _progress.value = progress
+            syncedWriteCount = SessionRepository.writeCount.value
+            progress
         }
     }
 
@@ -117,6 +128,8 @@ object AchievementRepository {
             val records = sessions ?: SessionRepository.loadSessions(context)
             val before = readUnlocked(context)
             val progress = evaluateAndPersist(context, records, markNewAsSeen = false).second
+            _progress.value = progress
+            syncedWriteCount = SessionRepository.writeCount.value
             val fresh = progress
                 .filter { it.isUnlocked && it.achievement.key !in before }
                 .map { it.achievement }

@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.achievement.AchievementRepository
+import me.neko.nzhelper.core.database.ProfileSummaryRepository
 import me.neko.nzhelper.core.datastore.UpdateSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.util.CiBuild
@@ -58,7 +59,7 @@ import me.neko.nzhelper.feature.home.HomeScreen
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.lock.LockScreen
-import me.neko.nzhelper.feature.settings.SettingsScreen
+import me.neko.nzhelper.feature.mine.MineScreen
 import me.neko.nzhelper.feature.statistics.StatisticsScreen
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 
@@ -226,6 +227,7 @@ fun MainScreen(
     // ── 成就 ──
     LaunchedEffect(Unit) {
         AchievementRepository.sync(context)
+        ProfileSummaryRepository.refresh(context)
     }
     val pendingAchievementUnlocks by AchievementRepository.newUnlocks.collectAsState()
 
@@ -292,7 +294,7 @@ fun MainScreen(
                         }
                     )
 
-                    BottomNavItem.Settings.route -> SettingsScreen(
+                    BottomNavItem.Mine.route -> MineScreen(
                         rootNavController = rootNavController
                     )
                 }

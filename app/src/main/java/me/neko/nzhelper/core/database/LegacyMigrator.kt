@@ -43,6 +43,7 @@ object LegacyMigrator {
         if (sessions.isNotEmpty()) {
             AppDatabase.get(context).sessionDao()
                 .upsertAll(sessions.map { Mappers.sessionToEntity(it, gson) })
+            SessionRepository.notifyDataChanged()
         }
         if (recycleBin.isNotEmpty()) {
             AppDatabase.get(context).recycleBinDao()

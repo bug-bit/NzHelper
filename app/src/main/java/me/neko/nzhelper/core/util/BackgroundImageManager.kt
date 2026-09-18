@@ -80,7 +80,7 @@ object BackgroundImageManager {
         }
     }
 
-    private fun decodeSampled(context: Context, uri: Uri, maxDimension: Int): Bitmap? {
+    internal fun decodeSampled(context: Context, uri: Uri, maxDimension: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         context.contentResolver.openInputStream(uri)?.use { input ->
             BitmapFactory.decodeStream(input, null, bounds)

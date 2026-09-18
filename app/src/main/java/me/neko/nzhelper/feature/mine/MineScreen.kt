@@ -1,7 +1,10 @@
-package me.neko.nzhelper.feature.settings
+package me.neko.nzhelper.feature.mine
 
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,13 +22,13 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.EmojiEvents
-import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Male
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.SmartToy
@@ -43,6 +46,7 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -61,18 +65,24 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.core.achievement.AchievementRepository
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.crash.CrashLogManager
+import me.neko.nzhelper.core.database.ProfileSummaryRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
+import me.neko.nzhelper.core.datastore.AvatarSettings
 import me.neko.nzhelper.core.datastore.RecordModeSettings
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.datastore.UpdateSettings
+import me.neko.nzhelper.core.util.AvatarManager
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
+import me.neko.nzhelper.feature.mine.components.ProfileSummaryCard
 import me.neko.nzhelper.feature.settings.components.AgePickerBottomSheet
 import me.neko.nzhelper.feature.settings.components.RecordModePickerBottomSheet
+import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsItem
 import java.time.LocalDate
@@ -80,7 +90,7 @@ import java.time.Period
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SettingsScreen(
+fun MineScreen(
     rootNavController: NavController
 ) {
     val scrollBehavior =
@@ -121,6 +131,33 @@ fun SettingsScreen(
     }
     var visibleAchievementTotal by remember {
         mutableIntStateOf(AchievementRepository.visibleTotal(context))
+    }
+
+    val profileSummary by ProfileSummaryRepository.summary.collectAsState()
+
+    var avatarPath by remember { mutableStateOf(AvatarSettings.getAvatarPath(context)) }
+    var showAvatarDialog by remember { mutableStateOf(false) }
+
+    val pickAvatarLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val savedPath = AvatarManager.saveImage(context, uri)
+                if (savedPath != null) {
+                    avatarPath = savedPath
+                    AvatarSettings.setAvatarPath(context, savedPath)
+                } else {
+                    Toast.makeText(context, "设置头像失败", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val pickAvatar: () -> Unit = {
+        pickAvatarLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
     }
 
     var lockEnabled by remember { mutableStateOf(AppLockManager.isLockEnabled(context)) }
@@ -168,10 +205,10 @@ fun SettingsScreen(
                     hasGesturePassword = GestureLockManager.hasGesturePassword(context)
                     aiEnabled = AiSettings.isEnabled(context)
                     aiSubtitle = buildAiSubtitle(context, aiEnabled)
-                    AchievementRepository.sync(context)
                     unlockedAchievementCount = AchievementRepository.unlockedCount(context)
                     unseenAchievementCount = AchievementRepository.unseenCount(context)
                     visibleAchievementTotal = AchievementRepository.visibleTotal(context)
+                    ProfileSummaryRepository.refresh(context)
                 }
             }
         }
@@ -238,7 +275,7 @@ fun SettingsScreen(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("设置") },
+                title = { Text("我的") },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -259,54 +296,60 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                SettingsCard(title = "安全") {
+                ProfileSummaryCard(
+                    totalCount = profileSummary.totalCount,
+                    totalSeconds = profileSummary.totalSeconds,
+                    companionDays = profileSummary.companionDays,
+                    unlockedAchievements = unlockedAchievementCount,
+                    totalAchievements = visibleAchievementTotal,
+                    unseenAchievements = unseenAchievementCount,
+                    avatarPath = avatarPath,
+                    onAvatarClick = {
+                        if (avatarPath == null) pickAvatar() else showAvatarDialog = true
+                    },
+                    onAchievementsClick = { rootNavController.navigate("achievement") }
+                )
+            }
+
+            item {
+                SettingsCard(title = "我的数据") {
                     item {
                         SettingsItem(
-                            icon = Icons.Outlined.Lock,
-                            title = "应用锁",
-                            subtitle = "使用生物识别或锁屏密码解锁",
-                            onClick = { requestToggleLock(!lockEnabled) },
-                            trailingContent = {
-                                Switch(
-                                    checked = lockEnabled,
-                                    onCheckedChange = requestToggleLock
-                                )
-                            }
+                            icon = Icons.Outlined.Sell,
+                            title = "标签管理",
+                            subtitle = "分类 · 分组 · 标签（共 $tagCount 个标签）",
+                            onClick = { rootNavController.navigate("tag_manage") }
                         )
                     }
                     item {
                         SettingsItem(
-                            icon = Icons.Outlined.Gesture,
-                            title = "手势密码",
-                            subtitle = if (hasGesturePassword) "已开启，点击可设置" else "关闭，点击开启并设置",
-                            onClick = {
-                                rootNavController.navigate("gesture_lock")
-                            },
-                            trailingContent = {
-                                Switch(
-                                    checked = hasGesturePassword,
-                                    onCheckedChange = { targetState ->
-                                        if (targetState) {
-                                            rootNavController.navigate("gesture_lock")
-                                        } else {
-                                            GestureLockManager.clearGesturePassword(context)
-                                            hasGesturePassword = false
-                                            Toast.makeText(
-                                                context,
-                                                "已关闭并清除手势密码",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                )
-                            }
+                            icon = Icons.Outlined.CloudSync,
+                            title = "备份与恢复",
+                            subtitle = "导出 / 导入 / WebDAV 云备份",
+                            onClick = { rootNavController.navigate("backup") }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.AutoMirrored.Outlined.ViewQuilt,
+                            title = "统计卡片管理",
+                            subtitle = "自定义统计页展示哪些图表卡片",
+                            onClick = { rootNavController.navigate("chart_manage") }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.DeleteOutline,
+                            title = "回收站",
+                            subtitle = "管理已删除记录",
+                            onClick = { rootNavController.navigate("recycle_bin_settings") }
                         )
                     }
                 }
             }
 
             item {
-                SettingsCard(title = "外观") {
+                SettingsCard(title = "个性化") {
                     item {
                         SettingsItem(
                             icon = Icons.Outlined.Palette,
@@ -315,11 +358,6 @@ fun SettingsScreen(
                             onClick = { rootNavController.navigate("theme_settings") }
                         )
                     }
-                }
-            }
-
-            item {
-                SettingsCard(title = "个人信息") {
                     item {
                         SettingsItem(
                             icon = Icons.Outlined.Cake,
@@ -381,17 +419,46 @@ fun SettingsScreen(
             }
 
             item {
-                SettingsCard(title = "成就") {
+                SettingsCard(title = "隐私与安全") {
                     item {
                         SettingsItem(
-                            icon = Icons.Outlined.EmojiEvents,
-                            title = "我的成就",
-                            subtitle = "已解锁 $unlockedAchievementCount / $visibleAchievementTotal",
-                            onClick = { rootNavController.navigate("achievement") },
-                            badgeText = if (unseenAchievementCount > 0) {
-                                "$unseenAchievementCount"
-                            } else {
-                                null
+                            icon = Icons.Outlined.Lock,
+                            title = "应用锁",
+                            subtitle = "使用生物识别或锁屏密码解锁",
+                            onClick = { requestToggleLock(!lockEnabled) },
+                            trailingContent = {
+                                Switch(
+                                    checked = lockEnabled,
+                                    onCheckedChange = requestToggleLock
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Gesture,
+                            title = "手势密码",
+                            subtitle = if (hasGesturePassword) "已开启，点击可设置" else "关闭，点击开启并设置",
+                            onClick = {
+                                rootNavController.navigate("gesture_lock")
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = hasGesturePassword,
+                                    onCheckedChange = { targetState ->
+                                        if (targetState) {
+                                            rootNavController.navigate("gesture_lock")
+                                        } else {
+                                            GestureLockManager.clearGesturePassword(context)
+                                            hasGesturePassword = false
+                                            Toast.makeText(
+                                                context,
+                                                "已关闭并清除手势密码",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                )
                             }
                         )
                     }
@@ -399,44 +466,7 @@ fun SettingsScreen(
             }
 
             item {
-                SettingsCard(title = "数据管理") {
-                    item {
-                        SettingsItem(
-                            icon = Icons.Outlined.Sell,
-                            title = "标签管理",
-                            subtitle = "分类 · 分组 · 标签（共 $tagCount 个标签）",
-                            onClick = { rootNavController.navigate("tag_manage") }
-                        )
-                    }
-                    item {
-                        SettingsItem(
-                            icon = Icons.Outlined.CloudSync,
-                            title = "备份与恢复",
-                            subtitle = "导出 / 导入 / WebDAV 云备份",
-                            onClick = { rootNavController.navigate("backup") }
-                        )
-                    }
-                    item {
-                        SettingsItem(
-                            icon = Icons.AutoMirrored.Outlined.ViewQuilt,
-                            title = "统计卡片管理",
-                            subtitle = "自定义统计页展示哪些图表卡片",
-                            onClick = { rootNavController.navigate("chart_manage") }
-                        )
-                    }
-                    item {
-                        SettingsItem(
-                            icon = Icons.Outlined.DeleteOutline,
-                            title = "回收站",
-                            subtitle = "管理已删除记录",
-                            onClick = { rootNavController.navigate("recycle_bin_settings") }
-                        )
-                    }
-                }
-            }
-
-            item {
-                SettingsCard(title = "更新") {
+                SettingsCard(title = "更新与诊断") {
                     item {
                         SettingsItem(
                             icon = Icons.Outlined.Update,
@@ -465,11 +495,6 @@ fun SettingsScreen(
                             }
                         )
                     }
-                }
-            }
-
-            item {
-                SettingsCard(title = "诊断") {
                     item {
                         SettingsItem(
                             icon = Icons.Outlined.BugReport,
@@ -487,19 +512,12 @@ fun SettingsScreen(
             }
 
             item {
-                SettingsCard(title = "更多") {
-                    item {
-                        SettingsItem(
-                            icon = Icons.Outlined.Favorite,
-                            title = "引导模式",
-                            subtitle = "回顾初次使用时的偏好设置流程",
-                            onClick = { rootNavController.navigate("onboarding") }
-                        )
-                    }
+                SettingsCard(title = "关于") {
                     item {
                         SettingsItem(
                             icon = Icons.Outlined.Info,
                             title = "关于",
+                            subtitle = "版本 ${BuildConfig.VERSION_NAME}",
                             onClick = { rootNavController.navigate("about") }
                         )
                     }
@@ -521,6 +539,24 @@ fun SettingsScreen(
         )
     }
 
+    if (showAvatarDialog) {
+        CustomAppAlertDialog(
+            onDismissRequest = { showAvatarDialog = false },
+            iconVector = Icons.Outlined.Person,
+            title = "自定义头像",
+            message = "可以重新选择一张图片，或者移除当前头像。",
+            confirmText = "更换头像",
+            confirmIcon = Icons.Outlined.Edit,
+            dismissText = "移除头像",
+            onConfirm = { pickAvatar() },
+            onDismiss = {
+                avatarPath = null
+                AvatarSettings.setAvatarPath(context, null)
+                scope.launch { AvatarManager.removeImage(context) }
+            }
+        )
+    }
+
     if (showModeDialog) {
         RecordModePickerBottomSheet(
             currentMode = defaultMode,
@@ -536,7 +572,7 @@ fun SettingsScreen(
 
 @Preview(showBackground = true)
 @Composable
-fun SettingsScreenPreview() {
+fun MineScreenPreview() {
     val navController = NavController(LocalContext.current)
-    SettingsScreen(rootNavController = navController)
+    MineScreen(rootNavController = navController)
 }

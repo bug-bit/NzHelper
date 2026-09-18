@@ -4,6 +4,10 @@ import android.content.Context
 import com.google.gson.JsonParser
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.datastore.TagSettings
@@ -15,6 +19,9 @@ object SessionRepository {
 
     private val gson = NzApplication.gson
     private val sessionsTypeToken = object : TypeToken<List<Session>>() {}.type
+
+    private val _writeCount = MutableStateFlow(0)
+    val writeCount: StateFlow<Int> = _writeCount.asStateFlow()
 
     private fun dao(context: Context) = AppDatabase.get(context).sessionDao()
 
@@ -59,9 +66,14 @@ object SessionRepository {
         val toDelete = (existingKeys - incomingKeys)
         if (toDelete.isNotEmpty()) dao.deleteByKeys(toDelete.toList())
         dao.upsertAll(sessions.map { Mappers.sessionToEntity(it, gson) })
+        notifyDataChanged()
         if (triggerAutoBackup) {
             BackupRepository.autoBackupIfNeeded(context)
         }
+    }
+
+    fun notifyDataChanged() {
+        _writeCount.update { it + 1 }
     }
 
     private fun migrateObfuscatedData(array: com.google.gson.JsonArray): List<Session> {

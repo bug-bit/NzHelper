@@ -40,6 +40,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,13 +71,13 @@ fun AchievementScreen(onBack: () -> Unit) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    var progressList by remember { mutableStateOf<List<AchievementProgress>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val progressList by AchievementRepository.progress.collectAsState()
+    var isLoading by remember { mutableStateOf(progressList.isEmpty()) }
     var selectedCategory by remember { mutableStateOf<AchievementCategory?>(null) }
     var selectedProgress by remember { mutableStateOf<AchievementProgress?>(null) }
 
     LaunchedEffect(Unit) {
-        progressList = AchievementRepository.sync(context)
+        AchievementRepository.sync(context)
         AchievementRepository.markAllSeen(context)
         isLoading = false
     }

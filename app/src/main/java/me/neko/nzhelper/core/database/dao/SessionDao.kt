@@ -15,6 +15,14 @@ interface SessionDao {
     @Query("SELECT COUNT(*) FROM sessions")
     suspend fun count(): Int
 
+    @Query(
+        "SELECT COUNT(*) AS recordCount, " +
+                "COALESCE(SUM(duration), 0) AS totalSeconds, " +
+                "MIN(timestampIso) AS firstTimestampIso " +
+                "FROM sessions"
+    )
+    suspend fun summary(): SessionSummaryRow
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<SessionEntity>)
 
@@ -24,3 +32,9 @@ interface SessionDao {
     @Query("DELETE FROM sessions")
     suspend fun deleteAll()
 }
+
+data class SessionSummaryRow(
+    val recordCount: Int,
+    val totalSeconds: Int,
+    val firstTimestampIso: String?
+)

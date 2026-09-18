@@ -1,7 +1,10 @@
 package me.neko.nzhelper.navigation
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 
 import me.neko.nzhelper.R
@@ -29,13 +32,13 @@ sealed class BottomNavItem(
         icon = { painterResource(id = R.drawable.history_24px) }
     )
 
-    object Settings : BottomNavItem(
-        route = "settings",
-        title = "设置",
-        icon = { painterResource(id = R.drawable.settings_24px) }
+    object Mine : BottomNavItem(
+        route = "mine",
+        title = "我的",
+        icon = { rememberVectorPainter(image = Icons.Outlined.Person) }
     )
 
     companion object {
-        val items = listOf(Home, Statistics, History, Settings)
+        val items = listOf(Home, Statistics, History, Mine)
     }
 }
