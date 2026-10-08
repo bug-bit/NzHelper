@@ -9,13 +9,9 @@ import com.google.gson.JsonSerializer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.crash.CrashHandler
-import me.neko.nzhelper.core.database.AppDatabase
-import me.neko.nzhelper.core.database.LegacyMigrator
-import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.database.DbBootstrap
 import me.neko.nzhelper.core.notification.NotificationUtil
-import me.neko.nzhelper.core.webdav.WebDavSettings
 import me.neko.nzhelper.core.worker.RecycleBinWorker
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -40,6 +36,7 @@ class NzApplication : Application() {
         instance = this
 
         NotificationUtil.createChannel(this)
+        NotificationUtil.createCrashChannel(this)
         RecycleBinWorker.schedulePeriodicCleanup(this)
 
         gson = GsonBuilder()
@@ -60,12 +57,6 @@ class NzApplication : Application() {
             )
             .create()
 
-        TagSettings.preload(this)
-        WebDavSettings.preload(this)
-
-        appScope.launch {
-            AppDatabase.get(this@NzApplication)
-            LegacyMigrator.migrateIfNeeded(this@NzApplication)
-        }
+        DbBootstrap.start(this)
     }
 }

@@ -17,10 +17,25 @@ object KeystoreCrypto {
     private const val IV_LEN = 12
     private const val TAG_BITS = 128
 
+    enum class Failure {
+        NOT_WRAPPED,
+        MASTER_KEY_MISSING,
+        MASTER_KEY_MISMATCH,
+        MALFORMED,
+        KEYSTORE_ERROR
+    }
+
+    sealed interface Unwrap {
+        class Ok(val value: ByteArray) : Unwrap
+        class Err(val failure: Failure, val cause: Throwable? = null) : Unwrap
+    }
+
+    private fun keyStore(): KeyStore = KeyStore.getInstance(PROVIDER).apply { load(null) }
+
+    private fun existingKey(): SecretKey? = keyStore().getKey(ALIAS, null) as? SecretKey
+
     private fun getOrCreateKey(): SecretKey {
-        val ks = KeyStore.getInstance(PROVIDER)
-        ks.load(null)
-        (ks.getKey(ALIAS, null) as? SecretKey)?.let { return it }
+        existingKey()?.let { return it }
         val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
         gen.init(
             KeyGenParameterSpec.Builder(
@@ -49,21 +64,32 @@ object KeystoreCrypto {
     fun encryptString(plain: String): String =
         if (plain.isEmpty()) plain else encrypt(plain.toByteArray(Charsets.UTF_8))
 
-    fun decrypt(value: String): ByteArray? {
-        if (!value.startsWith(MAGIC)) return null
+    fun unwrap(value: String): Unwrap {
+        if (!value.startsWith(MAGIC)) return Unwrap.Err(Failure.NOT_WRAPPED)
+
+        val data = try {
+            Base64.decode(value.substring(MAGIC.length), Base64.NO_WRAP)
+        } catch (t: Throwable) {
+            return Unwrap.Err(Failure.MALFORMED, t)
+        }
+        if (data.size <= IV_LEN) return Unwrap.Err(Failure.MALFORMED)
+
+        val key = try {
+            existingKey()
+        } catch (t: Throwable) {
+            return Unwrap.Err(Failure.KEYSTORE_ERROR, t)
+        } ?: return Unwrap.Err(Failure.MASTER_KEY_MISSING)
+
+        val iv = data.copyOfRange(0, IV_LEN)
+        val ct = data.copyOfRange(IV_LEN, data.size)
         return try {
-            val data = Base64.decode(value.substring(MAGIC.length), Base64.NO_WRAP)
-            if (data.size <= IV_LEN) return null
-            val iv = data.copyOfRange(0, IV_LEN)
-            val ct = data.copyOfRange(IV_LEN, data.size)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(TAG_BITS, iv))
-            cipher.doFinal(ct)
-        } catch (_: Exception) {
-            null
+            cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, iv))
+            Unwrap.Ok(cipher.doFinal(ct))
+        } catch (t: Throwable) {
+            Unwrap.Err(Failure.MASTER_KEY_MISMATCH, t)
         }
     }
 
-    fun decryptString(value: String): String =
-        decrypt(value)?.let { String(it, Charsets.UTF_8) } ?: value
+    fun decrypt(value: String): ByteArray? = (unwrap(value) as? Unwrap.Ok)?.value
 }

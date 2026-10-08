@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Process
 import android.util.Log
 import me.neko.nzhelper.BuildConfig
+import me.neko.nzhelper.core.notification.NotificationUtil
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -23,13 +24,32 @@ class CrashHandler private constructor(
             Log.e(TAG, "保存崩溃日志失败", it)
         }.getOrNull()
 
-        runCatching {
-            if (file != null) launchCrashLogActivity(file.name)
-            Process.killProcess(Process.myPid())
-        }.onFailure {
-            Log.e(TAG, "跳转崩溃页失败，回退默认处理器", it)
+        if (file == null) {
             defaultHandler?.uncaughtException(t, e)
+            Process.killProcess(Process.myPid())
+            return
         }
+
+        runCatching { NotificationUtil.notifyCrash(context, file.name, summarize(e)) }
+            .onFailure { Log.e(TAG, "发送崩溃通知失败", it) }
+
+        val launched = runCatching { launchCrashLogActivity(file.name) }
+            .onFailure { Log.e(TAG, "跳转崩溃页失败", it) }
+            .isSuccess
+        if (!launched) defaultHandler?.uncaughtException(t, e)
+        Process.killProcess(Process.myPid())
+    }
+
+    private fun summarize(e: Throwable): String {
+        var root = e
+        var depth = 0
+        while (depth < MAX_CAUSE_DEPTH) {
+            val next = root.cause ?: break
+            if (next === root) break
+            root = next
+            depth++
+        }
+        return root.toString()
     }
 
     private fun saveCrashLog(thread: Thread, throwable: Throwable): File {

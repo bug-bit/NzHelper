@@ -8,7 +8,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,7 +23,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import me.neko.nzhelper.core.crash.CrashLogManager
+import me.neko.nzhelper.core.database.DbBootstrap
 import me.neko.nzhelper.core.datastore.OnboardingSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.feature.about.AboutScreen
@@ -35,6 +40,7 @@ import me.neko.nzhelper.feature.backup.BackupScreen
 import me.neko.nzhelper.feature.crash.CrashLogScreen
 import me.neko.nzhelper.feature.lock.GestureLockSetupScreen
 import me.neko.nzhelper.feature.onboarding.OnboardingScreen
+import me.neko.nzhelper.feature.recovery.DbRecoveryScreen
 import me.neko.nzhelper.feature.recyclebin.RecycleBinScreen
 import me.neko.nzhelper.feature.recyclebin.RecycleBinSettingsScreen
 import me.neko.nzhelper.feature.settings.ChartManageScreen
@@ -58,29 +64,123 @@ class MainActivity : AppCompatActivity() {
         handleIntent(intent)
         setContent {
             NzHelperTheme {
-                val navController = rememberNavController()
-                var startDestination by remember { mutableStateOf<String?>(null) }
+                val dbIssue by DbBootstrap.issue.collectAsState()
+                val issue = dbIssue
+                if (issue != null) {
+                    DbRecoveryScreen(issue)
+                } else {
+                    AppContent(stopRequest)
+                }
+            }
+        }
+    }
 
-                LaunchedEffect(Unit) {
-                    startDestination = if (OnboardingSettings.isCompleted(this@MainActivity)) {
-                        "main"
-                    } else {
-                        "onboarding"
+    @Composable
+    private fun AppContent(stopRequest: StateFlow<Int>) {
+        val navController = rememberNavController()
+        var startDestination by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(Unit) {
+            startDestination = if (OnboardingSettings.isCompleted(this@MainActivity)) {
+                "main"
+            } else {
+                "onboarding"
+            }
+        }
+
+        val destination = startDestination
+        if (destination == null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            NavHost(
+                navController = navController,
+                startDestination = destination,
+                enterTransition = { screenEnter() },
+                exitTransition = { screenExit() },
+                popEnterTransition = { screenPopEnter() },
+                popExitTransition = { screenPopExit() },
+                predictivePopEnterTransition = { swipeEdge ->
+                    screenPredictivePopEnter(swipeEdge)
+                },
+                predictivePopExitTransition = { swipeEdge ->
+                    screenPredictivePopExit(swipeEdge)
+                }
+            ) {
+                composable("onboarding") {
+                    OnboardingScreen(
+                        onFinish = {
+                            OnboardingSettings.markCompleted(this@MainActivity)
+                            if (navController.previousBackStackEntry != null) {
+                                navController.popBackStack()
+                            } else {
+                                navController.navigate("main") {
+                                    popUpTo("onboarding") { inclusive = true }
+                                }
+                            }
+                        }
+                    )
+                }
+                composable("main") {
+                    MainScreen(
+                        rootNavController = navController,
+                        stopRequest = stopRequest
+                    )
+                    LaunchedEffect(Unit) {
+                        if (CrashLogManager.hasUnread(this@MainActivity)) {
+                            navController.navigate("crash_logs")
+                        }
                     }
                 }
-
-                val destination = startDestination
-                if (destination == null) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
+                composable(
+                    route = "add_record?flow={flow}&elapsed={elapsed}&editSession={editSession}",
+                    arguments = listOf(
+                        navArgument("flow") {
+                            type = NavType.StringType
+                            defaultValue = AddRecordFlow.MANUAL.key
+                        },
+                        navArgument("elapsed") {
+                            type = NavType.IntType
+                            defaultValue = 0
+                        },
+                        navArgument("editSession") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val editJson =
+                        backStackEntry.arguments?.getString("editSession").orEmpty()
+                    val editSession = remember(editJson) {
+                        if (editJson.isBlank()) {
+                            null
+                        } else {
+                            try {
+                                NzApplication.gson.fromJson(editJson, Session::class.java)
+                            } catch (_: Exception) {
+                                null
+                            }
+                        }
                     }
-                } else {
+                    AddRecordScreen(
+                        flow = AddRecordFlow.fromKey(
+                            backStackEntry.arguments?.getString("flow")
+                        ),
+                        elapsedSeconds =
+                            backStackEntry.arguments?.getInt("elapsed") ?: 0,
+                        editSession = editSession,
+                        onClose = { navController.popBackStack() }
+                    )
+                }
+                composable("about") {
+                    val aboutNav = rememberNavController()
                     NavHost(
-                        navController = navController,
-                        startDestination = destination,
+                        navController = aboutNav,
+                        startDestination = "about",
                         enterTransition = { screenEnter() },
                         exitTransition = { screenExit() },
                         popEnterTransition = { screenPopEnter() },
@@ -92,151 +192,73 @@ class MainActivity : AppCompatActivity() {
                             screenPredictivePopExit(swipeEdge)
                         }
                     ) {
-                        composable("onboarding") {
-                            OnboardingScreen(
-                                onFinish = {
-                                    OnboardingSettings.markCompleted(this@MainActivity)
-                                    if (navController.previousBackStackEntry != null) {
-                                        navController.popBackStack()
-                                    } else {
-                                        navController.navigate("main") {
-                                            popUpTo("onboarding") { inclusive = true }
-                                        }
-                                    }
-                                }
-                            )
+                        composable("about") { AboutScreen(aboutNav) }
+                        composable("open_source") { OpenSourceScreen(aboutNav) }
+                    }
+                }
+                composable("ai_config") {
+                    val aiNav = rememberNavController()
+                    NavHost(
+                        navController = aiNav,
+                        startDestination = "config",
+                        enterTransition = { screenEnter() },
+                        exitTransition = { screenExit() },
+                        popEnterTransition = { screenPopEnter() },
+                        popExitTransition = { screenPopExit() },
+                        predictivePopEnterTransition = { swipeEdge ->
+                            screenPredictivePopEnter(swipeEdge)
+                        },
+                        predictivePopExitTransition = { swipeEdge ->
+                            screenPredictivePopExit(swipeEdge)
                         }
-                        composable("main") {
-                            MainScreen(
-                                rootNavController = navController,
-                                stopRequest = stopRequest
-                            )
-                        }
-                        composable(
-                            route = "add_record?flow={flow}&elapsed={elapsed}&editSession={editSession}",
-                            arguments = listOf(
-                                navArgument("flow") {
-                                    type = NavType.StringType
-                                    defaultValue = AddRecordFlow.MANUAL.key
-                                },
-                                navArgument("elapsed") {
-                                    type = NavType.IntType
-                                    defaultValue = 0
-                                },
-                                navArgument("editSession") {
-                                    type = NavType.StringType
-                                    defaultValue = ""
-                                }
-                            )
-                        ) { backStackEntry ->
-                            val editJson =
-                                backStackEntry.arguments?.getString("editSession").orEmpty()
-                            val editSession = remember(editJson) {
-                                if (editJson.isBlank()) {
-                                    null
-                                } else {
-                                    try {
-                                        NzApplication.gson.fromJson(editJson, Session::class.java)
-                                    } catch (_: Exception) {
-                                        null
-                                    }
-                                }
-                            }
-                            AddRecordScreen(
-                                flow = AddRecordFlow.fromKey(
-                                    backStackEntry.arguments?.getString("flow")
-                                ),
-                                elapsedSeconds =
-                                    backStackEntry.arguments?.getInt("elapsed") ?: 0,
-                                editSession = editSession,
-                                onClose = { navController.popBackStack() }
-                            )
-                        }
-                        composable("about") {
-                            val aboutNav = rememberNavController()
-                            NavHost(
-                                navController = aboutNav,
-                                startDestination = "about",
-                                enterTransition = { screenEnter() },
-                                exitTransition = { screenExit() },
-                                popEnterTransition = { screenPopEnter() },
-                                popExitTransition = { screenPopExit() },
-                                predictivePopEnterTransition = { swipeEdge ->
-                                    screenPredictivePopEnter(swipeEdge)
-                                },
-                                predictivePopExitTransition = { swipeEdge ->
-                                    screenPredictivePopExit(swipeEdge)
-                                }
-                            ) {
-                                composable("about") { AboutScreen(aboutNav) }
-                                composable("open_source") { OpenSourceScreen(aboutNav) }
-                            }
-                        }
-                        composable("ai_config") {
-                            val aiNav = rememberNavController()
-                            NavHost(
-                                navController = aiNav,
-                                startDestination = "config",
-                                enterTransition = { screenEnter() },
-                                exitTransition = { screenExit() },
-                                popEnterTransition = { screenPopEnter() },
-                                popExitTransition = { screenPopExit() },
-                                predictivePopEnterTransition = { swipeEdge ->
-                                    screenPredictivePopEnter(swipeEdge)
-                                },
-                                predictivePopExitTransition = { swipeEdge ->
-                                    screenPredictivePopExit(swipeEdge)
-                                }
-                            ) {
-                                composable("config") {
-                                    AiConfigScreen(
-                                        onBack = { navController.popBackStack() },
-                                        onProviders = { aiNav.navigate("providers") }
-                                    )
-                                }
-                                composable("providers") {
-                                    AiProviderListScreen(onBack = { aiNav.popBackStack() })
-                                }
-                            }
-                        }
-                        composable("backup") {
-                            BackupScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("recycle_bin") {
-                            RecycleBinScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("recycle_bin_settings") {
-                            RecycleBinSettingsScreen(
+                    ) {
+                        composable("config") {
+                            AiConfigScreen(
                                 onBack = { navController.popBackStack() },
-                                onNavigateToRecycleBin = { navController.navigate("recycle_bin") }
+                                onProviders = { aiNav.navigate("providers") }
                             )
                         }
-                        composable("gesture_lock") {
-                            GestureLockSetupScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("tag_manage") {
-                            TagManageScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("crash_logs") {
-                            CrashLogScreen(
-                                onClose = { navController.popBackStack() },
-                                onRestart = {
-                                    navController.navigate("main") {
-                                        popUpTo(0) { inclusive = true }
-                                    }
-                                }
-                            )
-                        }
-                        composable("theme_settings") {
-                            ThemeSettingsScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("chart_manage") {
-                            ChartManageScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable("achievement") {
-                            AchievementScreen(onBack = { navController.popBackStack() })
+                        composable("providers") {
+                            AiProviderListScreen(onBack = { aiNav.popBackStack() })
                         }
                     }
+                }
+                composable("backup") {
+                    BackupScreen(onBack = { navController.popBackStack() })
+                }
+                composable("recycle_bin") {
+                    RecycleBinScreen(onBack = { navController.popBackStack() })
+                }
+                composable("recycle_bin_settings") {
+                    RecycleBinSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavigateToRecycleBin = { navController.navigate("recycle_bin") }
+                    )
+                }
+                composable("gesture_lock") {
+                    GestureLockSetupScreen(onBack = { navController.popBackStack() })
+                }
+                composable("tag_manage") {
+                    TagManageScreen(onBack = { navController.popBackStack() })
+                }
+                composable("crash_logs") {
+                    CrashLogScreen(
+                        onClose = { navController.popBackStack() },
+                        onRestart = {
+                            navController.navigate("main") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    )
+                }
+                composable("theme_settings") {
+                    ThemeSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                composable("chart_manage") {
+                    ChartManageScreen(onBack = { navController.popBackStack() })
+                }
+                composable("achievement") {
+                    AchievementScreen(onBack = { navController.popBackStack() })
                 }
             }
         }

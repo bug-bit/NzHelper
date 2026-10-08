@@ -39,7 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun aiConfigDao(): AiConfigDao
 
     companion object {
-        private const val DB_NAME = "records.db"
+        internal const val DB_NAME = "records.db"
 
         @Volatile
         private var instance: AppDatabase? = null
@@ -48,6 +48,13 @@ abstract class AppDatabase : RoomDatabase() {
             return instance ?: synchronized(this) {
                 instance ?: build(context).also { instance = it }
             }
+        }
+
+        @Synchronized
+        fun releaseInstance() {
+            val current = instance ?: return
+            instance = null
+            runCatching { current.close() }
         }
 
         private fun build(context: Context): AppDatabase {
@@ -60,7 +67,14 @@ abstract class AppDatabase : RoomDatabase() {
                 DB_NAME
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                    MIGRATION_6_7
+                )
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
         }

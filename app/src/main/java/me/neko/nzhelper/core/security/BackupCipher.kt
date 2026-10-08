@@ -9,10 +9,13 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
+class BackupPasswordUnavailableException(message: String) : IllegalStateException(message)
+
 object BackupCipher {
 
     private const val PREFS = "backup_pw_prefs"
     private const val KEY_PW = "backup_password"
+    private const val KEY_CUSTOM = "custom_pw_set"
     private const val MAGIC = "NZB1"
     private const val SALT_LEN = 16
     private const val IV_LEN = 12
@@ -20,32 +23,52 @@ object BackupCipher {
     private const val ITERATIONS = 600_000
     private const val KEY_BITS = 256
 
-    private fun getPassword(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val stored = prefs.getString(KEY_PW, null)
+    private fun prefs(context: Context) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private fun customFlag(context: Context): Boolean = prefs(context).getBoolean(KEY_CUSTOM, false)
+
+    private fun readStoredPassword(context: Context): String? {
+        val stored = prefs(context).getString(KEY_PW, null) ?: return null
+        return when (val result = KeystoreCrypto.unwrap(stored)) {
+            is KeystoreCrypto.Unwrap.Ok -> String(result.value, Charsets.UTF_8)
+            is KeystoreCrypto.Unwrap.Err -> null
+        }
+    }
+
+    private fun requirePassword(context: Context): String {
+        val stored = prefs(context).getString(KEY_PW, null)
         if (stored != null) {
-            KeystoreCrypto.decryptString(stored).takeIf { it != stored }?.let { return it }
+            return when (val result = KeystoreCrypto.unwrap(stored)) {
+                is KeystoreCrypto.Unwrap.Ok -> String(result.value, Charsets.UTF_8)
+                is KeystoreCrypto.Unwrap.Err -> throw BackupPasswordUnavailableException(
+                    "备份密码已丢失（${DbKeyProvider.description(result.failure)}），需要重新设置后才能导出或恢复备份"
+                )
+            }
         }
         val generated = generateRandomPassword()
-        prefs.edit { putString(KEY_PW, KeystoreCrypto.encryptString(generated)) }
+        prefs(context).edit { putString(KEY_PW, KeystoreCrypto.encryptString(generated)) }
         return generated
     }
 
     fun hasCustomPassword(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean("custom_pw_set", false)
+        customFlag(context) && readStoredPassword(context) != null
 
-    fun getCustomPassword(context: Context): String? {
-        if (!hasCustomPassword(context)) return null
-        return getPassword(context)
-    }
+    fun getCustomPassword(context: Context): String? =
+        if (!customFlag(context)) null else readStoredPassword(context)
 
     fun setPassword(context: Context, password: String) {
         val final = password.ifEmpty { generateRandomPassword() }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+        prefs(context).edit {
             putString(KEY_PW, KeystoreCrypto.encryptString(final))
-            putBoolean("custom_pw_set", password.isNotEmpty())
+            putBoolean(KEY_CUSTOM, password.isNotEmpty())
         }
+    }
+
+    fun resetPasswordIfUnreadable(context: Context) {
+        val stored = prefs(context).getString(KEY_PW, null) ?: return
+        if (KeystoreCrypto.unwrap(stored) is KeystoreCrypto.Unwrap.Ok) return
+        setPassword(context, "")
     }
 
     private fun generateRandomPassword(): String {
@@ -61,7 +84,7 @@ object BackupCipher {
     }
 
     fun encrypt(context: Context, plaintext: ByteArray): ByteArray {
-        val password = getPassword(context)
+        val password = requirePassword(context)
         val salt = ByteArray(SALT_LEN).also { SecureRandom().nextBytes(it) }
         val key = deriveKey(password, salt)
         val iv = ByteArray(IV_LEN).also { SecureRandom().nextBytes(it) }
@@ -99,7 +122,7 @@ object BackupCipher {
     }
 
     fun decrypt(context: Context, data: ByteArray): ByteArray? =
-        decryptWithPassword(getPassword(context), data)
+        decryptWithPassword(requirePassword(context), data)
 
     fun isNzFile(data: ByteArray): Boolean {
         val magic = MAGIC.toByteArray(Charsets.US_ASCII)

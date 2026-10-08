@@ -13,6 +13,7 @@ import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.BackupModules
 import me.neko.nzhelper.core.model.WebDavBackupPayload
 import me.neko.nzhelper.core.security.BackupCipher
+import me.neko.nzhelper.core.security.BackupPasswordUnavailableException
 import me.neko.nzhelper.core.webdav.WebDavSettings
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -255,38 +256,64 @@ object BackupRepository {
         context: Context,
         data: ByteArray
     ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
-        val plain = BackupCipher.decrypt(context, data)
-            ?: return@withContext null to "备份密码不匹配或文件已损坏"
-        val payload = try {
-            gson.fromJson(String(plain, Charsets.UTF_8), WebDavBackupPayload::class.java)
-                .normalized()
-        } catch (_: Exception) {
-            null
-        } ?: return@withContext null to "备份内容格式无效"
-        BackupPreview(payload) to ""
+        val plain = try {
+            BackupCipher.decrypt(context, data)
+        } catch (e: BackupPasswordUnavailableException) {
+            return@withContext null to (e.message ?: "备份密码不可用")
+        } ?: return@withContext null to "备份密码不匹配或文件已损坏"
+        decodeNzPlainBytes(plain)
+    }
+
+    suspend fun previewFromUriWithPassword(
+        context: Context,
+        uri: Uri,
+        password: String
+    ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
+        val bytes = readBytes(context, uri) ?: return@withContext null to "无法读取文件"
+        if (BackupCipher.isNzFile(bytes)) {
+            val plain = BackupCipher.decryptWithPassword(password, bytes)
+                ?: return@withContext null to "备份密码不正确"
+            return@withContext decodeNzPlainBytes(plain)
+        }
+        decodePlainBackup(String(bytes, Charsets.UTF_8))
     }
 
     suspend fun previewFromUri(
         context: Context,
         uri: Uri
     ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
-        val bytes = try {
-            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        } ?: return@withContext null to "无法读取文件"
+        val bytes = readBytes(context, uri) ?: return@withContext null to "无法读取文件"
         if (BackupCipher.isNzFile(bytes)) {
             return@withContext previewNzBytes(context, bytes)
         }
-        val text = String(bytes, Charsets.UTF_8)
+        decodePlainBackup(String(bytes, Charsets.UTF_8))
+    }
+
+    private fun readBytes(context: Context, uri: Uri): ByteArray? = try {
+        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+
+    private fun decodeNzPlainBytes(plain: ByteArray): Pair<BackupPreview?, String> {
+        val payload = try {
+            gson.fromJson(String(plain, Charsets.UTF_8), WebDavBackupPayload::class.java)
+                .normalized()
+        } catch (_: Exception) {
+            null
+        } ?: return null to "备份内容格式无效"
+        return BackupPreview(payload) to ""
+    }
+
+    private fun decodePlainBackup(text: String): Pair<BackupPreview?, String> {
         val payload = try {
             gson.fromJson(text, WebDavBackupPayload::class.java).normalized()
         } catch (_: Exception) {
             null
         }
         if (payload != null && payload.version > 0) {
-            return@withContext BackupPreview(payload) to ""
+            return BackupPreview(payload) to ""
         }
         val listType = com.google.gson.reflect.TypeToken
             .getParameterized(
@@ -297,8 +324,8 @@ object BackupRepository {
             gson.fromJson<List<me.neko.nzhelper.core.model.Session>>(text, listType)
         } catch (_: Exception) {
             null
-        } ?: return@withContext null to "无法识别的备份格式"
-        BackupPreview(
+        } ?: return null to "无法识别的备份格式"
+        return BackupPreview(
             payload = WebDavBackupPayload(
                 version = 1,
                 exportedAt = 0L,
