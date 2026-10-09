@@ -1,12 +1,16 @@
 package me.neko.nzhelper.core.notification
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import me.neko.nzhelper.R
 import me.neko.nzhelper.core.crash.CrashHandler
 
@@ -46,6 +50,12 @@ object NotificationUtil {
     }
 
     fun notifyCrash(context: Context, crashFileName: String, summary: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         val intent = Intent().apply {
             setClassName(context, CrashHandler.CRASH_LOG_ACTIVITY)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -66,6 +76,9 @@ object NotificationUtil {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
-        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_CRASH, notification)
+        try {
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_CRASH, notification)
+        } catch (_: SecurityException) {
+        }
     }
 }
