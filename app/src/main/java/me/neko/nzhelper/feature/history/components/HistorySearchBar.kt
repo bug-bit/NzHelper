@@ -5,7 +5,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +48,8 @@ fun HistorySearchBar(
     activeFilters: Set<HistoryQuickFilter>,
     resultCount: Int,
     totalCount: Int,
+    periodLabel: String? = null,
+    onClearPeriod: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -52,14 +59,30 @@ fun HistorySearchBar(
             placeholder = "搜索 备注 / 标签 / 日期 / 时长…"
         )
 
+        if (periodLabel != null) {
+            Spacer(Modifier.height(8.dp))
+            InputChip(
+                selected = true,
+                onClick = onClearPeriod,
+                label = { Text("周期：$periodLabel") },
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "清除周期筛选",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            )
+        }
+
         Spacer(Modifier.height(8.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val isFiltered =
-                query.isNotEmpty() || activeFilters.any { it != HistoryQuickFilter.ALL }
+            val isFiltered = periodLabel != null || query.isNotEmpty() ||
+                    activeFilters.any { it != HistoryQuickFilter.ALL }
             val filterLabel = if (isFiltered) {
                 activeFilters.joinToString("、") { it.label }
             } else {

@@ -54,7 +54,7 @@ fun HistorySearchEmptyState(
             )
             Spacer(Modifier.height(8.dp))
             Button(onClick = onClearSearch) {
-                Text("清空搜索")
+                Text("清空筛选")
             }
         }
     }

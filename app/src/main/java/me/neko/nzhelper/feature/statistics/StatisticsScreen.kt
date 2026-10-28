@@ -43,7 +43,7 @@ import me.neko.nzhelper.feature.statistics.components.PeriodDashboardCard
 import me.neko.nzhelper.feature.statistics.components.PeriodOverviewDialog
 import me.neko.nzhelper.feature.statistics.components.TotalStatCard
 import me.neko.nzhelper.feature.statistics.model.PeriodData
-import me.neko.nzhelper.feature.statistics.model.PeriodOverview
+import me.neko.nzhelper.feature.statistics.model.PeriodSelection
 import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.model.TotalStats
 import me.neko.nzhelper.navigation.floatingBarContentBottomInset
@@ -59,7 +59,10 @@ import me.neko.nzhelper.ui.component.chart.TrendChartCard
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun StatisticsScreen(isActive: Boolean = false) {
+fun StatisticsScreen(
+    isActive: Boolean = false,
+    onOpenHistory: (PeriodSelection) -> Unit = {}
+) {
     val context = LocalContext.current
     val sessions = remember { mutableStateListOf<Session>() }
     var isLoading by remember { mutableStateOf(true) }
@@ -95,7 +98,7 @@ fun StatisticsScreen(isActive: Boolean = false) {
         derivedStateOf { StatisticsRepository.calculateTotalStats(sessions, currentTime) }
     }
 
-    var selectedOverview by remember { mutableStateOf<PeriodOverview?>(null) }
+    var selectedPeriod by remember { mutableStateOf<PeriodSelection?>(null) }
 
     // 读取可见性与排序
     val orderedCharts = remember {
@@ -163,10 +166,8 @@ fun StatisticsScreen(isActive: Boolean = false) {
                                 weekData = weekData,
                                 monthData = monthData,
                                 yearData = yearData,
-                                onPeriodClick = { type, label ->
-                                    selectedOverview = StatisticsRepository.calculatePeriodOverview(
-                                        sessions, context, currentTime, type, label
-                                    )
+                                onPeriodClick = { type, _ ->
+                                    selectedPeriod = PeriodSelection(type, currentTime)
                                 }
                             )
                         }
@@ -176,11 +177,46 @@ fun StatisticsScreen(isActive: Boolean = false) {
         }
     }
 
-    selectedOverview?.let { overview ->
+    selectedPeriod?.let { selection ->
+        val overview = remember(selection) {
+            StatisticsRepository.calculatePeriodOverview(
+                sessions = sessions,
+                context = context,
+                now = selection.anchor,
+                type = selection.type,
+                label = periodLabel(selection, currentTime)
+            )
+        }
         PeriodOverviewDialog(
             overview = overview,
-            onDismiss = { selectedOverview = null }
+            selection = selection,
+            earliestSessionTime = sessions.minOfOrNull { it.timestamp } ?: currentTime,
+            currentTime = currentTime,
+            onPeriodSelected = { selectedPeriod = it },
+            onShowRecords = {
+                selectedPeriod = null
+                onOpenHistory(selection)
+            },
+            onDismiss = { selectedPeriod = null }
         )
+    }
+}
+
+private fun periodLabel(selection: PeriodSelection, currentTime: LocalDateTime): String = when (selection.type) {
+    PeriodType.WEEK -> "本周"
+    PeriodType.MONTH -> {
+        if (selection.anchor.year == currentTime.year &&
+            selection.anchor.monthValue == currentTime.monthValue
+        ) {
+            "本月"
+        } else {
+            "${selection.anchor.year}年${selection.anchor.monthValue}月"
+        }
+    }
+    PeriodType.YEAR -> if (selection.anchor.year == currentTime.year) {
+        "今年"
+    } else {
+        "${selection.anchor.year}年"
     }
 }
 

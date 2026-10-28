@@ -128,19 +128,25 @@ fun calculatePeriodData(
     return PeriodData(totalSeconds, avgMinutes, chartData)
 }
 
+fun periodStart(now: LocalDateTime, type: PeriodType): LocalDateTime = when (type) {
+    PeriodType.WEEK -> now.minusDays(now.dayOfWeek.value.toLong() - 1).toLocalDate()
+        .atStartOfDay()
+    PeriodType.MONTH -> now.withDayOfMonth(1).toLocalDate().atStartOfDay()
+    PeriodType.YEAR -> now.withDayOfYear(1).toLocalDate().atStartOfDay()
+}
+
 fun isWithinPeriod(
     timestamp: LocalDateTime,
     now: LocalDateTime,
     type: PeriodType
 ): Boolean {
-    val start = when (type) {
-        PeriodType.WEEK -> now.minusDays(now.dayOfWeek.value.toLong() - 1).toLocalDate()
-            .atStartOfDay()
-
-        PeriodType.MONTH -> now.withDayOfMonth(1).toLocalDate().atStartOfDay()
-        PeriodType.YEAR -> now.withDayOfYear(1).toLocalDate().atStartOfDay()
+    val start = periodStart(now, type)
+    val end = when (type) {
+        PeriodType.WEEK -> start.plusWeeks(1)
+        PeriodType.MONTH -> start.plusMonths(1)
+        PeriodType.YEAR -> start.plusYears(1)
     }
-    return timestamp >= start
+    return timestamp >= start && timestamp < end
 }
 
 private fun calculateWeeklyChartData(
@@ -478,13 +484,7 @@ fun calculatePeriodOverview(
         )
     }
 
-    val startCurrent = when (type) {
-        PeriodType.WEEK -> now.minusDays(now.dayOfWeek.value.toLong() - 1).toLocalDate()
-            .atStartOfDay()
-
-        PeriodType.MONTH -> now.withDayOfMonth(1).toLocalDate().atStartOfDay()
-        PeriodType.YEAR -> now.withDayOfYear(1).toLocalDate().atStartOfDay()
-    }
+    val startCurrent = periodStart(now, type)
     val startPrev = when (type) {
         PeriodType.WEEK -> startCurrent.minusWeeks(1)
         PeriodType.MONTH -> startCurrent.minusMonths(1)
@@ -829,13 +829,7 @@ fun calculatePeriodDashboard(
 
     val current = sessions.filter { isWithinPeriod(it.timestamp, now, type) }
 
-    val startCurrent = when (type) {
-        PeriodType.WEEK -> now.minusDays(now.dayOfWeek.value.toLong() - 1).toLocalDate()
-            .atStartOfDay()
-
-        PeriodType.MONTH -> now.withDayOfMonth(1).toLocalDate().atStartOfDay()
-        PeriodType.YEAR -> now.withDayOfYear(1).toLocalDate().atStartOfDay()
-    }
+    val startCurrent = periodStart(now, type)
     val startPrev = when (type) {
         PeriodType.WEEK -> startCurrent.minusWeeks(1)
         PeriodType.MONTH -> startCurrent.minusMonths(1)
