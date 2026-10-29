@@ -12,10 +12,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -46,14 +43,12 @@ import androidx.navigation.NavController
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.achievement.AchievementRepository
 import me.neko.nzhelper.core.database.ProfileSummaryRepository
 import me.neko.nzhelper.core.datastore.UpdateSettings
 import me.neko.nzhelper.core.model.Session
-import me.neko.nzhelper.core.util.CiBuild
-import me.neko.nzhelper.core.util.UpdateChecker
+import me.neko.nzhelper.core.util.UpdateCheckManager
 import me.neko.nzhelper.feature.achievement.components.AchievementUnlockDialog
 import me.neko.nzhelper.feature.addrecord.AddRecordFlow
 import me.neko.nzhelper.feature.history.HistoryScreen
@@ -64,6 +59,7 @@ import me.neko.nzhelper.feature.lock.LockScreen
 import me.neko.nzhelper.feature.mine.MineScreen
 import me.neko.nzhelper.feature.statistics.StatisticsScreen
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
+import me.neko.nzhelper.ui.component.dialog.UpdateAvailableDialog
 import me.neko.nzhelper.ui.theme.LocalHazeState
 import me.neko.nzhelper.ui.theme.LocalThemeState
 
@@ -160,72 +156,10 @@ fun MainScreen(
     }
 
     // ── 更新检查 ──
-    val owner = "bug-bit"
-    val repo = "NzHelper"
-    var showUpdateDialog by remember { mutableStateOf(false) }
-    var latestTag by remember { mutableStateOf<String?>(null) }
-    var isCiUpdate by remember { mutableStateOf(false) }
-
-    fun stripSuffix(version: String): String =
-        version.trimStart('v', 'V').substringBefore('-')
-
-    fun parseNumbers(version: String): List<Int> =
-        stripSuffix(version)
-            .split('.')
-            .map { it.toIntOrNull() ?: 0 }
-            .let {
-                when {
-                    it.size >= 3 -> it.take(3)
-                    it.size == 2 -> it + listOf(0)
-                    it.size == 1 -> it + listOf(0, 0)
-                    else -> listOf(0, 0, 0)
-                }
-            }
-
-    fun isRemoteGreater(local: String, remote: String): Boolean {
-        val localNums = parseNumbers(local)
-        val remoteNums = parseNumbers(remote)
-        for (i in 0..2) {
-            if (remoteNums[i] > localNums[i]) return true
-            if (remoteNums[i] < localNums[i]) return false
-        }
-        return false
-    }
-
-    data class LocalBuild(val basePrefix: String, val commitCount: Int, val shortHash: String)
-
-    fun parseLocalBuild(version: String): LocalBuild? {
-        val match = Regex("""(.*)\.r(\d+)\.([0-9a-f]+)$""").matchEntire(version)
-            ?: return null
-        val count = match.groupValues[2].toIntOrNull() ?: return null
-        return LocalBuild(match.groupValues[1], count, match.groupValues[3])
-    }
-
-    fun isCiNewer(local: LocalBuild, remote: CiBuild): Boolean =
-        remote.commitCount > local.commitCount ||
-                (remote.commitCount == local.commitCount && remote.shortHash != local.shortHash)
+    val pendingAutoUpdate by UpdateCheckManager.pendingAutoUpdate.collectAsState()
 
     LaunchedEffect(Unit) {
-        if (!UpdateSettings.isCheckUpdateEnabled(context)) return@LaunchedEffect
-        if (UpdateSettings.isBetaUpdateEnabled(context)) {
-            UpdateChecker.fetchLatestCiBuild(owner, repo)?.let { ci ->
-                val local = parseLocalBuild(BuildConfig.VERSION_NAME) ?: return@let
-                if (isCiNewer(local, ci)) {
-                    latestTag = "${local.basePrefix}.r${ci.commitCount}.${ci.shortHash}"
-                    isCiUpdate = true
-                    showUpdateDialog = true
-                }
-            }
-        } else {
-            UpdateChecker.fetchLatestRelease(owner, repo)?.let { release ->
-                val remoteVer = release.releaseName
-                latestTag = remoteVer
-                if (isRemoteGreater(BuildConfig.VERSION_NAME, remoteVer)) {
-                    isCiUpdate = false
-                    showUpdateDialog = true
-                }
-            }
-        }
+        UpdateCheckManager.startAutoCheck(context)
     }
 
     // ── 成就 ──
@@ -338,30 +272,11 @@ fun MainScreen(
 
     // 弹窗仅在解锁后显示
     if (!isLocked) {
-        if (showUpdateDialog && latestTag != null) {
-            CustomAppAlertDialog(
-                onDismissRequest = { showUpdateDialog = false },
-                iconVector = Icons.Default.Update,
-                title = "检测到新版本",
-                message = "当前版本：${BuildConfig.VERSION_NAME}\n" +
-                        "最新版本：$latestTag\n\n" +
-                        if (isCiUpdate) {
-                            "检测到新的 CI 构建，是否前往 Telegram 频道下载？"
-                        } else {
-                            "有新版本发布啦，是否前往 GitHub 下载？"
-                        },
-                confirmText = "去下载",
-                confirmIcon = Icons.Default.Download,
-                dismissText = "稍后再说",
-                onConfirm = {
-                    val url = if (isCiUpdate) {
-                        "https://t.me/NzzHelper"
-                    } else {
-                        "https://github.com/$owner/$repo/releases/latest"
-                    }
-                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                    context.startActivity(intent)
-                }
+        pendingAutoUpdate?.let { info ->
+            UpdateAvailableDialog(
+                info = info,
+                onDismissRequest = { UpdateCheckManager.pendingAutoUpdate.value = null },
+                onIgnore = { UpdateSettings.setIgnoredVersion(context, info.tag) }
             )
         }
 

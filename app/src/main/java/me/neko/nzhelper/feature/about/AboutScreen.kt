@@ -3,6 +3,7 @@ package me.neko.nzhelper.feature.about
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -26,10 +27,13 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Update
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -38,13 +42,17 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,7 +76,13 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.launch
 import me.neko.nzhelper.R
+import me.neko.nzhelper.core.datastore.UpdateSettings
+import me.neko.nzhelper.core.util.UpdateCheckManager
+import me.neko.nzhelper.core.util.UpdateCheckResult
+import me.neko.nzhelper.core.util.UpdateInfo
+import me.neko.nzhelper.ui.component.dialog.UpdateAvailableDialog
 import me.neko.nzhelper.ui.component.setting.LocalSettingsItemCorners
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import me.neko.nzhelper.ui.component.setting.SettingsCornerRadius
@@ -84,6 +98,9 @@ fun AboutScreen(
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val context = LocalContext.current
     val isInPreview = LocalInspectionMode.current
+    val scope = rememberCoroutineScope()
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var manualUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
     val versionName = remember(context, isInPreview) {
         if (isInPreview) {
             "预览版"
@@ -160,6 +177,62 @@ fun AboutScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    OutlinedButton(
+                        onClick = {
+                            if (!isCheckingUpdate) {
+                                isCheckingUpdate = true
+                                scope.launch {
+                                    try {
+                                        when (
+                                            val result = UpdateCheckManager.checkManually(context)
+                                        ) {
+                                            is UpdateCheckResult.Available -> {
+                                                manualUpdate = result.info
+                                            }
+
+                                            UpdateCheckResult.UpToDate -> Toast.makeText(
+                                                context,
+                                                "已是最新版本",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                            UpdateCheckResult.Failed -> Toast.makeText(
+                                                context,
+                                                "检查更新失败",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                            UpdateCheckResult.UnsupportedBetaBuild -> Toast.makeText(
+                                                context,
+                                                "当前版本不是 CI 构建，无法检测测试版更新",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    } finally {
+                                        isCheckingUpdate = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isCheckingUpdate
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.Update,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (isCheckingUpdate) "正在检查…" else "检查更新"
+                        )
+                    }
                 }
             }
 
@@ -228,6 +301,14 @@ fun AboutScreen(
                 }
             }
         }
+    }
+
+    manualUpdate?.let { info ->
+        UpdateAvailableDialog(
+            info = info,
+            onDismissRequest = { manualUpdate = null },
+            onIgnore = { UpdateSettings.setIgnoredVersion(context, info.tag) }
+        )
     }
 }
 

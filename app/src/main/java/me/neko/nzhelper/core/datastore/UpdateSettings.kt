@@ -7,6 +7,7 @@ object UpdateSettings {
     private const val PREFS_NAME = "settings_prefs"
     private const val KEY_CHECK_UPDATE_ENABLED = "check_update_enabled"
     private const val KEY_BETA_UPDATE_ENABLED = "beta_update_enabled"
+    private const val KEY_IGNORED_VERSION = "ignored_version"
 
     fun isCheckUpdateEnabled(context: Context): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -26,5 +27,15 @@ object UpdateSettings {
     fun setBetaUpdateEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit { putBoolean(KEY_BETA_UPDATE_ENABLED, enabled) }
+    }
+
+    fun getIgnoredVersion(context: Context): String? {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_IGNORED_VERSION, null)
+    }
+
+    fun setIgnoredVersion(context: Context, version: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit { putString(KEY_IGNORED_VERSION, version) }
     }
 }
