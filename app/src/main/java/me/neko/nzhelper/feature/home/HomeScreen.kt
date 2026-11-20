@@ -70,6 +70,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.core.ai.AiAnalyzer
 import me.neko.nzhelper.core.ai.AiSettings
@@ -77,14 +78,19 @@ import me.neko.nzhelper.core.ai.AiUsage
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
+import me.neko.nzhelper.core.datastore.RecordModeSettings
+import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.datastore.TimerSettings
+import me.neko.nzhelper.core.datastore.resolveTags
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.service.TimerService
 import me.neko.nzhelper.feature.addrecord.AddRecordFlow
 import me.neko.nzhelper.feature.home.components.analyzeHealthTip
 import me.neko.nzhelper.feature.home.components.ConfirmResetDialog
 import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
 import me.neko.nzhelper.feature.home.components.HealthTipCard
+import me.neko.nzhelper.feature.home.components.LastTimeStartDialog
 import me.neko.nzhelper.feature.home.components.TimerCard
 import me.neko.nzhelper.navigation.floatingBarContentBottomInset
 import me.neko.nzhelper.NzApplication
@@ -144,6 +150,7 @@ fun HomeScreen(
 
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+    var showLastTimeDialog by remember { mutableStateOf(false) }
 
     var floatingTimerEnabled by remember { mutableStateOf(TimerSettings.isFloatingEnabled(context)) }
     var showOverlayPermissionDialog by remember { mutableStateOf(false) }
@@ -204,6 +211,7 @@ fun HomeScreen(
         }
     }
 
+    val latestSession = sessions.firstOrNull()
     val latestInfo by remember(sessions) {
         derivedStateOf { StatisticsRepository.calculateLatestInfo(sessions) }
     }
@@ -329,6 +337,16 @@ fun HomeScreen(
                                 context.startService(serviceIntent.apply {
                                     action = TimerService.ACTION_PAUSE
                                 })
+                            } else if (
+                                RecordModeSettings.getDefaultMode(context) == SessionMode.SOLO_MALE &&
+                                elapsedSeconds == 0 && latestSession?.let { session ->
+                                    session.mood == TagSettings.LAST_TIME_TAG_NAME ||
+                                            session.resolveTags(context, session.moods).any {
+                                                it.name == TagSettings.LAST_TIME_TAG_NAME
+                                            }
+                                } == true
+                            ) {
+                                showLastTimeDialog = true
                             } else {
                                 ContextCompat.startForegroundService(
                                     context,
@@ -415,6 +433,24 @@ fun HomeScreen(
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
+            }
+        )
+    }
+
+    if (showLastTimeDialog && latestSession != null) {
+        val days = ChronoUnit.DAYS.between(
+            latestSession.timestamp.toLocalDate(),
+            LocalDate.now()
+        ).coerceAtLeast(0)
+        LastTimeStartDialog(
+            days = days,
+            onGiveUp = { showLastTimeDialog = false },
+            onContinue = {
+                showLastTimeDialog = false
+                ContextCompat.startForegroundService(
+                    context,
+                    serviceIntent.apply { action = TimerService.ACTION_START }
+                )
             }
         )
     }

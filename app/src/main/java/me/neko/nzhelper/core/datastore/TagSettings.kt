@@ -21,6 +21,7 @@ object TagSettings {
     const val DEFAULT_CATEGORY_ID: String = Session.DEFAULT_CATEGORY_ID
     const val CAT_F_SELF_ID: String = "cat_f_self"
     const val CAT_PAIR_ID: String = "cat_pair"
+    const val LAST_TIME_TAG_NAME: String = "这是最后一次！"
 
     private const val KEY_CATEGORIES = "categories"
     private const val KEY_GROUPS = "groups"
@@ -104,6 +105,10 @@ object TagSettings {
         TagDef("tag_state_shy", "害羞", "smile-2", "pink", "grp_state", 14),
         TagDef("tag_state_curious", "好奇", "brain", "slate", "grp_state", 15),
         TagDef("tag_state_anxious", "焦虑", "battery-alert", "amber", "grp_state", 16),
+        TagDef(
+            "tag_state_last_time", LAST_TIME_TAG_NAME, "meditation", "rose", "grp_state", 17,
+            listOf(SessionMode.SOLO_MALE.key)
+        ),
         // 身体
         TagDef("tag_body_exhausted", "疲惫", "battery-alert", "rose", "grp_body", 0),
         TagDef("tag_body_sore", "酸痛", "battery-low", "rose", "grp_body", 1),
@@ -457,6 +462,10 @@ object TagSettings {
         val maleKeys = listOf(SessionMode.SOLO_MALE.key)
         val femaleKeys = listOf(SessionMode.SOLO_FEMALE.key)
         val soloKeys = listOf(SessionMode.SOLO_MALE.key, SessionMode.SOLO_FEMALE.key)
+        val lastTimeTag = currentTags.firstOrNull { it.name == LAST_TIME_TAG_NAME }
+        if (lastTimeTag != null && lastTimeTag.modeKeys != maleKeys) {
+            updateTag(context, lastTimeTag.id, modeKeys = maleKeys)
+        }
         val seeds = listOf(
             // 地点
             TagSeed("客厅", LEGACY_GROUP_ENV, "sofa", "emerald", emptyList()),
@@ -483,6 +492,7 @@ object TagSettings {
             TagSeed("害羞", LEGACY_GROUP_STATE, "smile-2", "pink", emptyList()),
             TagSeed("好奇", LEGACY_GROUP_STATE, "brain", "slate", emptyList()),
             TagSeed("焦虑", LEGACY_GROUP_STATE, "battery-alert", "amber", emptyList()),
+            TagSeed(LAST_TIME_TAG_NAME, LEGACY_GROUP_STATE, "meditation", "rose", maleKeys),
             // 身体
             TagSeed("酸痛", GROUP_BODY, "battery-low", "rose", emptyList()),
             TagSeed("头痛", GROUP_BODY, "brain", "rose", emptyList()),
