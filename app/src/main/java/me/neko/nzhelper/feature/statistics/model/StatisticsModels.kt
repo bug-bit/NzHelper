@@ -2,8 +2,15 @@ package me.neko.nzhelper.feature.statistics.model
 
 import androidx.compose.runtime.Immutable
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 enum class PeriodType { WEEK, MONTH, YEAR }
+
+@Immutable
+data class PeriodSelection(
+    val type: PeriodType,
+    val anchor: LocalDateTime
+)
 
 @Immutable
 data class PeriodData(

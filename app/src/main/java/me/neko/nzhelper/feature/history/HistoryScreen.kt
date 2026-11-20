@@ -57,6 +57,10 @@ import me.neko.nzhelper.feature.history.components.HistorySearchEmptyState
 import me.neko.nzhelper.feature.history.components.matches
 import me.neko.nzhelper.feature.history.components.SessionDetailDialog
 import me.neko.nzhelper.feature.history.components.TimelineItem
+import me.neko.nzhelper.feature.statistics.model.PeriodSelection
+import me.neko.nzhelper.feature.statistics.model.PeriodType
+import me.neko.nzhelper.feature.statistics.util.isWithinPeriod
+import me.neko.nzhelper.feature.statistics.util.periodStart
 import me.neko.nzhelper.navigation.floatingBarContentBottomInset
 import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 
@@ -64,6 +68,8 @@ import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
 @Composable
 fun HistoryScreen(
     isActive: Boolean = false,
+    periodFilter: PeriodSelection? = null,
+    onClearPeriodFilter: () -> Unit = {},
     onEditRecord: (Session) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -95,6 +101,14 @@ fun HistoryScreen(
         }
     }
 
+    LaunchedEffect(periodFilter) {
+        if (periodFilter != null) {
+            searchQuery = ""
+            activeFilters = setOf(HistoryQuickFilter.ALL)
+            listState.scrollToItem(0)
+        }
+    }
+
     val tagDefs = remember(sessions) {
         TagSettings.getTags(context).associateBy { it.id }
     }
@@ -102,9 +116,16 @@ fun HistoryScreen(
         TagSettings.getCategories(context).associateBy { it.id }
     }
 
-    val filteredSessions by remember(sessions, searchQuery, activeFilters) {
+    val filteredSessions by remember(sessions, searchQuery, activeFilters, periodFilter) {
         derivedStateOf {
-            val byText = SessionSearch.filter(tagDefs, categoryDefs, sessions, searchQuery)
+            val byPeriod = if (periodFilter == null) {
+                sessions
+            } else {
+                sessions.filter {
+                    isWithinPeriod(it.timestamp, periodFilter.anchor, periodFilter.type)
+                }
+            }
+            val byText = SessionSearch.filter(tagDefs, categoryDefs, byPeriod, searchQuery)
             if (activeFilters.isEmpty() || HistoryQuickFilter.ALL in activeFilters) {
                 byText
             } else {
@@ -154,6 +175,8 @@ fun HistoryScreen(
                     activeFilters = activeFilters,
                     resultCount = filteredSessions.size,
                     totalCount = sessions.size,
+                    periodLabel = periodFilter?.let(::periodFilterLabel),
+                    onClearPeriod = onClearPeriodFilter,
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
                         .padding(top = 8.dp, bottom = 4.dp)
@@ -191,6 +214,7 @@ fun HistoryScreen(
                                     onClearSearch = {
                                         searchQuery = ""
                                         activeFilters = setOf(HistoryQuickFilter.ALL)
+                                        onClearPeriodFilter()
                                     }
                                 )
                             }
@@ -263,6 +287,15 @@ fun HistoryScreen(
             }
         )
     }
+}
+
+private fun periodFilterLabel(selection: PeriodSelection): String = when (selection.type) {
+    PeriodType.WEEK -> {
+        val start = periodStart(selection.anchor, selection.type).toLocalDate()
+        "$start 至 ${start.plusDays(6)}"
+    }
+    PeriodType.MONTH -> "${selection.anchor.year}年${selection.anchor.monthValue}月"
+    PeriodType.YEAR -> "${selection.anchor.year}年"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

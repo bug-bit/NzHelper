@@ -63,6 +63,7 @@ import me.neko.nzhelper.feature.lock.GestureLockManager
 import me.neko.nzhelper.feature.lock.LockScreen
 import me.neko.nzhelper.feature.mine.MineScreen
 import me.neko.nzhelper.feature.statistics.StatisticsScreen
+import me.neko.nzhelper.feature.statistics.model.PeriodSelection
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 import me.neko.nzhelper.ui.theme.LocalHazeState
 import me.neko.nzhelper.ui.theme.LocalThemeState
@@ -238,6 +239,7 @@ fun MainScreen(
     // ── Pager 状态 ──
     val pagerState = rememberPagerState(pageCount = { BottomNavItem.items.size })
     val scope = rememberCoroutineScope()
+    var historyPeriodFilter by remember { mutableStateOf<PeriodSelection?>(null) }
     val stopRequestId by stopRequest?.collectAsState(initial = 0)
         ?: remember { mutableIntStateOf(0) }
 
@@ -305,9 +307,21 @@ fun MainScreen(
                         }
                     )
 
-                    BottomNavItem.Statistics.route -> StatisticsScreen(isActive = isCurrentPage)
+                    BottomNavItem.Statistics.route -> StatisticsScreen(
+                        isActive = isCurrentPage,
+                        onOpenHistory = { selection ->
+                            historyPeriodFilter = selection
+                            scope.launch {
+                                pagerState.animateScrollToPage(
+                                    BottomNavItem.items.indexOf(BottomNavItem.History)
+                                )
+                            }
+                        }
+                    )
                     BottomNavItem.History.route -> HistoryScreen(
                         isActive = isCurrentPage,
+                        periodFilter = historyPeriodFilter,
+                        onClearPeriodFilter = { historyPeriodFilter = null },
                         onEditRecord = { session ->
                             openAddRecord(AddRecordFlow.EDIT, 0, session)
                         }

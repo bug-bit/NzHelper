@@ -32,6 +32,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,15 +48,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import me.neko.nzhelper.feature.statistics.model.PeriodOverview
+import me.neko.nzhelper.feature.statistics.model.PeriodSelection
 import me.neko.nzhelper.feature.statistics.util.formatDuration
 import me.neko.nzhelper.ui.component.tag.TagChip
+import java.time.LocalDateTime
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PeriodOverviewDialog(
     overview: PeriodOverview,
+    selection: PeriodSelection,
+    earliestSessionTime: LocalDateTime,
+    currentTime: LocalDateTime,
+    onPeriodSelected: (PeriodSelection) -> Unit,
+    onShowRecords: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var showPeriodPicker by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val screenHeight = with(density) {
         LocalWindowInfo.current.containerSize.height.toDp()
@@ -81,6 +93,7 @@ fun PeriodOverviewDialog(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Surface(
+                        onClick = { showPeriodPicker = true },
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.secondaryContainer,
                         modifier = Modifier.size(36.dp)
@@ -88,7 +101,7 @@ fun PeriodOverviewDialog(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Outlined.CalendarMonth,
-                                contentDescription = null,
+                                contentDescription = "选择历史统计周期",
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -108,7 +121,7 @@ fun PeriodOverviewDialog(
                     if (overview.count == 0) {
                         EmptyOverview()
                     } else {
-                        KpiCard(overview)
+                        KpiCard(overview, onShowRecords)
                         LongestRecordCard(overview)
                         TopTagsCard(overview)
                         MetricsCard(overview)
@@ -127,10 +140,23 @@ fun PeriodOverviewDialog(
             }
         }
     }
+
+    if (showPeriodPicker) {
+        PeriodPickerDialog(
+            selection = selection,
+            earliestSessionTime = earliestSessionTime,
+            currentTime = currentTime,
+            onDismiss = { showPeriodPicker = false },
+            onConfirm = {
+                showPeriodPicker = false
+                onPeriodSelected(it)
+            }
+        )
+    }
 }
 
 @Composable
-private fun KpiCard(overview: PeriodOverview) {
+private fun KpiCard(overview: PeriodOverview, onShowRecords: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
     val gradient = Brush.verticalGradient(
         colors = listOf(primary, primary.copy(alpha = 0.78f))
@@ -138,6 +164,7 @@ private fun KpiCard(overview: PeriodOverview) {
     val onPrimary = MaterialTheme.colorScheme.onPrimary
 
     Surface(
+        onClick = onShowRecords,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = Color.Transparent
